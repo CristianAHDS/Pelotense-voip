@@ -14,7 +14,9 @@ export interface Client {
 export interface ChatMessage {
   userId: string
   userName: string
-  text: string
+  text?: string
+  audioData?: string
+  duration?: number
   timestamp: number
 }
 
@@ -25,6 +27,7 @@ export interface Room {
   createdAt: number
   messages: ChatMessage[]
   fixed: boolean
+  featured?: number
 }
 
 export enum PacketType {
@@ -61,6 +64,7 @@ export enum WsMessageType {
   UserLeft = 'user_left',
   Error = 'error',
   Login = 'login',
+  ChatAudioMessage = 'chat_audio_message',
   ChatMessage = 'chat_message',
   PrivateMessage = 'private_message',
   Welcome = 'welcome',

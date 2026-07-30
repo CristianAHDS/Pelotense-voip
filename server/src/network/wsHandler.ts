@@ -219,6 +219,10 @@ export class WsHandler {
         this.handleChatMessage(client, msg.payload as { text: string })
         break
 
+      case WsMessageType.ChatAudioMessage:
+        this.handleChatAudioMessage(client, msg.payload as { audioData: string; duration: number })
+        break
+
       case WsMessageType.PrivateMessage:
         this.handlePrivateMessage(client, msg.payload as { toUserId: string; text: string })
         break
@@ -245,6 +249,28 @@ export class WsHandler {
 
     this.broadcastToRoom(client.room, {
       type: WsMessageType.ChatMessage,
+      payload: chatMsg,
+    }, '')
+  }
+
+  private handleChatAudioMessage(client: Client, payload: { audioData: string; duration: number }): void {
+    if (!client.room || !payload.audioData) return
+
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const chatMsg: ChatMessage = {
+      userId: client.id,
+      userName: client.name,
+      audioData: payload.audioData,
+      duration: payload.duration,
+      timestamp: Date.now(),
+    }
+
+    room.messages.push(chatMsg)
+
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.ChatAudioMessage,
       payload: chatMsg,
     }, '')
   }

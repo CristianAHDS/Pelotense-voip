@@ -3,6 +3,7 @@ export interface RoomInfo {
   name: string
   users: number
   fixed?: boolean
+  featured?: number
 }
 
 export interface UserInfo {
@@ -28,6 +29,7 @@ export enum WsMessageType {
   UserJoined = 'user_joined',
   UserLeft = 'user_left',
   ChatMessage = 'chat_message',
+  ChatAudioMessage = 'chat_audio_message',
   PrivateMessage = 'private_message',
   Login = 'login',
   Error = 'error',
@@ -53,7 +55,9 @@ export interface WelcomePayload {
 export interface ChatMsg {
   userId: string
   userName: string
-  text: string
+  text?: string
+  audioData?: string
+  duration?: number
   timestamp: number
 }
 

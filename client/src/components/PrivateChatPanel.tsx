@@ -4,11 +4,14 @@ import { useConnectionStore } from '../stores/connectionStore.ts'
 import { sendPrivateMessage } from '../services/connectionService.ts'
 
 export function PrivateChatPanel() {
+  const connected = useConnectionStore((s) => s.connected)
   const activeUserId = usePrivateChatStore((s) => s.activeUserId)
   const activeUserName = usePrivateChatStore((s) => s.activeUserName)
   const messages = usePrivateChatStore((s) => activeUserId ? (s.messages[activeUserId] ?? []) : [])
   const closeChat = usePrivateChatStore((s) => s.closeChat)
   const myId = useConnectionStore((s) => s.id)
+
+  if (!connected) return null
 
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)

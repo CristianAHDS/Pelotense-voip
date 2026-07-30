@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useRooms } from '../hooks/useRooms.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
+import { useConnectionStore } from '../stores/connectionStore.ts'
 
 const COLORS = [
   '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
@@ -17,9 +18,12 @@ function userColor(userId: string): string {
 }
 
 export function RoomList() {
+  const connected = useConnectionStore((s) => s.connected)
   const { rooms, currentRoom, join, leave, create, delete: del } = useRooms()
   const users = useRoomStore((s) => s.users)
   const [newRoomName, setNewRoomName] = useState('')
+
+  if (!connected) return null
 
   const handleCreate = () => {
     if (newRoomName.trim()) {
@@ -36,7 +40,7 @@ export function RoomList() {
         {rooms.map((room) => (
           <div
             key={room.id}
-            className={`room-item ${currentRoom === room.id ? 'active' : ''} ${room.fixed ? 'room-item--fixed' : ''}`}
+            className={`room-item ${currentRoom === room.id ? 'active' : ''} ${room.fixed ? 'room-item--fixed' : ''} ${room.featured === 1 ? 'room-item--featured-1' : ''} ${room.featured === 2 ? 'room-item--featured-2' : ''}`}
           >
             <div className="room-info">
               <span className="room-name">{room.name}</span>

@@ -1,16 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConnectionPanel } from '../components/ConnectionPanel.tsx';
 import { RoomList } from '../components/RoomList.tsx';
 import { UserList } from '../components/UserList.tsx';
 import { VoiceControls } from '../components/VoiceControls.tsx';
 import { ChatPanel } from '../components/ChatPanel.tsx';
 import { PrivateChatPanel } from '../components/PrivateChatPanel.tsx';
+import { useConnectionStore } from '../stores/connectionStore.ts';
 import { usePrivateChatStore } from '../stores/privateChatStore.ts';
 
 export function MainPage() {
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
+  const connected = useConnectionStore((s) => s.connected);
   const unreadCount = usePrivateChatStore((s) => Object.keys(s.unread).length);
+
+  useEffect(() => {
+    setShowLeft(false);
+    setShowRight(false);
+  }, [connected]);
 
   const closeLeft = () => setShowLeft(false);
   const closeRight = () => setShowRight(false);

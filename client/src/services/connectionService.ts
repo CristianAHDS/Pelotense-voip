@@ -8,6 +8,7 @@ import { useVoiceStore } from '../stores/voiceStore.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
+let intentionalDisconnect: boolean = false
 let voiceManager: VoiceManager | null = null
 let voiceCleanup: (() => void) | null = null
 
@@ -69,12 +70,15 @@ export function connectToServer(address: string, name: string, password: string)
   })
 
   wsClient.on('disconnected', () => {
+    if (intentionalDisconnect) {
+      intentionalDisconnect = false
+      return
+    }
     if (wsClient) {
       reconnecting = true
       useConnectionStore.getState().setReconnecting(true)
     } else {
       useConnectionStore.getState().setDisconnected()
-      useRoomStore.getState().setCurrentRoom(null)
     }
   })
 
@@ -130,6 +134,10 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
   })
 
+  wsClient.on(WsMessageType.ChatAudioMessage, (msg) => {
+    useRoomStore.getState().addMessage(msg.payload as ChatMsg)
+  })
+
   wsClient.on(WsMessageType.PrivateMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
@@ -169,6 +177,11 @@ export function sendChatMessage(text: string): void {
   wsClient.send(WsMessageType.ChatMessage, { text })
 }
 
+export function sendChatAudioMessage(audioData: string, duration: number): void {
+  if (!wsClient) { console.error('sendChatAudioMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.ChatAudioMessage, { audioData, duration })
+}
+
 export function sendPrivateMessage(toUserId: string, text: string): void {
   if (!wsClient) { console.error('sendPrivateMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.PrivateMessage, { toUserId, text })
@@ -176,10 +189,15 @@ export function sendPrivateMessage(toUserId: string, text: string): void {
 
 export function disconnectFromServer(): void {
   cleanupVoice()
+  intentionalDisconnect = true
   reconnecting = false
   wsClient?.disconnect()
   wsClient = null
   useConnectionStore.getState().setDisconnected()
+  useRoomStore.getState().setCurrentRoom(null)
+  useRoomStore.getState().clearMessages()
+  useRoomStore.getState().setRooms([])
+  useRoomStore.getState().setUsers([])
 }
 
 export function requestRoomList(): void {

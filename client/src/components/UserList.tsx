@@ -4,8 +4,11 @@ import { useConnectionStore } from '../stores/connectionStore.ts'
 import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 
 export function UserList() {
+  const connected = useConnectionStore((s) => s.connected)
   const { users } = useRooms()
   const myId = useConnectionStore((s) => s.id)
+
+  if (!connected) return null
   const openChat = usePrivateChatStore((s) => s.openChat)
   const activeUserId = usePrivateChatStore((s) => s.activeUserId)
   const unread = usePrivateChatStore((s) => s.unread)

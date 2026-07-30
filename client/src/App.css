@@ -358,6 +358,49 @@ body {
   color: #888;
 }
 
+.room-item--featured-1 {
+  background: linear-gradient(135deg, #2a2410, #1f1a0c) !important;
+  border: 1px solid #f5c842 !important;
+  box-shadow: 0 0 12px rgba(245, 200, 66, 0.15);
+}
+
+.room-item--featured-1:hover {
+  background: linear-gradient(135deg, #3a3020, #2a2410) !important;
+}
+
+.room-item--featured-1 .room-name {
+  color: #f5c842 !important;
+  font-weight: 700;
+}
+
+.room-item--featured-1 .room-name::before {
+  content: '\2605';
+  margin-right: 6px;
+  font-size: 12px;
+  color: #f5c842;
+}
+
+.room-item--featured-2 {
+  background: linear-gradient(135deg, #1a2028, #151a22) !important;
+  border: 1px solid #5b8def !important;
+}
+
+.room-item--featured-2:hover {
+  background: linear-gradient(135deg, #243040, #1a2028) !important;
+}
+
+.room-item--featured-2 .room-name {
+  color: #7ba3f5 !important;
+  font-weight: 600;
+}
+
+.room-item--featured-2 .room-name::before {
+  content: '\266A';
+  margin-right: 6px;
+  font-size: 12px;
+  color: #5b8def;
+}
+
 .room-actions {
   display: flex;
   gap: 6px;
@@ -825,6 +868,147 @@ body {
   color: #e0e0e0;
   word-break: break-word;
   line-height: 1.45;
+}
+
+.chat-bubble-audio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.chat-audio-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.chat-audio-play-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.chat-bubble--self .chat-audio-play-btn {
+  background: rgba(255,255,255,0.15);
+}
+
+.chat-bubble--self .chat-audio-play-btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+.chat-audio-progress {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-audio-wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 28px;
+}
+
+.chat-audio-bar {
+  flex: 1;
+  background: currentColor;
+  border-radius: 2px;
+  min-height: 3px;
+  transition: opacity 0.15s;
+  color: inherit;
+}
+
+.chat-bubble--self .chat-audio-bar {
+  color: rgba(255,255,255,0.7);
+}
+
+.chat-bubble:not(.chat-bubble--self) .chat-audio-bar {
+  color: #888;
+}
+
+.chat-audio-duration {
+  font-size: 11px;
+  color: #888;
+}
+
+.chat-bubble--self .chat-audio-duration {
+  color: rgba(255,255,255,0.6);
+}
+
+.chat-mic-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-mic-btn:hover {
+  color: #e0e0e0;
+  background: rgba(255,255,255,0.05);
+}
+
+.chat-recording-indicator {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.chat-recording-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: recording-pulse 1s infinite;
+}
+
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.chat-recording-time {
+  font-size: 14px;
+  color: #ef4444;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-recording-stop-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-recording-stop-btn:hover {
+  background: #dc2626;
 }
 
 .chat-bubble--self .chat-bubble-text {

@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
 
-const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Jornada Esportiva']
+const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados']
 
 export class RoomManager {
   private rooms = new Map<string, Room>()
@@ -15,6 +15,10 @@ export class RoomManager {
   }
 
   private initDefaultRooms(): void {
+    const featured: Record<string, number> = {
+      'Retorno ao vivo': 1,
+      'Boletins gravados': 2,
+    }
     for (const name of DEFAULT_ROOM_NAMES) {
       const id = this.fixedId(name)
       const room: Room = {
@@ -24,6 +28,7 @@ export class RoomManager {
         createdAt: Date.now(),
         messages: [],
         fixed: true,
+        featured: featured[name],
       }
       this.rooms.set(id, room)
       logger.info('RoomManager', `Default room created: ${name}`, { id })
@@ -109,6 +114,9 @@ export class RoomManager {
 
   getAll(): Room[] {
     return Array.from(this.rooms.values()).sort((a, b) => {
+      const af = a.featured ?? Infinity
+      const bf = b.featured ?? Infinity
+      if (af !== bf) return af - bf
       if (a.fixed !== b.fixed) return a.fixed ? -1 : 1
       return a.createdAt - b.createdAt
     })
@@ -123,12 +131,13 @@ export class RoomManager {
     return this.getAll().find((r) => r.name === name) ?? null
   }
 
-  toRoomListPayload(room: Room): { id: string; name: string; users: number; fixed: boolean } {
+  toRoomListPayload(room: Room): { id: string; name: string; users: number; fixed: boolean; featured?: number } {
     return {
       id: room.id,
       name: room.name,
       users: room.clients.size,
       fixed: room.fixed,
+      featured: room.featured,
     }
   }
 
