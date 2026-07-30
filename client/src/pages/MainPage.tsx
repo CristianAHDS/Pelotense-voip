@@ -4,6 +4,7 @@ import { RoomList } from '../components/RoomList.tsx'
 import { UserList } from '../components/UserList.tsx'
 import { VoiceControls } from '../components/VoiceControls.tsx'
 import { ChatPanel } from '../components/ChatPanel.tsx'
+import { PrivateChatPanel } from '../components/PrivateChatPanel.tsx'
 
 export function MainPage() {
   const [showLeft, setShowLeft] = useState(false)
@@ -44,6 +45,7 @@ export function MainPage() {
         <main className="main-content">
           <RoomList />
           <ChatPanel />
+          <PrivateChatPanel />
         </main>
         <aside className={`sidebar sidebar-right ${showRight ? 'sidebar--open' : ''}`}>
           <UserList />

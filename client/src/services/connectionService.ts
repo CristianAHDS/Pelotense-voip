@@ -1,7 +1,8 @@
 import { WsClient } from '../network/wsClient.ts'
-import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg } from '../types/index.ts'
+import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg, PrivateChatMsg } from '../types/index.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
+import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
@@ -80,6 +81,11 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
   })
 
+  wsClient.on(WsMessageType.PrivateMessage, (msg) => {
+    const payload = msg.payload as PrivateChatMsg
+    usePrivateChatStore.getState().addMessage(payload)
+  })
+
   wsClient.on(WsMessageType.Error, (msg) => {
     const error = String(msg.payload ?? 'Unknown error')
     useConnectionStore.getState().setDisconnected()
@@ -91,6 +97,10 @@ export function connectToServer(address: string, name: string, password: string)
 
 export function sendChatMessage(text: string): void {
   wsClient?.send(WsMessageType.ChatMessage, { text })
+}
+
+export function sendPrivateMessage(toUserId: string, text: string): void {
+  wsClient?.send(WsMessageType.PrivateMessage, { toUserId, text })
 }
 
 export function disconnectFromServer(): void {

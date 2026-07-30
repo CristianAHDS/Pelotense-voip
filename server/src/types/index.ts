@@ -62,6 +62,7 @@ export enum WsMessageType {
   Error = 'error',
   Login = 'login',
   ChatMessage = 'chat_message',
+  PrivateMessage = 'private_message',
   Welcome = 'welcome',
 }
 

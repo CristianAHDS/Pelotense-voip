@@ -28,6 +28,7 @@ export enum WsMessageType {
   UserJoined = 'user_joined',
   UserLeft = 'user_left',
   ChatMessage = 'chat_message',
+  PrivateMessage = 'private_message',
   Login = 'login',
   Error = 'error',
   Welcome = 'welcome',
@@ -52,6 +53,13 @@ export interface WelcomePayload {
 export interface ChatMsg {
   userId: string
   userName: string
+  text: string
+  timestamp: number
+}
+
+export interface PrivateChatMsg {
+  fromUserId: string
+  fromUserName: string
   text: string
   timestamp: number
 }

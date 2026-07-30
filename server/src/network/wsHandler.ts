@@ -215,6 +215,10 @@ export class WsHandler {
         this.handleChatMessage(client, msg.payload as { text: string })
         break
 
+      case WsMessageType.PrivateMessage:
+        this.handlePrivateMessage(client, msg.payload as { toUserId: string; text: string })
+        break
+
       default:
         logger.warn('WsHandler', `Unknown message type: ${msg.type}`)
     }
@@ -239,6 +243,26 @@ export class WsHandler {
       type: WsMessageType.ChatMessage,
       payload: chatMsg,
     }, '')
+  }
+
+  private handlePrivateMessage(client: Client, payload: { toUserId: string; text: string }): void {
+    if (!payload.toUserId || !payload.text?.trim()) return
+
+    const target = this.clients.get(payload.toUserId)
+    if (!target) return
+
+    const msg = {
+      type: WsMessageType.PrivateMessage,
+      payload: {
+        fromUserId: client.id,
+        fromUserName: client.name,
+        text: payload.text.trim(),
+        timestamp: Date.now(),
+      },
+    }
+
+    this.send(target.ws, msg)
+    this.send(client.ws, msg)
   }
 
   private handleJoinRoom(client: Client, roomName: string): void {
