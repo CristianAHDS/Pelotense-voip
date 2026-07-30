@@ -33,10 +33,9 @@ export class Microphone {
       }
 
       this.source.connect(this.processor)
-      this.processor.connect(this.context.destination)
       return true
-    } catch {
-      console.error('Microphone access denied')
+    } catch (e) {
+      console.error('Microphone start failed:', (e as Error)?.message ?? e)
       return false
     }
   }

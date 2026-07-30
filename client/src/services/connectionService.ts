@@ -46,7 +46,9 @@ function cleanupVoice(): void {
 function voiceOnRoomJoined(): void {
   const muted = useVoiceStore.getState().muted
   if (!muted) {
-    voiceManager?.startMicrophone().catch(() => {})
+    voiceManager?.startMicrophone().then((ok) => {
+      if (!ok) useVoiceStore.getState().setMuted(true)
+    })
   }
 }
 

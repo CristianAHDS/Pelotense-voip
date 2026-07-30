@@ -15,25 +15,33 @@ export function useMicrophone() {
     if (vm) vm.stopMicrophone()
   }, [])
 
-  const toggleMute = useCallback(() => {
+  const toggleMute = useCallback(async () => {
     const next = !muted
-    useVoiceStore.getState().setMuted(next)
     const vm = getVoiceManager()
     if (next) {
       vm?.stopMicrophone()
+      useVoiceStore.getState().setMuted(true)
     } else {
-      vm?.startMicrophone()
+      useVoiceStore.getState().setMuted(false)
+      if (vm) {
+        const ok = await vm.startMicrophone()
+        if (!ok) useVoiceStore.getState().setMuted(true)
+      }
     }
   }, [muted])
 
-  const setMuted = useCallback((v: boolean) => {
+  const setMuted = useCallback(async (v: boolean) => {
     const vm = getVoiceManager()
     if (v) {
       vm?.stopMicrophone()
+      useVoiceStore.getState().setMuted(true)
     } else {
-      vm?.startMicrophone()
+      useVoiceStore.getState().setMuted(false)
+      if (vm) {
+        const ok = await vm.startMicrophone()
+        if (!ok) useVoiceStore.getState().setMuted(true)
+      }
     }
-    useVoiceStore.getState().setMuted(v)
   }, [])
 
   return { muted, talking, toggleMute, setMuted, startMic, stopMic }
