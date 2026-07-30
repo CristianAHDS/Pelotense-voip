@@ -49,7 +49,7 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.on(WsMessageType.RoomJoined, (msg) => {
     const payload = msg.payload as any
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
-    useRoomStore.getState().clearMessages()
+    useRoomStore.getState().setMessages(payload.messages ?? [])
   })
 
   wsClient.on(WsMessageType.RoomLeft, () => {

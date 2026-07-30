@@ -58,6 +58,7 @@ export interface ChatMsg {
 export interface RoomJoinedPayload {
   roomId: string
   roomName: string
+  messages: ChatMsg[]
 }
 
 export interface ConnectionStatus {

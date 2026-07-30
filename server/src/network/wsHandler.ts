@@ -273,7 +273,7 @@ export class WsHandler {
     this.rooms.join(room.id, client)
     this.send(client.ws, {
       type: WsMessageType.RoomJoined,
-      payload: { roomId: room.id, roomName: room.name },
+      payload: { roomId: room.id, roomName: room.name, messages: room.messages },
     })
 
     this.broadcast({

@@ -13,6 +13,7 @@ interface RoomStore {
   addUser: (user: UserInfo) => void
   removeUser: (userId: string) => void
   addMessage: (msg: ChatMsg) => void
+  setMessages: (msgs: ChatMsg[]) => void
   clearMessages: () => void
 }
 
@@ -30,5 +31,6 @@ export const useRoomStore = create<RoomStore>((set) => ({
   removeUser: (userId) =>
     set((s) => ({ users: s.users.filter((u) => u.id !== userId) })),
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+  setMessages: (msgs) => set({ messages: msgs }),
   clearMessages: () => set({ messages: [] }),
 }))
