@@ -5,10 +5,12 @@ import { UserList } from '../components/UserList.tsx'
 import { VoiceControls } from '../components/VoiceControls.tsx'
 import { ChatPanel } from '../components/ChatPanel.tsx'
 import { PrivateChatPanel } from '../components/PrivateChatPanel.tsx'
+import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 
 export function MainPage() {
   const [showLeft, setShowLeft] = useState(false)
   const [showRight, setShowRight] = useState(false)
+  const unreadCount = usePrivateChatStore((s) => Object.keys(s.unread).length)
 
   const closeLeft = () => setShowLeft(false)
   const closeRight = () => setShowRight(false)
@@ -26,11 +28,12 @@ export function MainPage() {
         </button>
         <h1>VoIP Client</h1>
         <button
-          className="menu-toggle"
+          className="menu-toggle menu-toggle--users"
           onClick={() => { setShowRight(!showRight); setShowLeft(false) }}
           aria-label="Toggle users"
         >
           Users {showRight ? '✕' : '▸'}
+          {unreadCount > 0 && <span className="menu-unread-badge">{unreadCount}</span>}
         </button>
       </header>
 
