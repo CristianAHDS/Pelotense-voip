@@ -53,6 +53,7 @@ export function RoomList() {
           onChange={(e) => setNewRoomName(e.target.value)}
           placeholder="Room name"
           onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+          className="input"
         />
         <button onClick={handleCreate} className="btn btn-create">
           Create
