@@ -262,7 +262,7 @@ export class WsHandler {
     data.copy(out, 8)
 
     room.clients.forEach((c) => {
-      if (c.id !== client.id && c.ws.readyState === WebSocket.OPEN) {
+      if (c.id !== client.id && c.ws.readyState === 1) {
         c.ws.send(out)
       }
     })

@@ -142,12 +142,34 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.connect(address)
 }
 
+export function joinRoom(roomName: string): void {
+  if (!wsClient) { console.error('joinRoom: wsClient is null'); return }
+  wsClient.send(WsMessageType.JoinRoom, roomName)
+}
+
+export function leaveRoom(): void {
+  if (!wsClient) { console.error('leaveRoom: wsClient is null'); return }
+  wsClient.send(WsMessageType.LeaveRoom)
+}
+
+export function createRoom(roomName: string): void {
+  if (!wsClient) { console.error('createRoom: wsClient is null'); return }
+  wsClient.send(WsMessageType.CreateRoom, roomName)
+}
+
+export function deleteRoom(roomId: string): void {
+  if (!wsClient) { console.error('deleteRoom: wsClient is null'); return }
+  wsClient.send(WsMessageType.DeleteRoom, roomId)
+}
+
 export function sendChatMessage(text: string): void {
-  wsClient?.send(WsMessageType.ChatMessage, { text })
+  if (!wsClient) { console.error('sendChatMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.ChatMessage, { text })
 }
 
 export function sendPrivateMessage(toUserId: string, text: string): void {
-  wsClient?.send(WsMessageType.PrivateMessage, { toUserId, text })
+  if (!wsClient) { console.error('sendPrivateMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.PrivateMessage, { toUserId, text })
 }
 
 export function disconnectFromServer(): void {
@@ -156,22 +178,6 @@ export function disconnectFromServer(): void {
   wsClient?.disconnect()
   wsClient = null
   useConnectionStore.getState().setDisconnected()
-}
-
-export function joinRoom(roomName: string): void {
-  wsClient?.send(WsMessageType.JoinRoom, roomName)
-}
-
-export function leaveRoom(): void {
-  wsClient?.send(WsMessageType.LeaveRoom)
-}
-
-export function createRoom(roomName: string): void {
-  wsClient?.send(WsMessageType.CreateRoom, roomName)
-}
-
-export function deleteRoom(roomId: string): void {
-  wsClient?.send(WsMessageType.DeleteRoom, roomId)
 }
 
 export function requestRoomList(): void {
