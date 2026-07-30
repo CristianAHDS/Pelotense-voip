@@ -2,6 +2,7 @@ export interface RoomInfo {
   id: string
   name: string
   users: number
+  fixed?: boolean
 }
 
 export interface UserInfo {

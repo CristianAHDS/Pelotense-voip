@@ -24,6 +24,7 @@ export interface Room {
   clients: Map<string, Client>
   createdAt: number
   messages: ChatMessage[]
+  fixed: boolean
 }
 
 export enum PacketType {

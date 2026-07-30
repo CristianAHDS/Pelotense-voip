@@ -3,12 +3,40 @@ import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
 
+const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Jornada Esportiva']
+
 export class RoomManager {
   private rooms = new Map<string, Room>()
   private maxRooms: number
 
   constructor(maxRooms: number) {
     this.maxRooms = maxRooms
+    this.initDefaultRooms()
+  }
+
+  private initDefaultRooms(): void {
+    for (const name of DEFAULT_ROOM_NAMES) {
+      const id = this.fixedId(name)
+      const room: Room = {
+        id,
+        name,
+        clients: new Map(),
+        createdAt: Date.now(),
+        messages: [],
+        fixed: true,
+      }
+      this.rooms.set(id, room)
+      logger.info('RoomManager', `Default room created: ${name}`, { id })
+    }
+  }
+
+  private fixedId(name: string): string {
+    let hash = 0
+    for (let i = 0; i < name.length; i++) {
+      hash = ((hash << 5) - hash) + name.charCodeAt(i)
+      hash |= 0
+    }
+    return 'fixed_' + Math.abs(hash).toString(36)
   }
 
   create(name: string): Room | null {
@@ -24,6 +52,7 @@ export class RoomManager {
       clients: new Map(),
       createdAt: Date.now(),
       messages: [],
+      fixed: false,
     }
 
     this.rooms.set(id, room)
@@ -35,6 +64,7 @@ export class RoomManager {
   delete(roomId: string): boolean {
     const room = this.rooms.get(roomId)
     if (!room) return false
+    if (room.fixed) return false
 
     room.clients.forEach((client) => {
       client.room = null
@@ -78,7 +108,10 @@ export class RoomManager {
   }
 
   getAll(): Room[] {
-    return Array.from(this.rooms.values())
+    return Array.from(this.rooms.values()).sort((a, b) => {
+      if (a.fixed !== b.fixed) return a.fixed ? -1 : 1
+      return a.createdAt - b.createdAt
+    })
   }
 
   getClients(roomId: string): Client[] {
@@ -88,6 +121,15 @@ export class RoomManager {
 
   findByName(name: string): Room | null {
     return this.getAll().find((r) => r.name === name) ?? null
+  }
+
+  toRoomListPayload(room: Room): { id: string; name: string; users: number; fixed: boolean } {
+    return {
+      id: room.id,
+      name: room.name,
+      users: room.clients.size,
+      fixed: room.fixed,
+    }
   }
 
   private generateId(): string {

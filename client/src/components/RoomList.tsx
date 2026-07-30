@@ -20,7 +20,7 @@ export function RoomList() {
         {rooms.map((room) => (
           <div
             key={room.id}
-            className={`room-item ${currentRoom === room.id ? 'active' : ''}`}
+            className={`room-item ${currentRoom === room.id ? 'active' : ''} ${room.fixed ? 'room-item--fixed' : ''}`}
           >
             <div className="room-info">
               <span className="room-name">{room.name}</span>
@@ -36,7 +36,7 @@ export function RoomList() {
                   Join
                 </button>
               )}
-              <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">Delete</button>
+              {!room.fixed && <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">Delete</button>}
             </div>
           </div>
         ))}

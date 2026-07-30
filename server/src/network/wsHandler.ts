@@ -133,9 +133,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.RoomList,
-      payload: this.rooms.getAll().map((r) => ({
-        id: r.id, name: r.name, users: r.clients.size,
-      })),
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
 
     eventBus.emit(EventType.ClientConnected, {
@@ -163,9 +161,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.RoomList,
-      payload: this.rooms.getAll().map((r) => ({
-        id: r.id, name: r.name, users: r.clients.size,
-      })),
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
     eventBus.emit(EventType.ClientDisconnected, {
       clientId: client.id,
@@ -200,11 +196,7 @@ export class WsHandler {
       case WsMessageType.ListRooms:
         this.send(client.ws, {
           type: WsMessageType.RoomList,
-          payload: this.rooms.getAll().map((r) => ({
-            id: r.id,
-            name: r.name,
-            users: r.clients.size,
-          })),
+          payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
         })
         break
 
@@ -278,9 +270,7 @@ export class WsHandler {
 
     this.broadcast({
       type: WsMessageType.RoomList,
-      payload: this.rooms.getAll().map((r) => ({
-        id: r.id, name: r.name, users: r.clients.size,
-      })),
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
     this.broadcast({
       type: WsMessageType.UserList,
@@ -301,9 +291,7 @@ export class WsHandler {
     this.rooms.leave(roomId, client)
     this.broadcast({
       type: WsMessageType.RoomList,
-      payload: this.rooms.getAll().map((r) => ({
-        id: r.id, name: r.name, users: r.clients.size,
-      })),
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
     this.broadcast({
       type: WsMessageType.UserList,
@@ -335,9 +323,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.RoomList,
-      payload: this.rooms.getAll().map((r) => ({
-        id: r.id, name: r.name, users: r.clients.size,
-      })),
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
   }
 
@@ -371,9 +357,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.RoomList,
-      payload: this.rooms.getAll().map((r) => ({
-        id: r.id, name: r.name, users: r.clients.size,
-      })),
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
     this.broadcast({
       type: WsMessageType.UserList,
@@ -399,9 +383,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.RoomList,
-      payload: this.rooms.getAll().map((r) => ({
-        id: r.id, name: r.name, users: r.clients.size,
-      })),
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
     eventBus.emit(EventType.ClientDisconnected, {
       clientId: client.id,

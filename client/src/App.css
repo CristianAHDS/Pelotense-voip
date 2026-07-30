@@ -275,6 +275,26 @@ body {
   background: #28284a;
 }
 
+.room-item--fixed {
+  background: #1a1a3a;
+  border: 1px solid #2a2a5a;
+}
+
+.room-item--fixed:hover {
+  background: #22224a;
+}
+
+.room-item--fixed .room-name {
+  color: #a78bfa;
+}
+
+.room-item--fixed .room-name::before {
+  content: '\2605';
+  margin-right: 6px;
+  font-size: 11px;
+  color: #a78bfa;
+}
+
 .room-actions {
   display: flex;
   gap: 6px;
