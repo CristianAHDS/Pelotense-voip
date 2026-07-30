@@ -3,7 +3,7 @@ import { useVoiceStore } from '../stores/voiceStore.ts'
 import { getVoiceManager } from '../services/connectionService.ts'
 
 export function useMicrophone() {
-  const { muted, talking } = useVoiceStore()
+  const { muted } = useVoiceStore()
 
   const startMic = useCallback(async () => {
     const vm = getVoiceManager()
@@ -44,5 +44,5 @@ export function useMicrophone() {
     }
   }, [])
 
-  return { muted, talking, toggleMute, setMuted, startMic, stopMic }
+  return { muted, toggleMute, setMuted, startMic, stopMic }
 }

@@ -1,49 +1,94 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useConnection } from '../hooks/useConnection.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
-import { useSettingsStore } from '../stores/settingsStore.ts'
 import { connectToServer } from '../services/connectionService.ts'
 
 const STORAGE_KEY = 'voip_credentials'
+const IS_HTTPS = window.location.protocol === 'https:'
 
-function loadStored(): { host: string; port: string; name: string; password: string } {
+function loadStored() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
         host: parsed.host ?? '192.168.8.94',
-        port: parsed.port ?? '3001',
+        wsPort: parsed.wsPort ?? '3001',
+        wssPort: parsed.wssPort ?? '3003',
         name: parsed.name ?? '',
         password: parsed.password ?? '',
       }
     }
   } catch { /* ignore */ }
-  return { host: '192.168.8.94', port: '3001', name: '', password: '' }
+  return { host: '192.168.8.94', wsPort: '3001', wssPort: '3003', name: '', password: '' }
 }
 
-function saveStored(host: string, port: string, name: string, password: string): void {
+function saveStored(host: string, wsPort: string, wssPort: string, name: string, password: string): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ host, port, name, password }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ host, wsPort, wssPort, name, password }))
   } catch (e) {
     console.error('Failed to save credentials:', e)
   }
 }
 
 export function ConnectionPanel() {
-  const { connected, id, name: connectedName, serverHost, serverWsPort, disconnect } = useConnection()
+  const { connected, id, name: connectedName, disconnect } = useConnection()
   const reconnecting = useConnectionStore((s) => s.reconnecting)
-  const setServerHost = useSettingsStore((s) => s.setServerHost)
-  const setServerWsPort = useSettingsStore((s) => s.setServerWsPort)
 
   const [stored] = useState(() => loadStored())
   const [host, setHost] = useState(stored.host)
-  const [port, setPort] = useState(stored.port)
+  const [wsPort, setWsPort] = useState(stored.wsPort)
+  const [wssPort, setWssPort] = useState(stored.wssPort)
   const [nickname, setNickname] = useState(stored.name)
   const [password, setPassword] = useState(stored.password)
+  const [certAccepted, setCertAccepted] = useState(false)
 
-  function persist() {
-    saveStored(host, port, nickname, password)
+  const useWss = IS_HTTPS
+  const activePort = useWss ? wssPort : wsPort
+  const httpsClientPort = 3443
+
+  const checkCert = useCallback(async () => {
+    if (!useWss) {
+      setCertAccepted(true)
+      return
+    }
+    try {
+      const url = `https://${host}:${wssPort}/`
+      await fetch(url, { mode: 'no-cors', cache: 'no-store' })
+      setCertAccepted(true)
+    } catch {
+      setCertAccepted(false)
+    }
+  }, [host, wssPort, useWss])
+
+  const checkHttpsClient = useCallback(async () => {
+    try {
+      const url = `https://${host}:${httpsClientPort}/`
+      await fetch(url, { mode: 'no-cors', cache: 'no-store' })
+      return true
+    } catch {
+      return false
+    }
+  }, [host])
+
+  useEffect(() => {
+    checkCert()
+  }, [checkCert])
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkCert()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [checkCert])
+
+  function handleConnect() {
+    saveStored(host, wsPort, wssPort, nickname, password)
+    const protocol = useWss ? 'wss' : 'ws'
+    connectToServer(`${protocol}://${host}:${activePort}`, nickname, password)
   }
 
   const statusText = reconnecting
@@ -58,13 +103,6 @@ export function ConnectionPanel() {
       ? 'connected'
       : 'disconnected'
 
-  function handleConnect() {
-    persist()
-    setServerHost(host)
-    setServerWsPort(Number(port))
-    connectToServer(`ws://${host}:${port}`, nickname, password)
-  }
-
   return (
     <div className="panel connection-panel">
       <div className="connection-status">
@@ -78,15 +116,19 @@ export function ConnectionPanel() {
             <input
               type="text"
               value={host}
-              onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, port, nickname, password) }}
+              onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, password) }}
               placeholder="Server IP"
               className="input"
             />
             <input
               type="number"
-              value={port}
-              onChange={(e) => { const v = e.target.value; setPort(v); saveStored(host, v, nickname, password) }}
-              placeholder="Port"
+              value={activePort}
+              onChange={(e) => {
+                const v = e.target.value
+                if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, password) }
+                else { setWsPort(v); saveStored(host, v, wssPort, nickname, password) }
+              }}
+              placeholder={useWss ? 'WSS Port' : 'Port'}
               className="input"
             />
           </div>
@@ -94,18 +136,30 @@ export function ConnectionPanel() {
             <input
               type="text"
               value={nickname}
-              onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, port, v, password) }}
+              onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, wsPort, wssPort, v, password) }}
               placeholder="Nickname"
               className="input"
             />
             <input
               type="password"
               value={password}
-              onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, port, nickname, v) }}
+              onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, wsPort, wssPort, nickname, v) }}
               placeholder="Password"
               className="input"
             />
           </div>
+          {useWss && !certAccepted && (
+            <div className="wss-hint">
+              Antes de conectar, acesse <a href={`https://${host}:${wssPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{wssPort}/</a> no navegador e aceite o certificado SSL.
+              <button className="btn btn-verify-cert" onClick={checkCert}>Verificar</button>
+            </div>
+          )}
+          {!useWss && (
+            <div className="wss-hint">
+              Para usar o microfone, acesse <a href={`https://${host}:${httpsClientPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{httpsClientPort}/</a> e aceite o certificado SSL.
+              <button className="btn btn-verify-cert" onClick={checkHttpsClient}>Verificar</button>
+            </div>
+          )}
         </>
       )}
       {connected ? (

@@ -108,18 +108,18 @@ export class WsHandler {
     this.pendingClients.delete(ws)
     ws.removeAllListeners('message')
 
-    ws.on('message', (data) => {
-      try {
-        if (data instanceof Buffer) {
-          this.handleBinaryMessage(client, data)
-          return
+      ws.on('message', (data, isBinary) => {
+        try {
+          if (isBinary) {
+            this.handleBinaryMessage(client, data as Buffer)
+            return
+          }
+          const msg: WsMessage = JSON.parse((data as Buffer).toString())
+          this.handleMessage(client, msg)
+        } catch (e) {
+          logger.warn('WsHandler', `Invalid message from ${client.id}: ${(e as Error).message}`)
         }
-        const msg: WsMessage = JSON.parse(data.toString())
-        this.handleMessage(client, msg)
-      } catch (e) {
-        logger.warn('WsHandler', `Invalid message from ${client.id}: ${(e as Error).message}`)
-      }
-    })
+      })
 
     ws.on('close', () => this.handleDisconnect(client))
     ws.on('error', () => this.handleDisconnect(client))

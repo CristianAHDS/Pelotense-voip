@@ -66,7 +66,8 @@ export class WsClient {
       }
     }
 
-    this.ws.onerror = () => {
+    this.ws.onerror = (e) => {
+      console.error('[WsClient] WebSocket error', e)
       this.ws?.close()
     }
   }
@@ -149,3 +150,6 @@ export class WsClient {
     return this.ws?.readyState === WebSocket.OPEN
   }
 }
+
+
+

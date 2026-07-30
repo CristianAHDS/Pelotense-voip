@@ -80,8 +80,8 @@ export interface ConnectionStatus {
 
 export interface VoiceState {
   muted: boolean
-  talking: boolean
   volume: number
+  level: number
 }
 
 export enum PacketType {

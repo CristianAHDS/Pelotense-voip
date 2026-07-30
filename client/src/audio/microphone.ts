@@ -3,7 +3,7 @@ export type AudioDataCallback = (data: Float32Array) => void
 export class Microphone {
   private stream: MediaStream | null = null
   private source: MediaStreamAudioSourceNode | null = null
-  private processor: ScriptProcessorNode | null = null
+  private node: AudioWorkletNode | null = null
   private context: AudioContext | null = null
   private onData: AudioDataCallback | null = null
 
@@ -23,16 +23,17 @@ export class Microphone {
       })
 
       this.context = new AudioContext({ sampleRate: 48000 })
-      this.source = this.context.createMediaStreamSource(this.stream)
-      this.processor = this.context.createScriptProcessor(960, 1, 1)
+      await this.context.audioWorklet.addModule('/audio-processor.js')
 
-      this.processor.onaudioprocess = (event) => {
+      this.source = this.context.createMediaStreamSource(this.stream)
+      this.node = new AudioWorkletNode(this.context, 'audio-processor')
+
+      this.node.port.onmessage = (event) => {
         if (!this.onData) return
-        const input = event.inputBuffer.getChannelData(0)
-        this.onData(input)
+        this.onData(event.data)
       }
 
-      this.source.connect(this.processor)
+      this.source.connect(this.node)
       return true
     } catch (e) {
       console.error('Microphone start failed:', (e as Error)?.message ?? e)
@@ -41,9 +42,9 @@ export class Microphone {
   }
 
   stop(): void {
-    if (this.processor) {
-      this.processor.disconnect()
-      this.processor = null
+    if (this.node) {
+      this.node.disconnect()
+      this.node = null
     }
     if (this.source) {
       this.source.disconnect()

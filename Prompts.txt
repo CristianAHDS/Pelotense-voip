@@ -26,3 +26,5 @@ A comunicação por audio ainda não esta funcionando, ao entrar na sala, o micr
 
 
 Ao abrir um chato de uma sala e um chat de com um user, o chat da sala não funciona, não consigo mandar mensagem, adicione esse fix e as modificações anteriores a um novo commit
+
+Sempre que dou disconnect, as roons continuam aparecendo quando deveriam sair da tela
