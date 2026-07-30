@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useVoice } from '../hooks/useVoice.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
+import { useRoomStore } from '../stores/roomStore.ts'
+import { useVoiceStore } from '../stores/voiceStore.ts'
 
 interface Props {
   compact?: boolean
@@ -13,6 +15,17 @@ const HTTPS_HOST = `${window.location.hostname}:${HTTPS_CLIENT_PORT}`
 export function VoiceControls({ compact }: Props) {
   const { muted, volume, level, toggleMute, setVolume } = useVoice()
   const connected = useConnectionStore((s) => s.connected)
+  const currentRoomName = useRoomStore((s) => s.currentRoomName)
+  const micDisabled = currentRoomName === 'Boletins gravados'
+
+  useEffect(() => {
+    if (currentRoomName === 'Boletins gravados') {
+      const state = useVoiceStore.getState()
+      if (!state.muted) {
+        state.setMuted(true)
+      }
+    }
+  }, [currentRoomName])
 
   const pct = Math.round(level * 100)
   const bars = compact ? 8 : 10
@@ -89,10 +102,10 @@ export function VoiceControls({ compact }: Props) {
       <div className="voice-bar">
         <button
           onClick={toggleMute}
-          disabled={!connected}
-          className={`voice-bar-mic ${muted ? 'muted' : 'unmuted'}`}
+          disabled={!connected || micDisabled}
+          className={`voice-bar-mic ${(muted || micDisabled) ? 'muted' : 'unmuted'}`}
         >
-          {muted ? 'Unmute' : 'Mute'}
+          {micDisabled ? 'Muted' : muted ? 'Unmute' : 'Mute'}
         </button>
         <div className="voice-bar-vu">
           <div className="voice-bar-vu-track">
@@ -128,10 +141,10 @@ export function VoiceControls({ compact }: Props) {
       <div className="voice-controls-row">
         <button
           onClick={toggleMute}
-          disabled={!connected}
-          className={`btn btn-mic ${muted ? 'muted' : 'unmuted'}`}
+          disabled={!connected || micDisabled}
+          className={`btn btn-mic ${(muted || micDisabled) ? 'muted' : 'unmuted'}`}
         >
-          {muted ? 'Unmute' : 'Mute'}
+          {micDisabled ? 'Muted' : muted ? 'Unmute' : 'Mute'}
         </button>
       </div>
       <div className="volume-control">

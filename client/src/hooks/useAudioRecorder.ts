@@ -8,8 +8,27 @@ export function useAudioRecorder() {
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const resolveRef = useRef<((value: { data: string; duration: number } | null) => void) | null>(null)
+  const cancelledRef = useRef(false)
 
   const stopRecording = useCallback(() => {
+    cancelledRef.current = false
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.stop()
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    setRecording(false)
+    setDuration(0)
+  }, [])
+
+  const cancelRecording = useCallback(() => {
+    cancelledRef.current = true
     if (timerRef.current) {
       clearInterval(timerRef.current)
       timerRef.current = null
@@ -50,6 +69,11 @@ export function useAudioRecorder() {
           }
 
           recorder.onstop = () => {
+            if (cancelledRef.current) {
+              cancelledRef.current = false
+              resolve(null)
+              return
+            }
             const finalDuration = Math.floor((Date.now() - startTime) / 1000)
             const blob = new Blob(chunksRef.current, { type: mimeType })
             const reader = new FileReader()
@@ -75,5 +99,5 @@ export function useAudioRecorder() {
     })
   }, [stopRecording])
 
-  return { recording, duration, startRecording, stopRecording }
+  return { recording, duration, startRecording, stopRecording, cancelRecording }
 }

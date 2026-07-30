@@ -36,7 +36,7 @@ export function ChatPanel() {
   const connected = useConnectionStore((s) => s.connected)
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
-  const { recording, duration, startRecording, stopRecording } = useAudioRecorder()
+  const { recording, duration, startRecording, stopRecording, cancelRecording } = useAudioRecorder()
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -64,6 +64,10 @@ export function ChatPanel() {
 
   function handleStopRecording() {
     stopRecording()
+  }
+
+  function handleCancelRecording() {
+    cancelRecording()
   }
 
   if (!connected || !currentRoomName) return null
@@ -101,12 +105,22 @@ export function ChatPanel() {
                 <span className="chat-recording-time">{duration}s</span>
               </div>
               <button
+                onClick={handleCancelRecording}
+                className="chat-cancel-btn"
+                title="Cancel"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <button
                 onClick={handleStopRecording}
                 className="chat-recording-stop-btn"
-                title="Stop recording"
+                title="Send"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
               </button>
             </>
