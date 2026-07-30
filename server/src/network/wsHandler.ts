@@ -125,6 +125,19 @@ export class WsHandler {
       payload: { id: client.id, name: client.name, udpPort: this.udpPort },
     })
 
+    this.broadcast({
+      type: WsMessageType.UserList,
+      payload: this.clients.getAll().map((c) => ({
+        id: c.id, name: c.name, room: c.room,
+      })),
+    })
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => ({
+        id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
+
     eventBus.emit(EventType.ClientConnected, {
       clientId: client.id,
       name: client.name,
@@ -142,6 +155,18 @@ export class WsHandler {
     }
     try { client.ws.close() } catch { /* ignore */ }
     this.clients.remove(client.id)
+    this.broadcast({
+      type: WsMessageType.UserList,
+      payload: this.clients.getAll().map((c) => ({
+        id: c.id, name: c.name, room: c.room,
+      })),
+    })
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => ({
+        id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
     eventBus.emit(EventType.ClientDisconnected, {
       clientId: client.id,
       name: client.name,
@@ -226,10 +251,18 @@ export class WsHandler {
       payload: { roomId: room.id, roomName: room.name },
     })
 
-    this.broadcastToRoom(room.id, {
-      type: WsMessageType.UserJoined,
-      payload: { id: client.id, name: client.name, room: client.room },
-    }, client.id)
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => ({
+        id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
+    this.broadcast({
+      type: WsMessageType.UserList,
+      payload: this.clients.getAll().map((c) => ({
+        id: c.id, name: c.name, room: c.room,
+      })),
+    })
   }
 
   private handleLeaveRoom(client: Client): void {
@@ -240,11 +273,19 @@ export class WsHandler {
       type: WsMessageType.RoomLeft,
       payload: { roomId },
     })
-    this.broadcastToRoom(roomId, {
-      type: WsMessageType.UserLeft,
-      payload: { id: client.id, name: userName },
-    }, client.id)
     this.rooms.leave(roomId, client)
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => ({
+        id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
+    this.broadcast({
+      type: WsMessageType.UserList,
+      payload: this.clients.getAll().map((c) => ({
+        id: c.id, name: c.name, room: c.room,
+      })),
+    })
   }
 
   private handleCreateRoom(client: Client, roomName: string): void {
@@ -267,6 +308,12 @@ export class WsHandler {
       type: WsMessageType.RoomCreated,
       payload: { roomId: room.id, roomName: room.name },
     })
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => ({
+        id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
   }
 
   private handleDeleteRoom(client: Client, roomId: string): void {
@@ -282,6 +329,12 @@ export class WsHandler {
       type: WsMessageType.RoomDeleted,
       payload: { roomId },
     })
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => ({
+        id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
   }
 
   private handleDisconnect(client: Client): void {
@@ -289,13 +342,21 @@ export class WsHandler {
     const userName = client.name
 
     if (roomId) {
-      this.broadcastToRoom(roomId, {
-        type: WsMessageType.UserLeft,
-        payload: { id: client.id, name: userName },
-      }, client.id)
       this.rooms.leave(roomId, client)
     }
     this.clients.remove(client.id)
+    this.broadcast({
+      type: WsMessageType.UserList,
+      payload: this.clients.getAll().map((c) => ({
+        id: c.id, name: c.name, room: c.room,
+      })),
+    })
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => ({
+        id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
     eventBus.emit(EventType.ClientDisconnected, {
       clientId: client.id,
       name: userName,
@@ -306,6 +367,15 @@ export class WsHandler {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(msg))
     }
+  }
+
+  private broadcast(msg: WsMessage): void {
+    const data = JSON.stringify(msg)
+    this.clients.getAll().forEach((c) => {
+      if (c.ws.readyState === WebSocket.OPEN) {
+        c.ws.send(data)
+      }
+    })
   }
 
   private broadcastToRoom(roomId: string, msg: WsMessage, excludeId: string): void {

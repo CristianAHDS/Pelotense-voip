@@ -36,7 +36,6 @@ export function connectToServer(address: string, name: string, password: string)
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name)
     requestRoomList()
-    requestUserList()
   })
 
   wsClient.on(WsMessageType.RoomList, (msg) => {
@@ -50,22 +49,10 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.on(WsMessageType.RoomJoined, (msg) => {
     const payload = msg.payload as any
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
-    requestRoomList()
-    requestUserList()
   })
 
   wsClient.on(WsMessageType.RoomLeft, () => {
     useRoomStore.getState().setCurrentRoom(null)
-    requestRoomList()
-    requestUserList()
-  })
-
-  wsClient.on(WsMessageType.RoomCreated, () => {
-    requestRoomList()
-  })
-
-  wsClient.on(WsMessageType.RoomDeleted, () => {
-    requestRoomList()
   })
 
   wsClient.on(WsMessageType.UserJoined, (msg) => {
