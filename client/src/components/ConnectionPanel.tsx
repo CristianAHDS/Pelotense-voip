@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useConnection } from '../hooks/useConnection.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useSettingsStore } from '../stores/settingsStore.ts'
@@ -33,17 +33,10 @@ export function ConnectionPanel() {
   const reconnecting = useConnectionStore((s) => s.reconnecting)
   const setServerHost = useSettingsStore((s) => s.setServerHost)
   const setServerWsPort = useSettingsStore((s) => s.setServerWsPort)
-  const [initial] = useState(() => loadStored())
-  const [host, setHost] = useState(initial.host)
-  const [port, setPort] = useState(initial.port)
-  const [nickname, setNickname] = useState(initial.name)
-  const [password, setPassword] = useState(initial.password)
-
-  useEffect(() => {
-    if (connected) {
-      saveStored(host, port, nickname, password)
-    }
-  }, [connected])
+  const [host, setHost] = useState(() => loadStored().host)
+  const [port, setPort] = useState(() => loadStored().port)
+  const [nickname, setNickname] = useState(() => loadStored().name)
+  const [password, setPassword] = useState(() => loadStored().password)
 
   const statusText = reconnecting
     ? 'Reconnecting...'
@@ -58,6 +51,7 @@ export function ConnectionPanel() {
       : 'disconnected'
 
   function handleConnect() {
+    saveStored(host, port, nickname, password)
     setServerHost(host)
     setServerWsPort(Number(port))
     connectToServer(`ws://${host}:${port}`, nickname, password)
