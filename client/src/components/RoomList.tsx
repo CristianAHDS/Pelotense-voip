@@ -1,8 +1,24 @@
 import React, { useState } from 'react'
 import { useRooms } from '../hooks/useRooms.ts'
+import { useRoomStore } from '../stores/roomStore.ts'
+
+const COLORS = [
+  '#5865f2', '#ed4245', '#2ecc71', '#f59e0b', '#9b59b6',
+  '#1abc9c', '#e67e22', '#3498db', '#e84393', '#00b894',
+]
+
+function userColor(userId: string): string {
+  let hash = 0
+  for (let i = 0; i < userId.length; i++) {
+    hash = ((hash << 5) - hash) + userId.charCodeAt(i)
+    hash |= 0
+  }
+  return COLORS[Math.abs(hash) % COLORS.length]
+}
 
 export function RoomList() {
   const { rooms, currentRoom, join, leave, create, delete: del } = useRooms()
+  const users = useRoomStore((s) => s.users)
   const [newRoomName, setNewRoomName] = useState('')
 
   const handleCreate = () => {
@@ -25,6 +41,16 @@ export function RoomList() {
             <div className="room-info">
               <span className="room-name">{room.name}</span>
               <span className="room-users">{room.users} users</span>
+              {room.users > 0 && (
+                <div className="room-users-list">
+                  {users.filter((u) => u.room === room.id).slice(0, 5).map((u) => (
+                    <span key={u.id} className="room-user-avatar" style={{ background: userColor(u.id) }} title={u.name}>
+                      {u.name.charAt(0).toUpperCase()}
+                    </span>
+                  ))}
+                  {room.users > 5 && <span className="room-user-more">+{room.users - 5}</span>}
+                </div>
+              )}
             </div>
             <div className="room-actions">
               {currentRoom === room.id ? (

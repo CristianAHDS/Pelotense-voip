@@ -113,7 +113,7 @@ body {
 }
 
 .input:focus {
-  border-color: #0984e3;
+  border-color: #5865f2;
 }
 
 .input::placeholder {
@@ -149,53 +149,53 @@ body {
 }
 
 .btn-connect {
-  background: linear-gradient(135deg, #0984e3, #0773c5);
+  background: linear-gradient(135deg, #5865f2, #4e5bf1);
   color: #fff;
   width: 100%;
   margin-top: 8px;
 }
 
 .btn-connect:hover {
-  background: linear-gradient(135deg, #0773c5, #0662a8);
+  background: linear-gradient(135deg, #4e5bf1, #3f4ae0);
 }
 
 .btn-disconnect {
-  background: #c0392b;
+  background: #ed4245;
   color: #fff;
   width: 100%;
   margin-top: 8px;
 }
 
 .btn-disconnect:hover {
-  background: #e74c3c;
+  background: #da373c;
 }
 
 .btn-join {
-  background: #0984e3;
+  background: #5865f2;
   color: #fff;
 }
 
 .btn-join:hover {
-  background: #0773c5;
+  background: #4e5bf1;
 }
 
 .btn-leave {
-  background: #e17055;
+  background: #f59e0b;
   color: #fff;
 }
 
 .btn-leave:hover {
-  background: #d35400;
+  background: #d97706;
 }
 
 .btn-create {
-  background: linear-gradient(135deg, #00b894, #00a381);
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
   color: #fff;
   white-space: nowrap;
 }
 
 .btn-create:hover {
-  background: linear-gradient(135deg, #00a381, #008e6e);
+  background: linear-gradient(135deg, #27ae60, #1f9b52);
 }
 
 .btn-mic {
@@ -204,12 +204,12 @@ body {
 }
 
 .btn-mic.muted {
-  background: #c0392b;
+  background: #ed4245;
   color: #fff;
 }
 
 .btn-mic.unmuted {
-  background: linear-gradient(135deg, #00b894, #00a381);
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
   color: #fff;
 }
 
@@ -231,13 +231,13 @@ body {
 }
 
 .status-indicator.connected {
-  background: #00b894;
-  box-shadow: 0 0 6px #00b89488;
+  background: #2ecc71;
+  box-shadow: 0 0 6px #2ecc7188;
 }
 
 .status-indicator.disconnected {
-  background: #c0392b;
-  box-shadow: 0 0 6px #c0392b88;
+  background: #ed4245;
+  box-shadow: 0 0 6px #ed424588;
 }
 
 .status-indicator.reconnecting {
@@ -302,17 +302,17 @@ body {
 }
 
 .btn-delete-room {
-  background: #c0392b;
+  background: #ed4245;
   color: #fff;
   white-space: nowrap;
 }
 
 .btn-delete-room:hover {
-  background: #e74c3c;
+  background: #da373c;
 }
 
 .room-item.active {
-  border-left: 3px solid #00b894;
+  border-left: 3px solid #5865f2;
 }
 
 .room-info {
@@ -336,6 +336,32 @@ body {
 
 .room-item.active .room-name {
   color: #e8e8f0;
+}
+
+.room-users-list {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.room-user-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #fff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.room-user-more {
+  font-size: 10px;
+  color: #5e5e7e;
+  margin-left: 2px;
 }
 
 .create-room {
@@ -369,7 +395,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #00b894;
+  background: #2ecc71;
   flex-shrink: 0;
 }
 
@@ -393,7 +419,7 @@ body {
 }
 
 .talking-indicator {
-  color: #00b894;
+  color: #2ecc71;
   font-size: 12px;
   animation: pulse 1s infinite;
   white-space: nowrap;
@@ -418,7 +444,7 @@ body {
 .volume-control input[type='range'] {
   width: 100%;
   height: 6px;
-  accent-color: #0984e3;
+  accent-color: #5865f2;
   cursor: pointer;
   border-radius: 3px;
 }
@@ -503,7 +529,7 @@ body {
 }
 
 .chat-bubble--self {
-  background: linear-gradient(135deg, #0984e3, #0773c5);
+  background: linear-gradient(135deg, #5865f2, #4e5bf1);
   border-bottom-right-radius: 4px;
 }
 
@@ -556,7 +582,7 @@ body {
 }
 
 .chat-input-wrap:focus-within {
-  border-color: #0984e3;
+  border-color: #5865f2;
 }
 
 .chat-input {
@@ -579,7 +605,7 @@ body {
   height: 36px;
   border-radius: 8px;
   border: none;
-  background: #0984e3;
+  background: #5865f2;
   color: #fff;
   cursor: pointer;
   display: flex;
@@ -590,7 +616,7 @@ body {
 }
 
 .chat-send-btn:hover {
-  background: #0773c5;
+  background: #4e5bf1;
 }
 
 .chat-send-btn:disabled {
@@ -756,22 +782,22 @@ body {
   }
 
   .btn-connect:active {
-    background: linear-gradient(135deg, #0773c5, #0662a8);
+    background: linear-gradient(135deg, #4e5bf1, #3f4ae0);
   }
 
   .btn-disconnect:active {
-    background: #e74c3c;
+    background: #da373c;
   }
 
   .btn-join:active {
-    background: #0773c5;
+    background: #4e5bf1;
   }
 
   .btn-leave:active {
-    background: #d35400;
+    background: #d97706;
   }
 
   .btn-create:active {
-    background: linear-gradient(135deg, #00a381, #008e6e);
+    background: linear-gradient(135deg, #27ae60, #1f9b52);
   }
 }
