@@ -11,11 +11,19 @@ export interface Client {
   ws: WsWebSocket
 }
 
+export interface ChatMessage {
+  userId: string
+  userName: string
+  text: string
+  timestamp: number
+}
+
 export interface Room {
   id: string
   name: string
   clients: Map<string, Client>
   createdAt: number
+  messages: ChatMessage[]
 }
 
 export enum PacketType {
@@ -52,6 +60,7 @@ export enum WsMessageType {
   UserLeft = 'user_left',
   Error = 'error',
   Login = 'login',
+  ChatMessage = 'chat_message',
   Welcome = 'welcome',
 }
 

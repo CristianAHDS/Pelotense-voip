@@ -1,16 +1,19 @@
 import { create } from 'zustand'
-import { RoomInfo, UserInfo } from '../types/index.ts'
+import { RoomInfo, UserInfo, ChatMsg } from '../types/index.ts'
 
 interface RoomStore {
   rooms: RoomInfo[]
   users: UserInfo[]
   currentRoom: string | null
   currentRoomName: string | null
+  messages: ChatMsg[]
   setRooms: (rooms: RoomInfo[]) => void
   setUsers: (users: UserInfo[]) => void
   setCurrentRoom: (roomId: string | null, roomName?: string | null) => void
   addUser: (user: UserInfo) => void
   removeUser: (userId: string) => void
+  addMessage: (msg: ChatMsg) => void
+  clearMessages: () => void
 }
 
 export const useRoomStore = create<RoomStore>((set) => ({
@@ -18,6 +21,7 @@ export const useRoomStore = create<RoomStore>((set) => ({
   users: [],
   currentRoom: null,
   currentRoomName: null,
+  messages: [],
   setRooms: (rooms) => set({ rooms }),
   setUsers: (users) => set({ users }),
   setCurrentRoom: (roomId, roomName) =>
@@ -25,4 +29,6 @@ export const useRoomStore = create<RoomStore>((set) => ({
   addUser: (user) => set((s) => ({ users: [...s.users.filter((u) => u.id !== user.id), user] })),
   removeUser: (userId) =>
     set((s) => ({ users: s.users.filter((u) => u.id !== userId) })),
+  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+  clearMessages: () => set({ messages: [] }),
 }))

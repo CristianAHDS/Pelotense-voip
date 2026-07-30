@@ -23,6 +23,7 @@ export class RoomManager {
       name,
       clients: new Map(),
       createdAt: Date.now(),
+      messages: [],
     }
 
     this.rooms.set(id, room)

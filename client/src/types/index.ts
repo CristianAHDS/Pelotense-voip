@@ -26,6 +26,7 @@ export enum WsMessageType {
   UserList = 'user_list',
   UserJoined = 'user_joined',
   UserLeft = 'user_left',
+  ChatMessage = 'chat_message',
   Login = 'login',
   Error = 'error',
   Welcome = 'welcome',
@@ -45,6 +46,13 @@ export interface WelcomePayload {
   id: string
   name: string
   udpPort: number
+}
+
+export interface ChatMsg {
+  userId: string
+  userName: string
+  text: string
+  timestamp: number
 }
 
 export interface RoomJoinedPayload {

@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws'
-import { Client, WsMessage, WsMessageType } from '../types/index.js'
+import { Client, ChatMessage, WsMessage, WsMessageType } from '../types/index.js'
 import { ClientManager } from '../clients/index.js'
 import { RoomManager } from '../rooms/index.js'
 import { logger } from '../utils/logger.js'
@@ -219,9 +219,34 @@ export class WsHandler {
         })
         break
 
+      case WsMessageType.ChatMessage:
+        this.handleChatMessage(client, msg.payload as { text: string })
+        break
+
       default:
         logger.warn('WsHandler', `Unknown message type: ${msg.type}`)
     }
+  }
+
+  private handleChatMessage(client: Client, payload: { text: string }): void {
+    if (!client.room || !payload.text?.trim()) return
+
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const chatMsg: ChatMessage = {
+      userId: client.id,
+      userName: client.name,
+      text: payload.text.trim(),
+      timestamp: Date.now(),
+    }
+
+    room.messages.push(chatMsg)
+
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.ChatMessage,
+      payload: chatMsg,
+    }, '')
   }
 
   private handleJoinRoom(client: Client, roomName: string): void {

@@ -1,5 +1,5 @@
 import { WsClient } from '../network/wsClient.ts'
-import { WsMessageType, LoginPayload, WelcomePayload } from '../types/index.ts'
+import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg } from '../types/index.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 
@@ -49,10 +49,12 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.on(WsMessageType.RoomJoined, (msg) => {
     const payload = msg.payload as any
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
+    useRoomStore.getState().clearMessages()
   })
 
   wsClient.on(WsMessageType.RoomLeft, () => {
     useRoomStore.getState().setCurrentRoom(null)
+    useRoomStore.getState().clearMessages()
   })
 
   wsClient.on(WsMessageType.UserJoined, (msg) => {
@@ -65,6 +67,10 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().removeUser(payload.id)
   })
 
+  wsClient.on(WsMessageType.ChatMessage, (msg) => {
+    useRoomStore.getState().addMessage(msg.payload as ChatMsg)
+  })
+
   wsClient.on(WsMessageType.Error, (msg) => {
     const error = String(msg.payload ?? 'Unknown error')
     useConnectionStore.getState().setDisconnected()
@@ -72,6 +78,10 @@ export function connectToServer(address: string, name: string, password: string)
   })
 
   wsClient.connect(address)
+}
+
+export function sendChatMessage(text: string): void {
+  wsClient?.send(WsMessageType.ChatMessage, { text })
 }
 
 export function disconnectFromServer(): void {
