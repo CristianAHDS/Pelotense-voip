@@ -57,6 +57,15 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().clearMessages()
   })
 
+  wsClient.on(WsMessageType.RoomDeleted, (msg) => {
+    const payload = msg.payload as any
+    const store = useRoomStore.getState()
+    if (store.currentRoom === payload.roomId) {
+      store.setCurrentRoom(null)
+      store.clearMessages()
+    }
+  })
+
   wsClient.on(WsMessageType.UserJoined, (msg) => {
     const payload = msg.payload as any
     useRoomStore.getState().addUser(payload)
@@ -101,6 +110,10 @@ export function leaveRoom(): void {
 
 export function createRoom(roomName: string): void {
   wsClient?.send(WsMessageType.CreateRoom, roomName)
+}
+
+export function deleteRoom(roomId: string): void {
+  wsClient?.send(WsMessageType.DeleteRoom, roomId)
 }
 
 export function requestRoomList(): void {

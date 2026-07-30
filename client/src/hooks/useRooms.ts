@@ -4,6 +4,7 @@ import {
   joinRoom,
   leaveRoom,
   createRoom,
+  deleteRoom,
 } from '../services/connectionService.ts'
 
 export function useRooms() {
@@ -21,5 +22,9 @@ export function useRooms() {
     createRoom(roomName)
   }, [])
 
-  return { rooms, users, currentRoom, currentRoomName, join, leave, create }
+  const del = useCallback((roomId: string) => {
+    deleteRoom(roomId)
+  }, [])
+
+  return { rooms, users, currentRoom, currentRoomName, join, leave, create, delete: del }
 }

@@ -349,8 +349,23 @@ export class WsHandler {
       })
       return
     }
+
+    const room = this.rooms.get(roomId)
+    if (!room) return
+
+    // Notify all occupants they've been removed
+    room.clients.forEach((c) => {
+      if (c.ws.readyState === WebSocket.OPEN) {
+        c.ws.send(JSON.stringify({
+          type: WsMessageType.RoomLeft,
+          payload: { roomId },
+        }))
+      }
+    })
+
     this.rooms.delete(roomId)
-    this.send(client.ws, {
+
+    this.broadcast({
       type: WsMessageType.RoomDeleted,
       payload: { roomId },
     })
@@ -358,6 +373,12 @@ export class WsHandler {
       type: WsMessageType.RoomList,
       payload: this.rooms.getAll().map((r) => ({
         id: r.id, name: r.name, users: r.clients.size,
+      })),
+    })
+    this.broadcast({
+      type: WsMessageType.UserList,
+      payload: this.clients.getAll().map((c) => ({
+        id: c.id, name: c.name, room: c.room,
       })),
     })
   }

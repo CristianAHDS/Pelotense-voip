@@ -70,10 +70,6 @@ export class RoomManager {
     logger.info('RoomManager', `${client.name} left ${room.name}`)
     eventBus.emit(EventType.RoomLeft, { clientId: client.id, roomId })
 
-    if (room.clients.size === 0) {
-      this.delete(roomId)
-    }
-
     return true
   }
 

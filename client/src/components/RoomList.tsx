@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useRooms } from '../hooks/useRooms.ts'
 
 export function RoomList() {
-  const { rooms, currentRoom, join, leave, create } = useRooms()
+  const { rooms, currentRoom, join, leave, create, delete: del } = useRooms()
   const [newRoomName, setNewRoomName] = useState('')
 
   const handleCreate = () => {
@@ -22,6 +22,7 @@ export function RoomList() {
             key={room.id}
             className={`room-item ${currentRoom === room.id ? 'active' : ''}`}
           >
+            <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">&times;</button>
             <div className="room-info">
               <span className="room-name">{room.name}</span>
               <span className="room-users">{room.users} users</span>
