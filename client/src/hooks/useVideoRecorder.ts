@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react'
 export function useVideoRecorder() {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
+  const [stream, setStream] = useState<MediaStream | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -23,6 +24,7 @@ export function useVideoRecorder() {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
+    setStream(null)
     setRecording(false)
     setDuration(0)
   }, [])
@@ -40,6 +42,7 @@ export function useVideoRecorder() {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
+    setStream(null)
     setRecording(false)
     setDuration(0)
   }, [])
@@ -47,8 +50,9 @@ export function useVideoRecorder() {
   const startRecording = useCallback((): Promise<{ data: string; duration: number } | null> => {
     return new Promise((resolve) => {
       navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          streamRef.current = stream
+        .then((s) => {
+          streamRef.current = s
+          setStream(s)
           chunksRef.current = []
           setDuration(0)
 
@@ -63,7 +67,7 @@ export function useVideoRecorder() {
               ? 'video/webm;codecs=vp8'
               : 'video/webm'
 
-          const recorder = new MediaRecorder(stream, { mimeType })
+          const recorder = new MediaRecorder(s, { mimeType })
           recorderRef.current = recorder
 
           recorder.ondataavailable = (e) => {
@@ -101,5 +105,5 @@ export function useVideoRecorder() {
     })
   }, [stopRecording])
 
-  return { recording, duration, startRecording, stopRecording, cancelRecording }
+  return { recording, duration, stream, startRecording, stopRecording, cancelRecording }
 }

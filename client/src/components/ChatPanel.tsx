@@ -114,6 +114,23 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
+      {videoRec.stream && (
+        <div className="chat-video-preview-overlay">
+          <div className="chat-video-preview-box">
+            <video
+              ref={(el) => { if (el) el.srcObject = videoRec.stream }}
+              autoPlay
+              muted
+              playsInline
+              className="chat-video-preview"
+            />
+            <div className="chat-video-preview-label">
+              {videoRec.recording ? `Recording ${videoRec.duration}s` : 'Camera preview'}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="chat-footer">
         <div className="chat-input-wrap">
           {isRecording ? (

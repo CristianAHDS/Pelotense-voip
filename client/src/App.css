@@ -1084,27 +1084,58 @@ body {
 }
 
 .chat-bubble-delete-btn {
-  background: none;
-  border: none;
-  color: #555;
-  cursor: pointer;
-  padding: 2px;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
   flex-shrink: 0;
-}
-
-.chat-row:hover .chat-bubble-delete-btn {
-  opacity: 1;
+  transition: background 0.15s;
 }
 
 .chat-bubble-delete-btn:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  background: #dc2626;
+}
+
+.chat-video-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  padding: 24px;
+}
+
+.chat-video-preview-box {
+  background: #111;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chat-video-preview {
+  width: 100%;
+  max-width: 400px;
+  max-height: 60vh;
+  display: block;
+}
+
+.chat-video-preview-label {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #aaa;
+  text-align: center;
 }
 
 .chat-footer {
