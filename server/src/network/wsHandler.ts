@@ -109,15 +109,15 @@ export class WsHandler {
     ws.removeAllListeners('message')
 
     ws.on('message', (data) => {
-      if (data instanceof Buffer) {
-        this.handleBinaryMessage(client, data)
-        return
-      }
       try {
+        if (data instanceof Buffer) {
+          this.handleBinaryMessage(client, data)
+          return
+        }
         const msg: WsMessage = JSON.parse(data.toString())
         this.handleMessage(client, msg)
-      } catch {
-        logger.warn('WsHandler', `Invalid message from ${client.id}`)
+      } catch (e) {
+        logger.warn('WsHandler', `Invalid message from ${client.id}: ${(e as Error).message}`)
       }
     })
 
@@ -251,7 +251,7 @@ export class WsHandler {
 
   private handleBinaryMessage(client: Client, data: Buffer): void {
     const roomId = client.room
-    if (!roomId) return
+    if (!roomId || data.length < 1) return
 
     const room = this.rooms.get(roomId)
     if (!room) return
@@ -263,7 +263,11 @@ export class WsHandler {
 
     room.clients.forEach((c) => {
       if (c.id !== client.id && c.ws.readyState === 1) {
-        c.ws.send(out)
+        try {
+          c.ws.send(out)
+        } catch {
+          logger.warn('WsHandler', `Failed to send voice to ${c.id}`)
+        }
       }
     })
   }

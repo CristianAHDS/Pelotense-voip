@@ -21,6 +21,7 @@ export class VoiceManager {
   }
 
   async startMicrophone(): Promise<boolean> {
+    if (this.active) return true
     const ok = await this.microphone.start()
     if (!ok) return false
 
@@ -37,6 +38,7 @@ export class VoiceManager {
   }
 
   stopMicrophone(): void {
+    if (!this.active) return
     this.microphone.stop()
     this.active = false
     useVoiceStore.getState().setTalking(false)
