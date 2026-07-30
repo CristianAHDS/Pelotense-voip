@@ -334,14 +334,20 @@ body {
   color: #5e5e7e;
 }
 
+.room-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .room-item.active .room-name {
   color: #e8e8f0;
 }
 
 .room-users-list {
   display: flex;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 3px;
   align-items: center;
 }
 

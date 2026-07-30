@@ -40,17 +40,19 @@ export function RoomList() {
           >
             <div className="room-info">
               <span className="room-name">{room.name}</span>
-              <span className="room-users">{room.users} users</span>
-              {room.users > 0 && (
-                <div className="room-users-list">
-                  {users.filter((u) => u.room === room.id).slice(0, 5).map((u) => (
-                    <span key={u.id} className="room-user-avatar" style={{ background: userColor(u.id) }} title={u.name}>
-                      {u.name.charAt(0).toUpperCase()}
-                    </span>
-                  ))}
-                  {room.users > 5 && <span className="room-user-more">+{room.users - 5}</span>}
-                </div>
-              )}
+              <div className="room-meta">
+                <span className="room-users">{room.users} users</span>
+                {room.users > 0 && (
+                  <div className="room-users-list">
+                    {users.filter((u) => u.room === room.id).slice(0, 5).map((u) => (
+                      <span key={u.id} className="room-user-avatar" style={{ background: userColor(u.id) }} title={u.name}>
+                        {u.name.charAt(0).toUpperCase()}
+                      </span>
+                    ))}
+                    {room.users > 5 && <span className="room-user-more">+{room.users - 5}</span>}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="room-actions">
               {currentRoom === room.id ? (
