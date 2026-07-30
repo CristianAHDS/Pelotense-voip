@@ -256,6 +256,7 @@ export class WsHandler {
       payload: {
         fromUserId: client.id,
         fromUserName: client.name,
+        toUserId: payload.toUserId,
         text: payload.text.trim(),
         timestamp: Date.now(),
       },

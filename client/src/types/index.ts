@@ -60,6 +60,7 @@ export interface ChatMsg {
 export interface PrivateChatMsg {
   fromUserId: string
   fromUserName: string
+  toUserId?: string
   text: string
   timestamp: number
 }

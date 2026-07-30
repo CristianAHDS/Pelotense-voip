@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { PrivateChatMsg } from '../types/index.ts'
+import { useConnectionStore } from './connectionStore.ts'
 
 interface PrivateChatStore {
   activeUserId: string | null
@@ -18,7 +19,11 @@ export const usePrivateChatStore = create<PrivateChatStore>((set) => ({
   closeChat: () => set({ activeUserId: null, activeUserName: null }),
   addMessage: (msg) =>
     set((s) => {
-      const key = msg.fromUserId
+      const myId = useConnectionStore.getState().id
+      const key = msg.toUserId && msg.fromUserId === myId
+        ? msg.toUserId
+        : msg.fromUserId
+      if (!key) return s
       const existing = s.messages[key] ?? []
       return {
         messages: { ...s.messages, [key]: [...existing, msg] },
