@@ -1,0 +1,82 @@
+export interface RoomInfo {
+  id: string
+  name: string
+  users: number
+}
+
+export interface UserInfo {
+  id: string
+  name: string
+  room: string | null
+}
+
+export enum WsMessageType {
+  JoinRoom = 'join_room',
+  LeaveRoom = 'leave_room',
+  CreateRoom = 'create_room',
+  DeleteRoom = 'delete_room',
+  ListRooms = 'list_rooms',
+  ListUsers = 'list_users',
+  Heartbeat = 'heartbeat',
+  RoomJoined = 'room_joined',
+  RoomLeft = 'room_left',
+  RoomCreated = 'room_created',
+  RoomDeleted = 'room_deleted',
+  RoomList = 'room_list',
+  UserList = 'user_list',
+  UserJoined = 'user_joined',
+  UserLeft = 'user_left',
+  Login = 'login',
+  Error = 'error',
+  Welcome = 'welcome',
+}
+
+export interface WsMessage {
+  type: WsMessageType
+  payload?: unknown
+}
+
+export interface LoginPayload {
+  name: string
+  password: string
+}
+
+export interface WelcomePayload {
+  id: string
+  name: string
+  udpPort: number
+}
+
+export interface RoomJoinedPayload {
+  roomId: string
+  roomName: string
+}
+
+export interface ConnectionStatus {
+  connected: boolean
+  id: string | null
+  name: string | null
+  serverAddress: string
+}
+
+export interface VoiceState {
+  muted: boolean
+  talking: boolean
+  volume: number
+}
+
+export enum PacketType {
+  VoiceData = 0,
+  Ping = 1,
+  Pong = 2,
+}
+
+export interface VoicePacket {
+  version: number
+  packetType: PacketType
+  userId: string
+  roomId: string
+  sequence: number
+  timestamp: number
+  payload: ArrayBuffer
+}
