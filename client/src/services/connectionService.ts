@@ -142,6 +142,11 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
   })
 
+  wsClient.on(WsMessageType.MessageDeleted, (msg) => {
+    const payload = msg.payload as { messageId: string }
+    useRoomStore.getState().removeMessage(payload.messageId)
+  })
+
   wsClient.on(WsMessageType.PrivateMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
@@ -189,6 +194,11 @@ export function sendChatAudioMessage(audioData: string, duration: number): void 
 export function sendChatVideoMessage(videoData: string, duration: number): void {
   if (!wsClient) { console.error('sendChatVideoMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.ChatVideoMessage, { videoData, duration })
+}
+
+export function deleteMessage(messageId: string): void {
+  if (!wsClient) { console.error('deleteMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.DeleteMessage, { messageId })
 }
 
 export function sendPrivateMessage(toUserId: string, text: string): void {

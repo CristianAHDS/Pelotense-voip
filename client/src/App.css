@@ -1073,8 +1073,38 @@ body {
 .chat-bubble-time {
   font-size: 10px;
   color: #666;
+}
+
+.chat-bubble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   margin-top: 3px;
-  text-align: right;
+}
+
+.chat-bubble-delete-btn {
+  background: none;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-row:hover .chat-bubble-delete-btn {
+  opacity: 1;
+}
+
+.chat-bubble-delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 .chat-footer {

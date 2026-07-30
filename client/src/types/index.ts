@@ -32,6 +32,8 @@ export enum WsMessageType {
   ChatAudioMessage = 'chat_audio_message',
   ChatVideoMessage = 'chat_video_message',
   PrivateMessage = 'private_message',
+  DeleteMessage = 'delete_message',
+  MessageDeleted = 'message_deleted',
   Login = 'login',
   Error = 'error',
   Welcome = 'welcome',
@@ -54,6 +56,7 @@ export interface WelcomePayload {
 }
 
 export interface ChatMsg {
+  id?: string
   userId: string
   userName: string
   text?: string
@@ -61,6 +64,10 @@ export interface ChatMsg {
   videoData?: string
   duration?: number
   timestamp: number
+}
+
+export interface DeleteMessagePayload {
+  messageId: string
 }
 
 export interface PrivateChatMsg {

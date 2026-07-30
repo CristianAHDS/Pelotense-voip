@@ -12,6 +12,7 @@ export interface Client {
 }
 
 export interface ChatMessage {
+  id?: string
   userId: string
   userName: string
   text?: string
@@ -69,6 +70,8 @@ export enum WsMessageType {
   ChatVideoMessage = 'chat_video_message',
   ChatMessage = 'chat_message',
   PrivateMessage = 'private_message',
+  DeleteMessage = 'delete_message',
+  MessageDeleted = 'message_deleted',
   Welcome = 'welcome',
 }
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import type { ChatMsg } from '../types/index.ts'
@@ -322,9 +322,23 @@ function ChatBubble({ msg, isSelf, avatarColor, showAvatar }: {
         ) : (
           <div className="chat-bubble-text">{msg.text}</div>
         )}
-        {!msg.videoData && (
-          <div className="chat-bubble-time">{formatTime(msg.timestamp)}</div>
-        )}
+        <div className="chat-bubble-footer">
+          <span className="chat-bubble-time">
+            {msg.videoData ? formatDuration(msg.duration ?? 0) : formatTime(msg.timestamp)}
+          </span>
+          {isSelf && (
+            <button
+              onClick={() => msg.id && deleteMessage(msg.id)}
+              className="chat-bubble-delete-btn"
+              title="Delete"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

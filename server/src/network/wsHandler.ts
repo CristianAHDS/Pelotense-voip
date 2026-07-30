@@ -227,6 +227,10 @@ export class WsHandler {
         this.handleChatVideoMessage(client, msg.payload as { videoData: string; duration: number })
         break
 
+      case WsMessageType.DeleteMessage:
+        this.handleDeleteMessage(client, msg.payload as { messageId: string })
+        break
+
       case WsMessageType.PrivateMessage:
         this.handlePrivateMessage(client, msg.payload as { toUserId: string; text: string })
         break
@@ -243,6 +247,7 @@ export class WsHandler {
     if (!room) return
 
     const chatMsg: ChatMessage = {
+      id: this.generateMessageId(),
       userId: client.id,
       userName: client.name,
       text: payload.text.trim(),
@@ -264,6 +269,7 @@ export class WsHandler {
     if (!room) return
 
     const chatMsg: ChatMessage = {
+      id: this.generateMessageId(),
       userId: client.id,
       userName: client.name,
       audioData: payload.audioData,
@@ -286,6 +292,7 @@ export class WsHandler {
     if (!room) return
 
     const chatMsg: ChatMessage = {
+      id: this.generateMessageId(),
       userId: client.id,
       userName: client.name,
       videoData: payload.videoData,
@@ -519,7 +526,31 @@ export class WsHandler {
     })
   }
 
+  private handleDeleteMessage(client: Client, payload: { messageId: string }): void {
+    if (!client.room || !payload.messageId) return
+
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const idx = room.messages.findIndex((m) => m.id === payload.messageId)
+    if (idx === -1) return
+
+    const msg = room.messages[idx]
+    if (msg.userId !== client.id) return
+
+    room.messages.splice(idx, 1)
+
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.MessageDeleted,
+      payload: { messageId: payload.messageId },
+    }, '')
+  }
+
   private generateId(): string {
     return Math.random().toString(36).substring(2, 10)
+  }
+
+  private generateMessageId(): string {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8)
   }
 }
