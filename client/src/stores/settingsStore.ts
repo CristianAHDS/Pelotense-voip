@@ -14,7 +14,7 @@ interface SettingsStore {
 export const useSettingsStore = create<SettingsStore>((set) => ({
   pushToTalk: false,
   pushToTalkKey: 'Space',
-  serverHost: import.meta.env.VITE_SERVER_HOST || 'localhost',
+  serverHost: import.meta.env.VITE_SERVER_HOST || '192.168.8.94',
   serverWsPort: 3001,
   setPushToTalk: (enabled) => set({ pushToTalk: enabled }),
   setPushToTalkKey: (key) => set({ pushToTalkKey: key }),

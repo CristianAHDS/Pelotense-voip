@@ -12,14 +12,14 @@ function loadStored(): { host: string; port: string; name: string; password: str
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
-        host: parsed.host ?? 'localhost',
+        host: parsed.host ?? '192.168.8.94',
         port: parsed.port ?? '3001',
         name: parsed.name ?? '',
         password: parsed.password ?? '',
       }
     }
   } catch { /* ignore */ }
-  return { host: 'localhost', port: '3001', name: '', password: '' }
+  return { host: '192.168.8.94', port: '3001', name: '', password: '' }
 }
 
 function saveStored(host: string, port: string, name: string, password: string): void {
