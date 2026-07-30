@@ -16,6 +16,7 @@ export interface ChatMessage {
   userName: string
   text?: string
   audioData?: string
+  videoData?: string
   duration?: number
   timestamp: number
 }
@@ -65,6 +66,7 @@ export enum WsMessageType {
   Error = 'error',
   Login = 'login',
   ChatAudioMessage = 'chat_audio_message',
+  ChatVideoMessage = 'chat_video_message',
   ChatMessage = 'chat_message',
   PrivateMessage = 'private_message',
   Welcome = 'welcome',

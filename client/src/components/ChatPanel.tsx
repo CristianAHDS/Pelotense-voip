@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
-import { sendChatMessage, sendChatAudioMessage } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
+import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import type { ChatMsg } from '../types/index.ts'
 
 const COLORS = [
@@ -36,7 +37,9 @@ export function ChatPanel() {
   const connected = useConnectionStore((s) => s.connected)
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
-  const { recording, duration, startRecording, stopRecording, cancelRecording } = useAudioRecorder()
+  const audioRec = useAudioRecorder()
+  const videoRec = useVideoRecorder()
+  const isRecording = audioRec.recording || videoRec.recording
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -55,19 +58,34 @@ export function ChatPanel() {
     }
   }
 
-  async function handleStartRecording() {
-    const result = await startRecording()
+  async function handleStartAudioRecording() {
+    const result = await audioRec.startRecording()
     if (result) {
       sendChatAudioMessage(result.data, result.duration)
     }
   }
 
-  function handleStopRecording() {
-    stopRecording()
+  async function handleStartVideoRecording() {
+    const result = await videoRec.startRecording()
+    if (result) {
+      sendChatVideoMessage(result.data, result.duration)
+    }
   }
 
-  function handleCancelRecording() {
-    cancelRecording()
+  function handleStopAudioRecording() {
+    audioRec.stopRecording()
+  }
+
+  function handleStopVideoRecording() {
+    videoRec.stopRecording()
+  }
+
+  function handleCancelAudioRecording() {
+    audioRec.cancelRecording()
+  }
+
+  function handleCancelVideoRecording() {
+    videoRec.cancelRecording()
   }
 
   if (!connected || !currentRoomName) return null
@@ -98,14 +116,21 @@ export function ChatPanel() {
 
       <div className="chat-footer">
         <div className="chat-input-wrap">
-          {recording ? (
+          {isRecording ? (
             <>
               <div className="chat-recording-indicator">
-                <span className="chat-recording-dot" />
-                <span className="chat-recording-time">{duration}s</span>
+                {videoRec.recording ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                ) : (
+                  <span className="chat-recording-dot" />
+                )}
+                <span className="chat-recording-time">{videoRec.recording ? videoRec.duration : audioRec.duration}s</span>
               </div>
               <button
-                onClick={handleCancelRecording}
+                onClick={videoRec.recording ? handleCancelVideoRecording : handleCancelAudioRecording}
                 className="chat-cancel-btn"
                 title="Cancel"
               >
@@ -115,7 +140,7 @@ export function ChatPanel() {
                 </svg>
               </button>
               <button
-                onClick={handleStopRecording}
+                onClick={videoRec.recording ? handleStopVideoRecording : handleStopAudioRecording}
                 className="chat-recording-stop-btn"
                 title="Send"
               >
@@ -135,7 +160,7 @@ export function ChatPanel() {
                 className="chat-input"
               />
               <button
-                onClick={handleStartRecording}
+                onClick={handleStartAudioRecording}
                 className="chat-mic-btn"
                 title="Record audio"
               >
@@ -144,6 +169,16 @@ export function ChatPanel() {
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                   <line x1="12" y1="19" x2="12" y2="23" />
                   <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              </button>
+              <button
+                onClick={handleStartVideoRecording}
+                className="chat-cam-btn"
+                title="Record video"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
               </button>
               <button
@@ -171,6 +206,7 @@ function ChatBubble({ msg, isSelf, avatarColor, showAvatar }: {
   showAvatar: boolean
 }) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const [playing, setPlaying] = useState(false)
 
@@ -184,10 +220,20 @@ function ChatBubble({ msg, isSelf, avatarColor, showAvatar }: {
       )
       setAudioUrl(url)
     }
+    if (msg.videoData && !videoUrl) {
+      const url = URL.createObjectURL(
+        new Blob(
+          [Uint8Array.from(atob(msg.videoData), (c) => c.charCodeAt(0))],
+          { type: 'video/webm' }
+        )
+      )
+      setVideoUrl(url)
+    }
     return () => {
       if (audioUrl) URL.revokeObjectURL(audioUrl)
+      if (videoUrl) URL.revokeObjectURL(videoUrl)
     }
-  }, [msg.audioData])
+  }, [msg.audioData, msg.videoData])
 
   function togglePlay() {
     if (!audioRef.current) return
@@ -221,7 +267,18 @@ function ChatBubble({ msg, isSelf, avatarColor, showAvatar }: {
             {msg.userName}
           </div>
         )}
-        {msg.audioData ? (
+        {msg.videoData ? (
+          <div className="chat-bubble-video">
+            {videoUrl && (
+              <video
+                src={videoUrl}
+                controls
+                className="chat-video-player"
+              />
+            )}
+            <div className="chat-bubble-time">{formatDuration(msg.duration ?? 0)}</div>
+          </div>
+        ) : msg.audioData ? (
           <div className="chat-bubble-audio">
             <button
               onClick={togglePlay}
@@ -265,7 +322,9 @@ function ChatBubble({ msg, isSelf, avatarColor, showAvatar }: {
         ) : (
           <div className="chat-bubble-text">{msg.text}</div>
         )}
-        <div className="chat-bubble-time">{formatTime(msg.timestamp)}</div>
+        {!msg.videoData && (
+          <div className="chat-bubble-time">{formatTime(msg.timestamp)}</div>
+        )}
       </div>
     </div>
   )

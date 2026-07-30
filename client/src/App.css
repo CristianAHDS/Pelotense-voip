@@ -964,6 +964,41 @@ body {
   background: rgba(255,255,255,0.05);
 }
 
+.chat-cam-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-cam-btn:hover {
+  color: #e0e0e0;
+  background: rgba(255,255,255,0.05);
+}
+
+.chat-bubble-video {
+  max-width: 260px;
+}
+
+.chat-video-player {
+  width: 100%;
+  border-radius: 8px;
+  display: block;
+}
+
+.chat-bubble--self .chat-bubble-video .chat-bubble-time {
+  color: rgba(255,255,255,0.6);
+  margin-top: 4px;
+}
+
 .chat-recording-indicator {
   flex: 1;
   display: flex;

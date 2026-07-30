@@ -138,6 +138,10 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
   })
 
+  wsClient.on(WsMessageType.ChatVideoMessage, (msg) => {
+    useRoomStore.getState().addMessage(msg.payload as ChatMsg)
+  })
+
   wsClient.on(WsMessageType.PrivateMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
@@ -180,6 +184,11 @@ export function sendChatMessage(text: string): void {
 export function sendChatAudioMessage(audioData: string, duration: number): void {
   if (!wsClient) { console.error('sendChatAudioMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.ChatAudioMessage, { audioData, duration })
+}
+
+export function sendChatVideoMessage(videoData: string, duration: number): void {
+  if (!wsClient) { console.error('sendChatVideoMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.ChatVideoMessage, { videoData, duration })
 }
 
 export function sendPrivateMessage(toUserId: string, text: string): void {

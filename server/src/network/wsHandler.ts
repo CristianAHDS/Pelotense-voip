@@ -223,6 +223,10 @@ export class WsHandler {
         this.handleChatAudioMessage(client, msg.payload as { audioData: string; duration: number })
         break
 
+      case WsMessageType.ChatVideoMessage:
+        this.handleChatVideoMessage(client, msg.payload as { videoData: string; duration: number })
+        break
+
       case WsMessageType.PrivateMessage:
         this.handlePrivateMessage(client, msg.payload as { toUserId: string; text: string })
         break
@@ -271,6 +275,28 @@ export class WsHandler {
 
     this.broadcastToRoom(client.room, {
       type: WsMessageType.ChatAudioMessage,
+      payload: chatMsg,
+    }, '')
+  }
+
+  private handleChatVideoMessage(client: Client, payload: { videoData: string; duration: number }): void {
+    if (!client.room || !payload.videoData) return
+
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const chatMsg: ChatMessage = {
+      userId: client.id,
+      userName: client.name,
+      videoData: payload.videoData,
+      duration: payload.duration,
+      timestamp: Date.now(),
+    }
+
+    room.messages.push(chatMsg)
+
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.ChatVideoMessage,
       payload: chatMsg,
     }, '')
   }
