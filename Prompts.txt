@@ -1,0 +1,23 @@
+Ao dar Conenct, deve pedir um nick name e uma senha, esses dados devem ficar guardados em local storage, caso ja tenha um usuario com o mesmo nome e a senha for igual a do usuario logado, deve ser desconectado da aba ja logada e conectada na nova, a regra e que não podem ter 2  usuarios com o mesmo nome logados ao mesmo tempo
+
+
+O ip de conexão deve ficar salvo igual ao ultimo que foi realizado, crie um git e adicione isso ao um novo commit
+
+O sistema deve salvar a section de login para que o usario n preciso refazer o login toda vez que atualiza
+, crie um git e adicione isso ao um novo commit
+
+As informações não estão atualizando em tempo real para todos os usuarios, assim que uma ação acontecer no servidor, todos os frotns deverão atualizar automaticamente
+, crie um git e adicione isso ao um novo commit
+
+O login não esta ficando salvo  ainda, todas as vezes que eu reinicio a pagina, acabo tendo que logar novamente, crie um git e adicione isso ao um novo commit
+
+Cire um chat em tempor eal da room criada, onde deve aparecer uma imagem de usuario padrão, o nome do usuario e a mensagem, o chat deve ser desfeito junto com a sala quando todos sairem, crie um git e adicione isso ao um novo commit
+
+Ao sair da sala, ou ao entrar depois de uma mensagem, o usuario não consegue ver as mesangem que foram enviadas, não ficam salvas para que todos vejam a qualquer momento que entrar na sala acabo entrando na sala que foi cirada automaticamente seja apos o envio ou ao enviar sair e voltar,  além disso, ao desconectar e conectar com um novo usario. adicione essas correções a um noto commit
+
+as roons so devem ser desfeitas (juto com os dados do seu chat) apos apertar um botão de excluir  room, adicione isso e as demais modificações atuvas a um novo commit 
+
+Mude a paleta de cores dos botõe spara se adequarem mais com od esign, além disso, mostre nas salas os usuarios que estão nela (avatar + nome) apos o numero de usuarios ("1 users"), adicione isso a um novo commit
+
+
+Crie um sistema de chat entre os users como forma de chat pessoa para pessoa, deve ser aberto ao clicar no usuario que fica na lsita de usuarios a direita, defina a melhor formad e design para fazer isso, com botões na tela ou ao clicar aparecer as opções, adicione isso e as outars modificaç~eos a um novo commit

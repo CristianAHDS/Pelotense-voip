@@ -510,6 +510,23 @@ body {
   color: #e0e0e0;
 }
 
+.chat-panel--dm {
+  margin-top: 12px;
+  border-left: 3px solid #8b5cf6;
+}
+
+.chat-header--dm {
+  background: #1a1a2e;
+}
+
+.chat-bubble--dm:not(.chat-bubble--self) {
+  background: #2a1a3a;
+}
+
+.chat-footer--dm {
+  background: #1a1a2e;
+}
+
 .chat-header-count {
   font-size: 12px;
   color: #666;

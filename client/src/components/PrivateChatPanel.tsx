@@ -33,11 +33,11 @@ export function PrivateChatPanel() {
   if (!activeUserId || !activeUserName) return null
 
   return (
-    <div className="panel chat-panel">
-      <div className="chat-header">
+    <div className="chat-panel chat-panel--dm">
+      <div className="chat-header chat-header--dm">
         <span className="chat-header-name">@{activeUserName}</span>
         <span className="chat-header-count">{messages.length} messages</span>
-        <button onClick={closeChat} className="btn btn-close-pchat" title="Close">&times;</button>
+        <button onClick={closeChat} className="btn-close-pchat" title="Close">&times;</button>
       </div>
 
       <div className="chat-messages">
@@ -45,7 +45,7 @@ export function PrivateChatPanel() {
           const isSelf = msg.fromUserId === myId
           return (
             <div key={i} className={`chat-row ${isSelf ? 'chat-row--self' : ''}`}>
-              <div className="chat-bubble">
+              <div className={`chat-bubble chat-bubble--dm ${isSelf ? 'chat-bubble--self' : ''}`}>
                 <div className="chat-bubble-text">{msg.text}</div>
               </div>
             </div>
@@ -54,7 +54,7 @@ export function PrivateChatPanel() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="chat-footer">
+      <div className="chat-footer chat-footer--dm">
         <div className="chat-input-wrap">
           <input
             type="text"
