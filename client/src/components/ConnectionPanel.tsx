@@ -25,7 +25,9 @@ function loadStored(): { host: string; port: string; name: string; password: str
 function saveStored(host: string, port: string, name: string, password: string): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ host, port, name, password }))
-  } catch { /* ignore */ }
+  } catch (e) {
+    console.error('Failed to save credentials:', e)
+  }
 }
 
 export function ConnectionPanel() {
@@ -33,10 +35,16 @@ export function ConnectionPanel() {
   const reconnecting = useConnectionStore((s) => s.reconnecting)
   const setServerHost = useSettingsStore((s) => s.setServerHost)
   const setServerWsPort = useSettingsStore((s) => s.setServerWsPort)
-  const [host, setHost] = useState(() => loadStored().host)
-  const [port, setPort] = useState(() => loadStored().port)
-  const [nickname, setNickname] = useState(() => loadStored().name)
-  const [password, setPassword] = useState(() => loadStored().password)
+
+  const [stored] = useState(() => loadStored())
+  const [host, setHost] = useState(stored.host)
+  const [port, setPort] = useState(stored.port)
+  const [nickname, setNickname] = useState(stored.name)
+  const [password, setPassword] = useState(stored.password)
+
+  function persist() {
+    saveStored(host, port, nickname, password)
+  }
 
   const statusText = reconnecting
     ? 'Reconnecting...'
@@ -51,7 +59,7 @@ export function ConnectionPanel() {
       : 'disconnected'
 
   function handleConnect() {
-    saveStored(host, port, nickname, password)
+    persist()
     setServerHost(host)
     setServerWsPort(Number(port))
     connectToServer(`ws://${host}:${port}`, nickname, password)
@@ -70,14 +78,14 @@ export function ConnectionPanel() {
             <input
               type="text"
               value={host}
-              onChange={(e) => setHost(e.target.value)}
+              onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, port, nickname, password) }}
               placeholder="Server IP"
               className="input"
             />
             <input
               type="number"
               value={port}
-              onChange={(e) => setPort(e.target.value)}
+              onChange={(e) => { const v = e.target.value; setPort(v); saveStored(host, v, nickname, password) }}
               placeholder="Port"
               className="input"
             />
@@ -86,14 +94,14 @@ export function ConnectionPanel() {
             <input
               type="text"
               value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
+              onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, port, v, password) }}
               placeholder="Nickname"
               className="input"
             />
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, port, nickname, v) }}
               placeholder="Password"
               className="input"
             />
