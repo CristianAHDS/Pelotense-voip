@@ -8,6 +8,7 @@ export function UserList() {
   const myId = useConnectionStore((s) => s.id)
   const openChat = usePrivateChatStore((s) => s.openChat)
   const activeUserId = usePrivateChatStore((s) => s.activeUserId)
+  const unread = usePrivateChatStore((s) => s.unread)
 
   function handleClick(userId: string, userName: string) {
     if (userId === myId) return
@@ -21,6 +22,7 @@ export function UserList() {
         {users.map((user) => {
           const isMe = user.id === myId
           const isActive = user.id === activeUserId
+          const hasUnread = !isMe && unread[user.id]
           return (
             <div
               key={user.id}
@@ -31,6 +33,7 @@ export function UserList() {
               onKeyDown={(e) => e.key === 'Enter' && handleClick(user.id, user.name)}
             >
               <span className="user-name">{user.name}{isMe ? ' (you)' : ''}</span>
+              {hasUnread && <span className="user-unread-dot" />}
             </div>
           )
         })}

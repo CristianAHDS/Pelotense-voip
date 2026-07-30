@@ -426,6 +426,15 @@ body {
   white-space: nowrap;
 }
 
+.user-unread-dot {
+  margin-left: auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
 .empty-state {
   color: #666;
   font-size: 13px;
