@@ -3,8 +3,8 @@ import { useRooms } from '../hooks/useRooms.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 
 const COLORS = [
-  '#5865f2', '#ed4245', '#2ecc71', '#f59e0b', '#9b59b6',
-  '#1abc9c', '#e67e22', '#3498db', '#e84393', '#00b894',
+  '#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
+  '#14b8a6', '#f97316', '#06b6d4', '#ec4899', '#84cc16',
 ]
 
 function userColor(userId: string): string {
