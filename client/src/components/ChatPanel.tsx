@@ -114,7 +114,7 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
-      {videoRec.stream && (
+      {videoRec.stream ? (
         <div className="chat-video-preview-overlay">
           <div className="chat-video-preview-box">
             <video
@@ -124,30 +124,47 @@ export function ChatPanel() {
               playsInline
               className="chat-video-preview"
             />
-            <div className="chat-video-preview-label">
-              {videoRec.recording ? `Recording ${videoRec.duration}s` : 'Camera preview'}
+            <div className="chat-video-preview-toolbar">
+              <span className="chat-recording-indicator">
+                <span className="chat-recording-dot" />
+                <span className="chat-recording-time">{videoRec.duration}s</span>
+              </span>
+              <div className="chat-video-preview-actions">
+                <button
+                  onClick={handleCancelVideoRecording}
+                  className="chat-cancel-btn"
+                  title="Cancel"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleStopVideoRecording}
+                  className="chat-recording-stop-btn"
+                  title="Send"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="chat-footer">
         <div className="chat-input-wrap">
           {isRecording ? (
             <>
               <div className="chat-recording-indicator">
-                {videoRec.recording ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                ) : (
-                  <span className="chat-recording-dot" />
-                )}
-                <span className="chat-recording-time">{videoRec.recording ? videoRec.duration : audioRec.duration}s</span>
+                <span className="chat-recording-dot" />
+                <span className="chat-recording-time">{audioRec.duration}s</span>
               </div>
               <button
-                onClick={videoRec.recording ? handleCancelVideoRecording : handleCancelAudioRecording}
+                onClick={handleCancelAudioRecording}
                 className="chat-cancel-btn"
                 title="Cancel"
               >
@@ -157,7 +174,7 @@ export function ChatPanel() {
                 </svg>
               </button>
               <button
-                onClick={videoRec.recording ? handleStopVideoRecording : handleStopAudioRecording}
+                onClick={handleStopAudioRecording}
                 className="chat-recording-stop-btn"
                 title="Send"
               >
