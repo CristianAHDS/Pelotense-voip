@@ -72,6 +72,7 @@ body {
   gap: 12px;
   padding: 16px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   flex-shrink: 0;
   border-right: 1px solid #232340;
 }
@@ -80,6 +81,7 @@ body {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   min-width: 0;
   background: #13132b;
 }
@@ -488,6 +490,7 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   max-height: 340px;
   padding: 12px 18px;
   display: flex;
@@ -687,6 +690,8 @@ body {
     transition: transform 0.25s ease;
     padding: 14px;
     gap: 10px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 4px 0 24px rgba(0,0,0,0.4);
     border-right: none;
   }
