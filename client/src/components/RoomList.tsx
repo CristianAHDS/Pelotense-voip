@@ -22,20 +22,22 @@ export function RoomList() {
             key={room.id}
             className={`room-item ${currentRoom === room.id ? 'active' : ''}`}
           >
-            <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">&times;</button>
             <div className="room-info">
               <span className="room-name">{room.name}</span>
               <span className="room-users">{room.users} users</span>
             </div>
-            {currentRoom === room.id ? (
-              <button onClick={leave} className="btn btn-leave">
-                Leave
-              </button>
-            ) : (
-              <button onClick={() => join(room.name)} className="btn btn-join">
-                Join
-              </button>
-            )}
+            <div className="room-actions">
+              {currentRoom === room.id ? (
+                <button onClick={leave} className="btn btn-leave">
+                  Leave
+                </button>
+              ) : (
+                <button onClick={() => join(room.name)} className="btn btn-join">
+                  Join
+                </button>
+              )}
+              <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">Delete</button>
+            </div>
           </div>
         ))}
       </div>
