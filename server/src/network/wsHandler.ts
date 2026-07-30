@@ -109,6 +109,10 @@ export class WsHandler {
     ws.removeAllListeners('message')
 
     ws.on('message', (data) => {
+      if (data instanceof Buffer) {
+        this.handleBinaryMessage(client, data)
+        return
+      }
       try {
         const msg: WsMessage = JSON.parse(data.toString())
         this.handleMessage(client, msg)
@@ -243,6 +247,25 @@ export class WsHandler {
       type: WsMessageType.ChatMessage,
       payload: chatMsg,
     }, '')
+  }
+
+  private handleBinaryMessage(client: Client, data: Buffer): void {
+    const roomId = client.room
+    if (!roomId) return
+
+    const room = this.rooms.get(roomId)
+    if (!room) return
+
+    const userIdBuf = Buffer.from(client.id.padEnd(8, '\0').slice(0, 8), 'utf8')
+    const out = Buffer.alloc(8 + data.length)
+    userIdBuf.copy(out, 0)
+    data.copy(out, 8)
+
+    room.clients.forEach((c) => {
+      if (c.id !== client.id && c.ws.readyState === WebSocket.OPEN) {
+        c.ws.send(out)
+      }
+    })
   }
 
   private handlePrivateMessage(client: Client, payload: { toUserId: string; text: string }): void {

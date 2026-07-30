@@ -1,11 +1,13 @@
 import { WsMessage, WsMessageType } from '../types/index.ts'
 
 export type MessageHandler = (msg: WsMessage) => void
+export type BinaryHandler = (data: ArrayBuffer) => void
 
 export class WsClient {
   private ws: WebSocket | null = null
   private url: string = ''
   private handlers = new Map<string, Set<MessageHandler>>()
+  private binaryHandlers = new Set<BinaryHandler>()
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private intentionalDisconnect: boolean = false
@@ -33,6 +35,7 @@ export class WsClient {
 
   private createWs(): void {
     this.ws = new WebSocket(this.url)
+    this.ws.binaryType = 'arraybuffer'
 
     this.ws.onopen = () => {
       this.startHeartbeat()
@@ -41,6 +44,10 @@ export class WsClient {
     }
 
     this.ws.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        this.binaryHandlers.forEach((h) => h(event.data as ArrayBuffer))
+        return
+      }
       try {
         const msg: WsMessage = JSON.parse(event.data)
         this.emit(msg.type, msg)
@@ -85,6 +92,12 @@ export class WsClient {
     }
   }
 
+  sendBinary(data: ArrayBuffer): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(data)
+    }
+  }
+
   on(type: string, handler: MessageHandler): void {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, new Set())
@@ -94,6 +107,14 @@ export class WsClient {
 
   off(type: string, handler: MessageHandler): void {
     this.handlers.get(type)?.delete(handler)
+  }
+
+  onBinary(handler: BinaryHandler): void {
+    this.binaryHandlers.add(handler)
+  }
+
+  offBinary(handler: BinaryHandler): void {
+    this.binaryHandlers.delete(handler)
   }
 
   private emit(type: string, msg: WsMessage): void {

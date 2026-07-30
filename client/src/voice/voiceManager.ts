@@ -7,13 +7,17 @@ export class VoiceManager {
   private encoder: Encoder
   private decoder: Decoder
   private active: boolean = false
-  private sequence: number = 0
+  private onSendAudio: ((data: ArrayBuffer) => void) | null = null
 
   constructor() {
     this.microphone = new Microphone()
     this.speaker = new Speaker()
     this.encoder = new Encoder()
     this.decoder = new Decoder()
+  }
+
+  setOnSend(cb: (data: ArrayBuffer) => void): void {
+    this.onSendAudio = cb
   }
 
   async startMicrophone(): Promise<boolean> {
@@ -24,7 +28,7 @@ export class VoiceManager {
       if (useVoiceStore.getState().muted) return
       useVoiceStore.getState().setTalking(true)
       const encoded = this.encoder.encode(data)
-      this.sendAudio(encoded)
+      this.onSendAudio?.(encoded)
       useVoiceStore.getState().setTalking(false)
     })
 
@@ -35,6 +39,7 @@ export class VoiceManager {
   stopMicrophone(): void {
     this.microphone.stop()
     this.active = false
+    useVoiceStore.getState().setTalking(false)
   }
 
   playAudio(data: ArrayBuffer): void {
@@ -46,9 +51,7 @@ export class VoiceManager {
     this.speaker.setVolume(volume)
   }
 
-  private sendAudio(_data: ArrayBuffer): void {
-    this.sequence++
-  }
+  get activeMic(): boolean { return this.active }
 
   destroy(): void {
     this.stopMicrophone()

@@ -2,19 +2,27 @@ export class Speaker {
   private context: AudioContext | null = null
   private gainNode: GainNode | null = null
 
-  constructor() {
-    this.context = new AudioContext()
-    this.gainNode = this.context.createGain()
-    this.gainNode.connect(this.context.destination)
+  private ensureContext(): AudioContext | null {
+    if (!this.context) {
+      try {
+        this.context = new AudioContext()
+        this.gainNode = this.context.createGain()
+        this.gainNode.connect(this.context.destination)
+      } catch {
+        return null
+      }
+    }
+    return this.context
   }
 
   play(audioData: Float32Array): void {
-    if (!this.context || !this.gainNode) return
+    const ctx = this.ensureContext()
+    if (!ctx || !this.gainNode) return
 
-    const buffer = this.context.createBuffer(1, audioData.length, 48000)
+    const buffer = ctx.createBuffer(1, audioData.length, 48000)
     buffer.getChannelData(0).set(audioData)
 
-    const source = this.context.createBufferSource()
+    const source = ctx.createBufferSource()
     source.buffer = buffer
     source.connect(this.gainNode)
     source.start()
@@ -30,6 +38,7 @@ export class Speaker {
     if (this.context) {
       this.context.close()
       this.context = null
+      this.gainNode = null
     }
   }
 }

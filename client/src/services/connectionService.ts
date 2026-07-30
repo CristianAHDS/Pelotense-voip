@@ -3,12 +3,55 @@ import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg, PrivateChatMsg } 
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { usePrivateChatStore } from '../stores/privateChatStore.ts'
+import { VoiceManager } from '../voice/index.ts'
+import { useVoiceStore } from '../stores/voiceStore.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
+let voiceManager: VoiceManager | null = null
+let voiceCleanup: (() => void) | null = null
 
 export function getWsClient(): WsClient | null {
   return wsClient
+}
+
+export function getVoiceManager(): VoiceManager | null {
+  return voiceManager
+}
+
+export function sendVoiceData(data: ArrayBuffer): void {
+  wsClient?.sendBinary(data)
+}
+
+function initVoice(): void {
+  if (voiceManager) return
+  voiceManager = new VoiceManager()
+  voiceManager.setOnSend((data) => sendVoiceData(data))
+  voiceCleanup = wsClient?.onBinary((data) => {
+    const userIdBytes = data.slice(0, 8)
+    const audioData = data.slice(8)
+    const userId = new TextDecoder().decode(userIdBytes).replace(/\0+$/, '')
+    voiceManager?.playAudio(audioData)
+  }) ?? null
+}
+
+function cleanupVoice(): void {
+  voiceManager?.stopMicrophone()
+  voiceCleanup?.()
+  voiceCleanup = null
+  voiceManager?.destroy()
+  voiceManager = null
+}
+
+function voiceOnRoomJoined(): void {
+  const muted = useVoiceStore.getState().muted
+  if (!muted) {
+    voiceManager?.startMicrophone()
+  }
+}
+
+function voiceOnRoomLeft(): void {
+  voiceManager?.stopMicrophone()
 }
 
 export function connectToServer(address: string, name: string, password: string): void {
@@ -16,6 +59,7 @@ export function connectToServer(address: string, name: string, password: string)
 
   wsClient = new WsClient()
   reconnecting = false
+  initVoice()
 
   wsClient.on('connected', () => {
     const payload: LoginPayload = { name, password }
@@ -51,11 +95,13 @@ export function connectToServer(address: string, name: string, password: string)
     const payload = msg.payload as any
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
     useRoomStore.getState().setMessages(payload.messages ?? [])
+    voiceOnRoomJoined()
   })
 
   wsClient.on(WsMessageType.RoomLeft, () => {
     useRoomStore.getState().setCurrentRoom(null)
     useRoomStore.getState().clearMessages()
+    voiceOnRoomLeft()
   })
 
   wsClient.on(WsMessageType.RoomDeleted, (msg) => {
@@ -64,6 +110,7 @@ export function connectToServer(address: string, name: string, password: string)
     if (store.currentRoom === payload.roomId) {
       store.setCurrentRoom(null)
       store.clearMessages()
+      voiceOnRoomLeft()
     }
   })
 
@@ -104,6 +151,7 @@ export function sendPrivateMessage(toUserId: string, text: string): void {
 }
 
 export function disconnectFromServer(): void {
+  cleanupVoice()
   reconnecting = false
   wsClient?.disconnect()
   wsClient = null

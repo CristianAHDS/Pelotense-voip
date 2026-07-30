@@ -21,3 +21,8 @@ Mude a paleta de cores dos botõe spara se adequarem mais com od esign, além di
 
 
 Crie um sistema de chat entre os users como forma de chat pessoa para pessoa, deve ser aberto ao clicar no usuario que fica na lsita de usuarios a direita, defina a melhor formad e design para fazer isso, com botões na tela ou ao clicar aparecer as opções, adicione isso e as outars modificaç~eos a um novo commit
+
+A comunicação por audio ainda não esta funcionando, ao entrar na sala, o microfone da pessoa deve entrar na "chamada" onde todos escutam todos, similar a mumble, discord, teamspeack, wgrave
+
+
+Ao abrir um chato de uma sala e um chat de com um user, o chat da sala não funciona, não consigo mandar mensagem, adicione esse fix e as modificações anteriores a um novo commit
