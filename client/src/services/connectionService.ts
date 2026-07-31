@@ -48,6 +48,16 @@ function cleanupVoice(): void {
   voiceManager = null
 }
 
+function voiceOnLogin(): void {
+  // Pede a permissão do microfone logo após o login. No mobile, o gesto de
+  // conceder a permissão "destrava" o AudioContext de saída (política de
+  // autoplay); sem isso o som só começava a sair após um Unmute/Mute manual.
+  // O estado de mudo não é alterado: o envio continua sendo controlado por ele.
+  voiceManager?.startMicrophone().then((ok) => {
+    if (!ok) useVoiceStore.getState().setMuted(true)
+  })
+}
+
 function voiceOnRoomJoined(): void {
   const muted = useVoiceStore.getState().muted
   if (!muted) {
@@ -93,6 +103,7 @@ export function connectToServer(address: string, name: string, password: string)
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     requestRoomList()
+    voiceOnLogin()
   })
 
   wsClient.on(WsMessageType.RoomList, (msg) => {

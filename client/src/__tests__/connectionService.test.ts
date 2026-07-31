@@ -39,11 +39,13 @@ vi.mock('../network/wsClient.ts', () => ({ WsClient: MockWsClient }))
 vi.mock('../voice/index.ts', () => {
   class MockVoiceManager {
     static resumeCalls = 0
+    static startMicCalls = 0
     resumeOutput(): void {
       MockVoiceManager.resumeCalls += 1
     }
     setOnSend(): void {}
     async startMicrophone(): Promise<boolean> {
+      MockVoiceManager.startMicCalls += 1
       return true
     }
     stopMicrophone(): void {}
@@ -57,7 +59,7 @@ vi.mock('../voice/index.ts', () => {
 const { connectToServer, disconnectFromServer, getWsClient } = await import('../services/connectionService.ts')
 const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom } = await import('../services/connectionService.ts')
 const voiceMock = await import('../voice/index.ts')
-const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number }
+const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number; startMicCalls: number }
 
 function emit(type: string, payload?: unknown): void {
   ;(getWsClient() as any).emit(type, { type, payload })
@@ -68,6 +70,7 @@ beforeEach(() => {
   sent.length = 0
   connectedUrl = null
   MockVoiceManager.resumeCalls = 0
+  MockVoiceManager.startMicCalls = 0
   useConnectionStore.setState({ connected: false, reconnecting: false, id: null, name: null })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [] })
   useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
@@ -215,5 +218,12 @@ describe('connectionService', () => {
     const before = MockVoiceManager.resumeCalls
     joinRoom('Ao vivo')
     expect(MockVoiceManager.resumeCalls).toBe(before + 1)
+  })
+
+  it('após o Welcome, solicita a permissão do microfone (destrava o áudio de saída no mobile)', () => {
+    connectToServer('ws://x', 'A', 'p')
+    const before = MockVoiceManager.startMicCalls
+    emit(WsMessageType.Welcome, { id: 'id1', name: 'A' })
+    expect(MockVoiceManager.startMicCalls).toBe(before + 1)
   })
 })
