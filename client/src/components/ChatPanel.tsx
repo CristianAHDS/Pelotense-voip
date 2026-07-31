@@ -151,7 +151,7 @@ export function ChatPanel() {
                         key={d.deviceId}
                         className={`chat-camera-picker-item${videoRec.cameraId === d.deviceId ? ' active' : ''}`}
                         onClick={() => {
-                          videoRec.setCameraId(d.deviceId)
+                          videoRec.switchCamera(d.deviceId)
                           setCameraPickerOpen(false)
                         }}
                       >
