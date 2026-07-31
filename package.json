@@ -9,6 +9,9 @@
     "client:dev:jornal": "set VITE_SERVER_HOST=192.168.8.94 && cd client && npm run dev",
     "client:build": "cd client && npm run build",
     "client:tauri": "cd client && npm run tauri",
-    "serve": "cd client && npm run build && cd ../server && npm run dev"
+    "serve": "cd client && npm run build && cd ../server && npm run dev",
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test"
   }
 }

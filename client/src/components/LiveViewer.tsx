@@ -1,36 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
-
-const MAX_CHUNKS = 200
-const REVOKE_DELAY = 3000
-
-const MSE_MIMES = [
-  'video/webm;codecs=vp9,opus',
-  'video/webm;codecs=vp8,opus',
-  'video/webm;codecs=vp9',
-  'video/webm;codecs=vp8',
-  'video/webm',
-]
-
-function chunkToBuffer(chunk: string): Uint8Array {
-  try {
-    const binary = atob(chunk)
-    return Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
-  } catch {
-    return new Uint8Array()
-  }
-}
-
-function isMseSupported(): string | null {
-  if (typeof MediaSource === 'undefined') return null
-  for (const mime of MSE_MIMES) {
-    try {
-      if (MediaSource.isTypeSupported(mime)) return mime
-    } catch { /* next */ }
-  }
-  return null
-}
+import { MAX_CHUNKS, REVOKE_DELAY, chunkToBuffer, isMseSupported } from '../utils/livePlayer.ts'
 
 export function LiveViewer() {
   const broadcaster = useLiveStore((s) => s.broadcaster)
