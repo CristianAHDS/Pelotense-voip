@@ -112,6 +112,20 @@ describe('RoomManager', () => {
     const payload = rooms.toRoomListPayload(r)
     expect(payload).toMatchObject({ name: 'Ao vivo', fixed: true, featured: 3, users: 0 })
   })
+
+  it('toRoomListPayload inclui o nome do criador', () => {
+    rooms.create('Sala do Dono', 'd1', 'Dono da Sala')
+    const payload = rooms.toRoomListPayload(rooms.findByName('Sala do Dono')!)
+    expect(payload.createdBy).toBe('d1')
+    expect(payload.createdByName).toBe('Dono da Sala')
+  })
+
+  it('toRoomListPayload inclui transmissão ao vivo quando ativa', () => {
+    const room = rooms.findByName('Ao vivo')!
+    expect(rooms.toRoomListPayload(room).live).toBeNull()
+    rooms.setLiveBroadcast(room.id, { userId: 'u1', userName: 'Narrador', timestamp: Date.now() })
+    expect(rooms.toRoomListPayload(room).live).toEqual({ userId: 'u1', userName: 'Narrador' })
+  })
 })
 
 describe('ClientManager', () => {

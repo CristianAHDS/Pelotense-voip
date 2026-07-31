@@ -43,16 +43,16 @@ Marque com `[x]` os itens já concluídos.
 Melhorias visuais/interativas para o painel de salas (aplicáveis depois das features acima):
 
 - [ ] **R1. Agrupar salas por tipo** — Separar as 6 salas fixas/emissora (canais) das temporárias criadas por usuários, com headers ("Canais" / "Salas criadas"). Reduz poluição visual quando há muitas temporárias.
-- [ ] **R2. Badge "LIVE" nas salas com transmissão** — Destacar em vermelho + pulsante a sala que está com broadcast ativo, e o nome do broadcaster logo abaixo.
-- [ ] **R3. Mostrar criador da sala** — Nas temporárias, exibir "criada por <nome>" (já vem `createdBy` no payload) com avatar colorido; usar isso também para indicar a quem pedir permissão de delete.
+- [x] **R2. Badge "LIVE" nas salas com transmissão** — Destacar em vermelho + pulsante a sala que está com broadcast ativo, e o nome do broadcaster logo abaixo. ✅ Feito: payload `room_list` agora inclui `live: { userId, userName }` (reenviado a cada start/stop/force-stop), badge pulsante e nome do broadcaster na sala.
+- [x] **R3. Mostrar criador da sala** — Nas temporárias, exibir "criada por <nome>" (já vem `createdBy` no payload) com avatar colorido; usar isso também para indicar a quem pedir permissão de delete. ✅ Feito: `createdByName` no payload, avatar + "criada por <nome>" (fallback: resolve pela lista de usuários).
 - [ ] **R4. Confirmação antes de deletar** — Dialog de confirmação (e talvez exigir digitar o nome) antes de excluir, já que deleta a sala para todos.
 - [ ] **R5. Busca/filtro de salas** — Input de busca no topo que filtra por nome; útil com muitas salas.
 - [ ] **R6. Ordenação inteligente** — Ordenar por: fixas primeiro → com live → com mais usuários → mais recentes.
 - [ ] **R7. Copiar nome da sala** — Botão de copiar para colar no grupo/convite (feedback "copiado!").
-- [ ] **R8. Tooltip de ocupantes** — Hover sobre o nome mostra a lista completa de quem está na sala (hoje limita a 5 avatares).
+- [x] **R8. Tooltip de ocupantes** — Hover sobre o nome mostra a lista completa de quem está na sala (hoje limita a 5 avatares). ✅ Feito: tooltip CSS com todos os nomes no hover sobre os avatares e `+N` com tooltip dos demais.
 - [ ] **R9. Skeleton/estado vazio melhorado** — Skeleton enquanto carrega; estado vazio com CTA "crie a primeira sala".
-- [ ] **R10. Mobile-friendly** — Em telas pequenas, transformar a lista de salas em drawer/bottom-sheet; hoje o layout em grid trunca bastante.
-- [ ] **R11. Indicação de atividade** — Ponto verde/amarelo na sala quando há usuários falando (integra com o indicador de voz da F13).
+- [x] **R10. Mobile-friendly** — Em telas pequenas, transformar a lista de salas em drawer/bottom-sheet; hoje o layout em grid trunca bastante. ✅ Feito (parcial): lista de salas colapsável no mobile (toggle "▾ Hide"/"▸ Show" + resumo de usuários/salas) para não empurrar o chat; drawer completo fica para quando houver layout dedicado.
+- [x] **R11. Indicação de atividade** — Ponto verde/amarelo na sala quando há usuários falando (integra com o indicador de voz da F13). ✅ Feito: sala ganha borda verde + ponto pulsante quando algum ocupante está falando (usa o store `speaking`).
 
 ---
 
@@ -64,3 +64,4 @@ Melhorias visuais/interativas para o painel de salas (aplicáveis depois das fea
 | 30/07/2026 | Suite de testes (vitest): 99 testes (52 server + 47 client) | ✅ Feito |
 | 30/07/2026 | 6-8: segurança (logout limpa credenciais, certs fora do git, limites de payload no servidor). Testes: 116 (66 server + 50 client) | ✅ Feito |
 | 30/07/2026 | 10, 11 (parcial), 13, 15: admin (ADMIN_NAMES, delete por criador/admin, force-stop de live), codec Opus via WebCodecs com fallback PCM, indicador de quem fala, DM com áudio/vídeo. Testes: 137 (74 server + 63 client) | ✅ Feito |
+| 30/07/2026 | R2, R3, R8, R10, R11: badge LIVE no room_list (servidor reenvia payload), criador da sala no payload, tooltip de ocupantes, lista colapsável no mobile, indicação de atividade por fala. Testes: 152 (79 server + 73 client) | ✅ Feito |

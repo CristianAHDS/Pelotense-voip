@@ -32,6 +32,7 @@ export interface Room {
   fixed: boolean
   featured?: number
   createdBy?: string
+  createdByName?: string
 }
 
 export enum PacketType {

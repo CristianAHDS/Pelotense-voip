@@ -5,6 +5,8 @@ export interface RoomInfo {
   fixed?: boolean
   featured?: number
   createdBy?: string
+  createdByName?: string
+  live?: { userId: string; userName: string } | null
 }
 
 export interface UserInfo {

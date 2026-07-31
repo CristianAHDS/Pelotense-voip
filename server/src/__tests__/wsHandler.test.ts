@@ -173,6 +173,61 @@ describe('Salas', () => {
     const rooms2 = list2.payload as Array<{ id: string; name: string }>
     expect(rooms2.some((r) => r.id === fixed.id)).toBe(true)
   })
+
+  it('inclui o nome do criador no room_list', async () => {
+    const a = await freshClient('DonoSalaNome')
+    a.send(WsMessageType.CreateRoom, 'SalaNome')
+    await a.waitFor(WsMessageType.RoomCreated)
+
+    const b = await freshClient('OutroSalaNome')
+    b.send(WsMessageType.ListRooms)
+    const msg = await b.waitFor(WsMessageType.RoomList)
+    const rooms = msg.payload as Array<{ name: string; createdBy?: string; createdByName?: string }>
+    const sala = rooms.find((r) => r.name === 'SalaNome')!
+    expect(sala.createdBy).toBe(a.id)
+    expect(sala.createdByName).toBe('DonoSalaNome')
+  })
+
+  it('registra o criador em sala criada automaticamente via join', async () => {
+    const a = await freshClient('AutoCriador')
+    a.send(WsMessageType.JoinRoom, 'SalaAutoCriada')
+    await a.waitFor(WsMessageType.RoomJoined)
+
+    const b = await freshClient('AutoOutro')
+    b.send(WsMessageType.ListRooms)
+    const msg = await b.waitFor(WsMessageType.RoomList)
+    const rooms = msg.payload as Array<{ name: string; createdByName?: string }>
+    expect(rooms.find((r) => r.name === 'SalaAutoCriada')?.createdByName).toBe('AutoCriador')
+  })
+
+  it('inclui transmissão ao vivo no room_list', async () => {
+    const b = await freshClient('ReporterList')
+    b.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await b.waitFor(WsMessageType.RoomJoined)
+    b.send(WsMessageType.LiveStart)
+    await b.waitFor(WsMessageType.LiveStarted)
+
+    const c = await freshClient('ViewerList')
+    c.send(WsMessageType.ListRooms)
+    const msg = await c.waitFor(WsMessageType.RoomList)
+    const rooms = msg.payload as Array<{ name: string; live?: { userId: string; userName: string } | null }>
+    const aoVivo = rooms.find((r) => r.name === 'Ao vivo')!
+    expect(aoVivo.live?.userId).toBe(b.id)
+    expect(aoVivo.live?.userName).toBe('ReporterList')
+
+    b.send(WsMessageType.LiveStop)
+    await b.waitFor(WsMessageType.LiveStopped)
+
+    let liveAfter: { userId: string; userName: string } | null | undefined
+    for (let i = 0; i < 3; i++) {
+      c.send(WsMessageType.ListRooms)
+      const msgN = await c.waitFor(WsMessageType.RoomList)
+      const roomsN = msgN.payload as Array<{ name: string; live?: { userId: string; userName: string } | null }>
+      liveAfter = roomsN.find((r) => r.name === 'Ao vivo')?.live
+      if (!liveAfter) break
+    }
+    expect(liveAfter).toBeNull()
+  })
 })
 
 describe('Admin', () => {

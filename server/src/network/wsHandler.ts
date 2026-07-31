@@ -496,6 +496,10 @@ export class WsHandler {
       type: WsMessageType.LiveStopped,
       payload: { userId: client.id },
     }, '')
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
+    })
     if (live.takeoverRequesterId) {
       const requester = this.clients.get(live.takeoverRequesterId)
       if (requester) {
@@ -522,7 +526,7 @@ export class WsHandler {
 
     let room = this.rooms.findByName(roomName)
     if (!room) {
-      room = this.rooms.create(roomName, client.id)
+      room = this.rooms.create(roomName, client.id, client.name)
       if (!room) {
         this.send(client.ws, {
           type: WsMessageType.Error,
@@ -598,7 +602,7 @@ export class WsHandler {
       logger.warn('WsHandler', `Create room name from ${client.id} exceeds ${this.limits.maxRoomNameLength} chars, dropped`)
       return
     }
-    const room = this.rooms.create(roomName, client.id)
+    const room = this.rooms.create(roomName, client.id, client.name)
     if (!room) {
       this.send(client.ws, {
         type: WsMessageType.Error,
@@ -760,6 +764,10 @@ export class WsHandler {
       type: WsMessageType.LiveStarted,
       payload: { userId: client.id, userName: client.name },
     }, '')
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
+    })
   }
 
   private handleLiveStop(client: Client): void {
@@ -773,6 +781,11 @@ export class WsHandler {
       type: WsMessageType.LiveStopped,
       payload: { userId: client.id },
     }, '')
+
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
+    })
 
     // Auto-grant takeover to pending requester
     if (live.takeoverRequesterId) {
@@ -801,6 +814,11 @@ export class WsHandler {
       type: WsMessageType.LiveStopped,
       payload: { userId: live.userId },
     }, '')
+
+    this.broadcast({
+      type: WsMessageType.RoomList,
+      payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
+    })
 
     if (live.takeoverRequesterId) {
       const requester = this.clients.get(live.takeoverRequesterId)
