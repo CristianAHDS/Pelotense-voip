@@ -14,18 +14,16 @@ vi.mock('../services/connectionService.ts', () => ({
   }),
 }))
 
-import { render, cleanup, fireEvent } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { VoiceControls } from '../components/VoiceControls.tsx'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
-import { useSettingsStore } from '../stores/settingsStore.ts'
 
 function resetStores(): void {
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu', admin: false, reconnecting: false })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: 'r1', currentRoomName: 'Sala', messages: [] })
-  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {}, transmitting: false })
-  useSettingsStore.setState({ pushToTalk: false, pushToTalkKey: 'Space', serverHost: 'x', serverWsPort: 3001 })
+  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {} })
 }
 
 beforeEach(() => {
@@ -59,23 +57,5 @@ describe('VoiceControls (medidor RX)', () => {
     const value = container.querySelector('.vu-meter-value')
     expect(value?.textContent).toBe('0%')
     expect(container.querySelectorAll('.vu-meter .vu-bar--active').length).toBe(0)
-  })
-})
-
-describe('VoiceControls (push-to-talk)', () => {
-  it('não mostra controles de PTT no painel (desktop)', () => {
-    const { container } = render(<VoiceControls />)
-    expect(container.querySelector('.ptt-toggle')).toBeNull()
-    expect(container.querySelector('.ptt-key-row')).toBeNull()
-  })
-
-  it('mostra o botão PTT na barra compacta (mobile) e alterna', () => {
-    useSettingsStore.getState().setPushToTalk(true)
-    const { getByRole } = render(<VoiceControls compact />)
-    const ptt = getByRole('button', { name: 'PTT' })
-    expect(ptt.getAttribute('aria-pressed')).toBe('true')
-
-    fireEvent.click(ptt)
-    expect(useSettingsStore.getState().pushToTalk).toBe(false)
   })
 })

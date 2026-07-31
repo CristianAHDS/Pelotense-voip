@@ -1,7 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { VoiceManager } from '../voice/voiceManager.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
-import { useSettingsStore } from '../stores/settingsStore.ts'
 import { Microphone } from '../audio/microphone.ts'
 import { CODEC_OPUS } from '../audio/codec.ts'
 
@@ -157,8 +156,7 @@ function opusFrame(): ArrayBuffer {
 afterEach(() => {
   FakeAudioContext.instances = []
   FakeAudioContext.sources = []
-  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {}, transmitting: false })
-  useSettingsStore.setState({ pushToTalk: false, pushToTalkKey: 'Space', serverHost: 'x', serverWsPort: 3001 })
+  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {} })
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   delete (navigator as any).mediaDevices
@@ -276,11 +274,10 @@ describe('VoiceManager (playAudio)', () => {
   })
 })
 
-describe('VoiceManager (push-to-talk)', () => {
-  it('fora do PTT, o mudo controla o envio (muted=true não envia)', async () => {
+describe('VoiceManager (envio de voz)', () => {
+  it('o mudo controla o envio (muted=true não envia)', async () => {
     installFakeWebCodecs()
     installFakeMediaDevices([])
-    useSettingsStore.getState().setPushToTalk(false)
     useVoiceStore.getState().setMuted(true)
 
     const sent: number[] = []
@@ -295,56 +292,6 @@ describe('VoiceManager (push-to-talk)', () => {
     expect(sent).toHaveLength(0)
 
     useVoiceStore.getState().setMuted(false)
-    onData(new Float32Array(160).fill(0.5))
-    await flush()
-    expect(sent.length).toBeGreaterThan(0)
-    vm.destroy()
-  })
-
-  it('com PTT ativo, só envia enquanto transmitting=true', async () => {
-    installFakeWebCodecs()
-    installFakeMediaDevices([])
-    useSettingsStore.getState().setPushToTalk(true)
-    useVoiceStore.getState().setMuted(false)
-    useVoiceStore.getState().setTransmitting(false)
-
-    const sent: number[] = []
-    const vm = new VoiceManager()
-    vm.setOnSend(() => sent.push(1))
-    const setOnDataSpy = vi.spyOn(Microphone.prototype, 'setOnData')
-    await vm.startMicrophone()
-    const onData = setOnDataSpy.mock.calls[0][0] as (data: Float32Array) => void
-
-    onData(new Float32Array(160).fill(0.5))
-    await flush()
-    expect(sent).toHaveLength(0)
-
-    useVoiceStore.getState().setTransmitting(true)
-    onData(new Float32Array(160).fill(0.5))
-    await flush()
-    expect(sent.length).toBeGreaterThan(0)
-
-    useVoiceStore.getState().setTransmitting(false)
-    onData(new Float32Array(160).fill(0.5))
-    await flush()
-    expect(sent).toHaveLength(1)
-    vm.destroy()
-  })
-
-  it('com PTT ativo, o estado de mudo não impede o envio ao segurar', async () => {
-    installFakeWebCodecs()
-    installFakeMediaDevices([])
-    useSettingsStore.getState().setPushToTalk(true)
-    useVoiceStore.getState().setMuted(true)
-    useVoiceStore.getState().setTransmitting(true)
-
-    const sent: number[] = []
-    const vm = new VoiceManager()
-    vm.setOnSend(() => sent.push(1))
-    const setOnDataSpy = vi.spyOn(Microphone.prototype, 'setOnData')
-    await vm.startMicrophone()
-    const onData = setOnDataSpy.mock.calls[0][0] as (data: Float32Array) => void
-
     onData(new Float32Array(160).fill(0.5))
     await flush()
     expect(sent.length).toBeGreaterThan(0)

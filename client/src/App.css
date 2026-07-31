@@ -811,104 +811,6 @@ body {
   flex-shrink: 0;
 }
 
-.voice-bar-ptt {
-  padding: 8px 12px;
-  border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  background: #111;
-  color: #888;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  flex-shrink: 0;
-  touch-action: manipulation;
-}
-
-.voice-bar-ptt.ptt-on {
-  background: linear-gradient(135deg, #7c3aed, #6d28d9);
-  border-color: #8b5cf6;
-  color: #fff;
-}
-
-.voice-bar-ptt:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.ptt-toggle {
-  margin-top: 12px;
-}
-
-.ptt-toggle-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #ddd;
-  cursor: pointer;
-}
-
-.ptt-toggle-row input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-  accent-color: #7c3aed;
-  cursor: pointer;
-}
-
-.ptt-key-row {
-  display: block;
-  margin-top: 8px;
-}
-
-.ptt-overlay {
-  display: none;
-  position: fixed;
-  left: 50%;
-  bottom: 76px;
-  transform: translateX(-50%);
-  z-index: 45;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.ptt-btn {
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 132px;
-  height: 132px;
-  border-radius: 50%;
-  border: 3px solid #8b5cf6;
-  background: rgba(109, 40, 217, 0.9);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
-  user-select: none;
-  touch-action: none;
-  transition: transform 0.08s ease, background 0.08s ease, border-color 0.08s ease;
-}
-
-.ptt-btn--active {
-  background: rgba(220, 38, 38, 0.95);
-  border-color: #ef4444;
-  transform: scale(0.94);
-  box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.25);
-}
-
-.ptt-btn-key {
-  font-size: 12px;
-  color: #d8c7ff;
-}
-
-.ptt-btn--active .ptt-btn-key {
-  color: #fecaca;
-}
-
 .volume-control {
   margin-top: 12px;
 }
@@ -2049,10 +1951,6 @@ body {
     left: 0;
     right: 0;
     z-index: 40;
-  }
-
-  .ptt-overlay {
-    display: flex;
   }
 
   .voice-mobile-bar .voice-bar {

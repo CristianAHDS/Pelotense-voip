@@ -231,32 +231,18 @@ describe('voiceStore', () => {
     useVoiceStore.getState().clearSpeaking()
     expect(useVoiceStore.getState().speaking).toEqual({})
   })
-
-  it('controla o estado de transmissão (transmitting) do push-to-talk', () => {
-    expect(useVoiceStore.getState().transmitting).toBe(false)
-    useVoiceStore.getState().setTransmitting(true)
-    expect(useVoiceStore.getState().transmitting).toBe(true)
-    useVoiceStore.getState().setTransmitting(false)
-    expect(useVoiceStore.getState().transmitting).toBe(false)
-  })
 })
 
 describe('settingsStore', () => {
   it('mantém valores padrão', () => {
     const s = useSettingsStore.getState()
-    expect(s.pushToTalk).toBe(false)
-    expect(s.pushToTalkKey).toBe('Space')
     expect(s.serverWsPort).toBe(3001)
   })
 
   it('permite ajustar configurações', () => {
-    useSettingsStore.getState().setPushToTalk(true)
-    useSettingsStore.getState().setPushToTalkKey('V')
     useSettingsStore.getState().setServerHost('10.0.0.1')
     useSettingsStore.getState().setServerWsPort(3002)
     const s = useSettingsStore.getState()
-    expect(s.pushToTalk).toBe(true)
-    expect(s.pushToTalkKey).toBe('V')
     expect(s.serverHost).toBe('10.0.0.1')
     expect(s.serverWsPort).toBe(3002)
   })
