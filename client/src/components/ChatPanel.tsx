@@ -51,7 +51,7 @@ export function ChatPanel() {
       el.srcObject = videoRec.streamRef.current
       el.play().catch(() => {})
     }
-  }, [videoRec.hasStream])
+  }, [videoRec.streamVersion])
 
   function handleSend() {
     if (!text.trim()) return

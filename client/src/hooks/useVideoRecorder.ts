@@ -9,6 +9,7 @@ export function useVideoRecorder() {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
   const [hasStream, setHasStream] = useState(false)
+  const [streamVersion, setStreamVersion] = useState(0)
   const [devices, setDevices] = useState<VideoDevice[]>([])
   const [cameraId, setCameraId] = useState<string>('')
   const streamRef = useRef<MediaStream | null>(null)
@@ -73,8 +74,8 @@ export function useVideoRecorder() {
 
   const switchCamera = useCallback(async (newCameraId: string) => {
     setCameraId(newCameraId)
-    const currentStream = streamRef.current
-    if (!currentStream) return
+    const oldStream = streamRef.current
+    if (!oldStream) return
 
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
@@ -82,18 +83,53 @@ export function useVideoRecorder() {
         audio: true,
       })
 
-      const oldVideoTrack = currentStream.getVideoTracks()[0]
-      const newVideoTrack = newStream.getVideoTracks()[0]
+      const wasRecording = recorderRef.current?.state === 'recording'
 
-      if (oldVideoTrack) {
-        currentStream.removeTrack(oldVideoTrack)
-        oldVideoTrack.stop()
+      if (wasRecording) {
+        const oldRecorder = recorderRef.current
+        oldRecorder!.ondataavailable = () => {}
+        oldRecorder!.onstop = () => {}
+        oldRecorder!.stop()
       }
-      currentStream.addTrack(newVideoTrack)
 
-      newStream.getAudioTracks().forEach((t) => {
-        t.stop()
-      })
+      oldStream.getTracks().forEach((t) => t.stop())
+
+      streamRef.current = newStream
+      setStreamVersion((v) => v + 1)
+
+      if (wasRecording) {
+        const resolve = resolveRef.current!
+        const mimeType = mimeTypeRef.current
+        const recorder = new MediaRecorder(newStream, { mimeType })
+        recorderRef.current = recorder
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data)
+        }
+
+        recorder.onstop = () => {
+          if (cancelledRef.current) {
+            cancelledRef.current = false
+            resolve(null)
+            return
+          }
+          const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
+          const blob = new Blob(chunksRef.current, { type: mimeType })
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const base64 = (reader.result as string).split(',')[1]
+            resolve({ data: base64, duration: finalDuration })
+          }
+          reader.readAsDataURL(blob)
+        }
+
+        recorder.onerror = () => {
+          stopRecording()
+          resolve(null)
+        }
+
+        recorder.start(100)
+      }
     } catch {
       // camera switch failed, keep old camera
     }
@@ -109,6 +145,7 @@ export function useVideoRecorder() {
         .then((s) => {
           streamRef.current = s
           setHasStream(true)
+          setStreamVersion((v) => v + 1)
           chunksRef.current = []
           setDuration(0)
 
@@ -160,10 +197,10 @@ export function useVideoRecorder() {
           resolve(null)
         })
     })
-  }, [stopRecording, cameraId])
+  }, [cameraId, stopRecording])
 
   return {
-    recording, duration, hasStream, streamRef,
+    recording, duration, hasStream, streamVersion, streamRef,
     devices, cameraId, setCameraId,
     startRecording, stopRecording, cancelRecording, enumerateDevices, switchCamera,
   }
