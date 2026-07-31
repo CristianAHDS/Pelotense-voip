@@ -1,4 +1,4 @@
-import { Room, Client } from '../types/index.js'
+import { Room, Client, LiveState } from '../types/index.js'
 import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
@@ -8,6 +8,7 @@ const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esporti
 export class RoomManager {
   private rooms = new Map<string, Room>()
   private maxRooms: number
+  private liveBroadcasts = new Map<string, LiveState>()
 
   constructor(maxRooms: number) {
     this.maxRooms = maxRooms
@@ -140,6 +141,18 @@ export class RoomManager {
       fixed: room.fixed,
       featured: room.featured,
     }
+  }
+
+  getLiveBroadcast(roomId: string): LiveState | undefined {
+    return this.liveBroadcasts.get(roomId)
+  }
+
+  setLiveBroadcast(roomId: string, state: LiveState): void {
+    this.liveBroadcasts.set(roomId, state)
+  }
+
+  clearLiveBroadcast(roomId: string): void {
+    this.liveBroadcasts.delete(roomId)
   }
 
   private generateId(): string {

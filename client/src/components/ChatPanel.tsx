@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage } from '../services/connectionService.ts'
+import { useLiveStore } from '../stores/liveStore.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
+import { LiveViewer } from './LiveViewer.tsx'
 import type { ChatMsg } from '../types/index.ts'
 
 const COLORS = [
@@ -35,16 +37,32 @@ export function ChatPanel() {
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const myId = useConnectionStore((s) => s.id)
   const connected = useConnectionStore((s) => s.connected)
+  const broadcaster = useLiveStore((s) => s.broadcaster)
+  const pendingRequest = useLiveStore((s) => s.pendingRequest)
+  const setPendingRequest = useLiveStore((s) => s.setPendingRequest)
+  const takeoverRequested = useLiveStore((s) => s.takeoverRequestSent)
+  const setTakeoverRequestSent = useLiveStore((s) => s.setTakeoverRequestSent)
+  const requestDenied = useLiveStore((s) => s.requestDenied)
   const [text, setText] = useState('')
   const [cameraPickerOpen, setCameraPickerOpen] = useState(false)
+  const [isLiveBroadcasting, setIsLiveBroadcasting] = useState(false)
+  const liveMediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const liveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const audioRec = useAudioRecorder()
   const videoRec = useVideoRecorder()
   const isRecording = audioRec.recording || videoRec.recording
+  const isAoVivo = currentRoomName === 'Ao vivo'
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (requestDenied === 0) return
+    videoRec.cancelRecording()
+    setCameraPickerOpen(false)
+  }, [requestDenied])
 
   const setVideoPreview = useCallback((el: HTMLVideoElement | null) => {
     if (el && videoRec.streamRef.current) {
@@ -107,6 +125,102 @@ export function ChatPanel() {
     setCameraPickerOpen(false)
   }
 
+  async function handleStartLiveBroadcast() {
+    if (!videoRec.hasStream) {
+      if (videoRec.devices.length === 0) {
+        await videoRec.enumerateDevices()
+      }
+      const ok = await videoRec.openCamera()
+      if (!ok) return
+    }
+    if (broadcaster && broadcaster.userId !== myId) {
+      setTakeoverRequestSent(true)
+      sendLiveStart()
+      return
+    }
+    sendLiveStart()
+  }
+
+  function handleStopLiveBroadcast() {
+    if (liveMediaRecorderRef.current && liveMediaRecorderRef.current.state !== 'inactive') {
+      liveMediaRecorderRef.current.stop()
+    }
+    if (liveTimerRef.current) {
+      clearInterval(liveTimerRef.current)
+      liveTimerRef.current = null
+    }
+    setIsLiveBroadcasting(false)
+    setCameraPickerOpen(false)
+    sendLiveStop()
+    videoRec.cancelRecording()
+  }
+
+  function handleAcceptTakeover() {
+    if (!pendingRequest) return
+    sendLiveRequestResponse(true, pendingRequest.fromUserId)
+    setPendingRequest(null)
+  }
+
+  function handleDenyTakeover() {
+    if (!pendingRequest) return
+    sendLiveRequestResponse(false, pendingRequest.fromUserId)
+    setPendingRequest(null)
+  }
+
+  // React to LiveStarted for Ao vivo
+  useEffect(() => {
+    if (!isAoVivo || !broadcaster) return
+    if (broadcaster.userId === myId && !isLiveBroadcasting) {
+      setIsLiveBroadcasting(true)
+      setTakeoverRequestSent(false)
+      const stream = videoRec.streamRef.current
+      if (!stream) return
+
+      function onChunk(e: BlobEvent) {
+        if (e.data.size === 0) return
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const result = reader.result as string
+          if (!result) return
+          const parts = result.split(',')
+          if (parts.length < 2) return
+          sendLiveChunk(parts[1], 0)
+        }
+        reader.readAsDataURL(e.data)
+      }
+
+      const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+      let mr: MediaRecorder | null = null
+      for (const mime of mimeTypes) {
+        try {
+          mr = new MediaRecorder(stream, { mimeType: mime })
+          break
+        } catch { /* try next */ }
+      }
+      if (!mr) mr = new MediaRecorder(stream)
+      liveMediaRecorderRef.current = mr
+      mr.ondataavailable = onChunk
+      mr.start(1000)
+    }
+  }, [broadcaster?.userId])
+
+  // React to LiveStopped for Ao vivo
+  useEffect(() => {
+    if (!isAoVivo) return
+    if (!broadcaster) {
+      if (isLiveBroadcasting) {
+        if (liveMediaRecorderRef.current && liveMediaRecorderRef.current.state !== 'inactive') {
+          liveMediaRecorderRef.current.stop()
+        }
+        if (liveTimerRef.current) {
+          clearInterval(liveTimerRef.current)
+          liveTimerRef.current = null
+        }
+        setIsLiveBroadcasting(false)
+      }
+    }
+  }, [broadcaster])
+
   if (!connected || !currentRoomName) return null
 
   return (
@@ -115,6 +229,10 @@ export function ChatPanel() {
         <span className="chat-header-name">#{currentRoomName}</span>
         <span className="chat-header-count">{messages.length} messages</span>
       </div>
+
+      {isAoVivo && broadcaster && broadcaster.userId !== myId && (
+        <LiveViewer />
+      )}
 
       <div className="chat-messages">
         {messages.map((msg, i) => {
@@ -133,7 +251,7 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
-      {videoRec.hasStream ? (
+      {videoRec.hasStream && !isLiveBroadcasting ? (
         <div className="chat-video-preview-overlay">
           <div className="chat-video-preview-box">
             <video
@@ -216,6 +334,91 @@ export function ChatPanel() {
         </div>
       ) : null}
 
+      {isAoVivo && isLiveBroadcasting && videoRec.hasStream ? (
+        <div className="chat-video-preview-overlay live-broadcast-overlay">
+          <div className="chat-video-preview-box">
+            <video
+              ref={setVideoPreview}
+              autoPlay
+              muted
+              playsInline
+              className="chat-video-preview"
+            />
+            <div className="chat-video-preview-toolbar">
+              <div className="chat-video-preview-left">
+                <span className="live-indicator">
+                  <span className="live-indicator-dot" />
+                  <span className="live-indicator-label">LIVE</span>
+                </span>
+              </div>
+              <div className="chat-video-preview-center">
+                {cameraPickerOpen && (
+                  <div className="chat-camera-picker">
+                    {videoRec.devices.map((d) => (
+                      <button
+                        key={d.deviceId}
+                        className={`chat-camera-picker-item${videoRec.cameraId === d.deviceId ? ' active' : ''}`}
+                        onClick={() => {
+                          videoRec.switchCamera(d.deviceId)
+                          setCameraPickerOpen(false)
+                        }}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="chat-video-preview-actions">
+                <button
+                  onClick={() => videoRec.enumerateDevices().then(() => setCameraPickerOpen(!cameraPickerOpen))}
+                  className="chat-cam-settings-btn"
+                  title="Choose camera"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleStopLiveBroadcast}
+                  className="chat-live-stop-btn"
+                  title="Stop broadcast"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingRequest && (
+        <div className="chat-takeover-dialog">
+          <div className="chat-takeover-dialog-box">
+            <p className="chat-takeover-dialog-text">
+              <strong>{pendingRequest.fromUserName}</strong> wants to take over the live broadcast. Allow?
+            </p>
+            <div className="chat-takeover-dialog-actions">
+              <button
+                onClick={handleDenyTakeover}
+                className="chat-takeover-deny-btn"
+              >
+                Deny
+              </button>
+              <button
+                onClick={handleAcceptTakeover}
+                className="chat-takeover-accept-btn"
+              >
+                Allow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="chat-footer">
         <div className="chat-input-wrap">
           {isRecording ? (
@@ -254,28 +457,47 @@ export function ChatPanel() {
                 placeholder="Message #general"
                 className="chat-input"
               />
-              <button
-                onClick={handleStartAudioRecording}
-                className="chat-mic-btn"
-                title="Record audio"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="23" />
-                  <line x1="8" y1="23" x2="16" y2="23" />
-                </svg>
-              </button>
-              <button
-                onClick={handleOpenCamera}
-                className="chat-cam-btn"
-                title="Record video"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="23 7 16 12 23 17 23 7" />
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-              </button>
+              {!isAoVivo && (
+                <button
+                  onClick={handleStartAudioRecording}
+                  className="chat-mic-btn"
+                  title="Record audio"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="23" />
+                    <line x1="8" y1="23" x2="16" y2="23" />
+                  </svg>
+                </button>
+              )}
+              {isAoVivo ? (
+                <button
+                  onClick={handleStartLiveBroadcast}
+                  className={`chat-live-btn ${isLiveBroadcasting ? 'active' : ''} ${takeoverRequested ? 'requesting' : ''}`}
+                  title={isLiveBroadcasting ? 'Broadcasting' : takeoverRequested ? 'Request sent...' : 'Start live broadcast'}
+                >
+                  {takeoverRequested ? (
+                    <span className="chat-live-request-text">Requesting...</span>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.94 2C5.12 20 12 20 12 20s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
+                      <polygon points="9.75 8.75 9.75 15.25 15.5 12 9.75 8.75" fill="currentColor" stroke="none" />
+                    </svg>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={handleOpenCamera}
+                  className="chat-cam-btn"
+                  title="Record video"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={handleSend}
                 className="chat-send-btn"

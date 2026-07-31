@@ -73,6 +73,14 @@ export enum WsMessageType {
   DeleteMessage = 'delete_message',
   MessageDeleted = 'message_deleted',
   Welcome = 'welcome',
+  LiveStart = 'live_start',
+  LiveStop = 'live_stop',
+  LiveChunk = 'live_chunk',
+  LiveStarted = 'live_started',
+  LiveStopped = 'live_stopped',
+  LiveRequest = 'live_request',
+  LiveRequestResponse = 'live_request_response',
+  LiveChunkReceived = 'live_chunk_received',
 }
 
 export interface WsMessage {
@@ -116,6 +124,13 @@ export type EventPayloads = {
   [EventType.RoomLeft]: { clientId: string; roomId: string }
   [EventType.VoicePacketReceived]: { userId: string; roomId: string; size: number }
   [EventType.VoicePacketSent]: { userId: string; roomId: string; targets: number }
+}
+
+export interface LiveState {
+  userId: string
+  userName: string
+  timestamp: number
+  takeoverRequesterId?: string
 }
 
 export type EventListener<T = unknown> = (payload: T) => void

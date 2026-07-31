@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws'
-import { Client, ChatMessage, WsMessage, WsMessageType } from '../types/index.js'
+import { Client, ChatMessage, WsMessage, WsMessageType, LiveState } from '../types/index.js'
 import { ClientManager } from '../clients/index.js'
 import { RoomManager } from '../rooms/index.js'
 import { logger } from '../utils/logger.js'
@@ -235,6 +235,22 @@ export class WsHandler {
         this.handlePrivateMessage(client, msg.payload as { toUserId: string; text: string })
         break
 
+      case WsMessageType.LiveStart:
+        this.handleLiveStart(client)
+        break
+
+      case WsMessageType.LiveStop:
+        this.handleLiveStop(client)
+        break
+
+      case WsMessageType.LiveChunk:
+        this.handleLiveChunk(client, msg.payload as { chunk: string; duration: number })
+        break
+
+      case WsMessageType.LiveRequestResponse:
+        this.handleLiveRequestResponse(client, msg.payload as { allow: boolean; requesterId: string })
+        break
+
       default:
         logger.warn('WsHandler', `Unknown message type: ${msg.type}`)
     }
@@ -379,6 +395,14 @@ export class WsHandler {
       payload: { roomId: room.id, roomName: room.name, messages: room.messages },
     })
 
+    const liveBroadcast = this.rooms.getLiveBroadcast(room.id)
+    if (liveBroadcast) {
+      this.send(client.ws, {
+        type: WsMessageType.LiveStarted,
+        payload: { userId: liveBroadcast.userId, userName: liveBroadcast.userName },
+      })
+    }
+
     this.broadcast({
       type: WsMessageType.RoomList,
       payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
@@ -394,6 +418,23 @@ export class WsHandler {
   private handleLeaveRoom(client: Client): void {
     if (!client.room) return
     const roomId = client.room
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (live && live.userId === client.id) {
+      this.rooms.clearLiveBroadcast(roomId)
+      this.broadcastToRoom(roomId, {
+        type: WsMessageType.LiveStopped,
+        payload: { userId: client.id },
+      }, '')
+      if (live.takeoverRequesterId) {
+        const requester = this.clients.get(live.takeoverRequesterId)
+        if (requester) {
+          this.send(requester.ws, {
+            type: WsMessageType.LiveRequestResponse,
+            payload: { allow: true, fromUserId: client.id },
+          })
+        }
+      }
+    }
     const userName = client.name
     this.send(client.ws, {
       type: WsMessageType.RoomLeft,
@@ -483,6 +524,23 @@ export class WsHandler {
     const userName = client.name
 
     if (roomId) {
+      const live = this.rooms.getLiveBroadcast(roomId)
+      if (live && live.userId === client.id) {
+        this.rooms.clearLiveBroadcast(roomId)
+        this.broadcastToRoom(roomId, {
+          type: WsMessageType.LiveStopped,
+          payload: { userId: client.id },
+        }, '')
+        if (live.takeoverRequesterId) {
+          const requester = this.clients.get(live.takeoverRequesterId)
+          if (requester) {
+            this.send(requester.ws, {
+              type: WsMessageType.LiveRequestResponse,
+              payload: { allow: true, fromUserId: client.id },
+            })
+          }
+        }
+      }
       this.rooms.leave(roomId, client)
     }
     this.clients.remove(client.id)
@@ -544,6 +602,95 @@ export class WsHandler {
       type: WsMessageType.MessageDeleted,
       payload: { messageId: payload.messageId },
     }, '')
+  }
+
+  private handleLiveStart(client: Client): void {
+    const roomId = client.room
+    if (!roomId) return
+
+    const existing = this.rooms.getLiveBroadcast(roomId)
+    if (existing) {
+      const current = this.clients.get(existing.userId)
+      if (current) {
+        existing.takeoverRequesterId = client.id
+        this.send(current.ws, {
+          type: WsMessageType.LiveRequest,
+          payload: { fromUserId: client.id, fromUserName: client.name },
+        })
+      }
+      return
+    }
+
+    this.rooms.setLiveBroadcast(roomId, { userId: client.id, userName: client.name, timestamp: Date.now() })
+    this.broadcastToRoom(roomId, {
+      type: WsMessageType.LiveStarted,
+      payload: { userId: client.id, userName: client.name },
+    }, '')
+  }
+
+  private handleLiveStop(client: Client): void {
+    const roomId = client.room
+    if (!roomId) return
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (!live || live.userId !== client.id) return
+
+    this.rooms.clearLiveBroadcast(roomId)
+    this.broadcastToRoom(roomId, {
+      type: WsMessageType.LiveStopped,
+      payload: { userId: client.id },
+    }, '')
+
+    // Auto-grant takeover to pending requester
+    if (live.takeoverRequesterId) {
+      const requester = this.clients.get(live.takeoverRequesterId)
+      if (requester) {
+        this.send(requester.ws, {
+          type: WsMessageType.LiveRequestResponse,
+          payload: { allow: true, fromUserId: client.id },
+        })
+      }
+    }
+  }
+
+  private handleLiveChunk(client: Client, payload: { chunk: string; duration: number }): void {
+    const roomId = client.room
+    if (!roomId) return
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (!live || live.userId !== client.id) return
+
+    this.broadcastToRoom(roomId, {
+      type: WsMessageType.LiveChunkReceived,
+      payload: { userId: client.id, chunk: payload.chunk, duration: payload.duration },
+    }, client.id)
+  }
+
+  private handleLiveRequestResponse(client: Client, payload: { allow: boolean; requesterId: string }): void {
+    const roomId = client.room
+    if (!roomId) return
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (!live || live.userId !== client.id) return
+
+    const requester = this.clients.get(payload.requesterId)
+    if (!requester) return
+
+    if (payload.allow) {
+      this.rooms.clearLiveBroadcast(roomId)
+      this.broadcastToRoom(roomId, {
+        type: WsMessageType.LiveStopped,
+        payload: { userId: client.id },
+      }, '')
+      // Give the requester a moment then respond
+      this.send(requester.ws, {
+        type: WsMessageType.LiveRequestResponse,
+        payload: { allow: true, fromUserId: client.id },
+      })
+    } else {
+      live.takeoverRequesterId = undefined
+      this.send(requester.ws, {
+        type: WsMessageType.LiveRequestResponse,
+        payload: { allow: false, fromUserId: client.id },
+      })
+    }
   }
 
   private generateId(): string {

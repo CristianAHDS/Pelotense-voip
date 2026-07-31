@@ -37,6 +37,14 @@ export enum WsMessageType {
   Login = 'login',
   Error = 'error',
   Welcome = 'welcome',
+  LiveStart = 'live_start',
+  LiveStop = 'live_stop',
+  LiveChunk = 'live_chunk',
+  LiveStarted = 'live_started',
+  LiveStopped = 'live_stopped',
+  LiveRequest = 'live_request',
+  LiveRequestResponse = 'live_request_response',
+  LiveChunkReceived = 'live_chunk_received',
 }
 
 export interface WsMessage {

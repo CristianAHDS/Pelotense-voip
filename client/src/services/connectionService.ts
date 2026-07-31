@@ -5,6 +5,7 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { VoiceManager } from '../voice/index.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
+import { useLiveStore } from '../stores/liveStore.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
@@ -147,6 +148,35 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().removeMessage(payload.messageId)
   })
 
+  wsClient.on(WsMessageType.LiveStarted, (msg) => {
+    const payload = msg.payload as { userId: string; userName: string }
+    useLiveStore.getState().setBroadcaster({ userId: payload.userId, userName: payload.userName })
+  })
+
+  wsClient.on(WsMessageType.LiveStopped, (msg) => {
+    useLiveStore.getState().setBroadcaster(null)
+  })
+
+  wsClient.on(WsMessageType.LiveChunkReceived, (msg) => {
+    const payload = msg.payload as { userId: string; chunk: string; duration: number }
+    useLiveStore.getState().addChunk({ userId: payload.userId, chunk: payload.chunk, duration: payload.duration })
+  })
+
+  wsClient.on(WsMessageType.LiveRequest, (msg) => {
+    const payload = msg.payload as { fromUserId: string; fromUserName: string }
+    useLiveStore.getState().setPendingRequest(payload)
+  })
+
+  wsClient.on(WsMessageType.LiveRequestResponse, (msg) => {
+    const payload = msg.payload as { allow: boolean; fromUserId: string }
+    useLiveStore.getState().setTakeoverRequestSent(false)
+    if (payload.allow) {
+      wsClient?.send(WsMessageType.LiveStart)
+    } else {
+      useLiveStore.getState().setRequestDenied()
+    }
+  })
+
   wsClient.on(WsMessageType.PrivateMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
@@ -217,6 +247,8 @@ export function disconnectFromServer(): void {
   useRoomStore.getState().clearMessages()
   useRoomStore.getState().setRooms([])
   useRoomStore.getState().setUsers([])
+  useLiveStore.getState().setBroadcaster(null)
+  useLiveStore.getState().clearChunks()
 }
 
 export function requestRoomList(): void {
@@ -225,4 +257,20 @@ export function requestRoomList(): void {
 
 export function requestUserList(): void {
   wsClient?.send(WsMessageType.ListUsers)
+}
+
+export function sendLiveStart(): void {
+  wsClient?.send(WsMessageType.LiveStart)
+}
+
+export function sendLiveStop(): void {
+  wsClient?.send(WsMessageType.LiveStop)
+}
+
+export function sendLiveChunk(chunk: string, duration: number): void {
+  wsClient?.send(WsMessageType.LiveChunk, { chunk, duration })
+}
+
+export function sendLiveRequestResponse(allow: boolean, requesterId: string): void {
+  wsClient?.send(WsMessageType.LiveRequestResponse, { allow, requesterId })
 }
