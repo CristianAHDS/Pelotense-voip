@@ -732,7 +732,7 @@ export class WsHandler {
     if (idx === -1) return
 
     const msg = room.messages[idx]
-    if (msg.userId !== client.id) return
+    if (msg.userId !== client.id && !client.admin) return
 
     room.messages.splice(idx, 1)
 

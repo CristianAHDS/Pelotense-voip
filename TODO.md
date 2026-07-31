@@ -12,6 +12,7 @@ Marque com `[x]` os itens já concluídos.
 - [x] **3. Sockets mortos acumulam** — `lastPing` nunca é checado; conexões meio-abertas ficam até lotar `maxUsers`. Fix: rodar o ping do `ws` e expirar clientes sem heartbeat.
 - [x] **4. Mojibake no VoiceControls** — `"Mic indispon?vel"` (í quebrado). Bug de encoding.
 - [x] **5. Spam de console por frame de áudio** — `[SEND]`, `[RECV]`, `[PLAY]` a cada buffer (48x/seg). Diminui performance no mobile.
+- [x] **20. Sem áudio de saída nas salas (RX mudo)** — O VU do TX modulava mas nada de som no RX. Causas: `AudioContext` do speaker criado fora de gesto ficava `suspended` (autoplay, sem `resume()`), o volume definido antes da criação do contexto era perdido e o codec Opus pendurava a promise sem fallback (frames descartados em silêncio). Fix: `resume()` explícito no gesto + no play, `pendingVolume` aplicado na criação do gain, watchdog de 200ms com fail-open (Opus com erro → PCM/silêncio), sanitização de amostras NaN e medidor RX para diagnóstico.
 
 ## 🟠 Segurança
 
@@ -22,7 +23,7 @@ Marque com `[x]` os itens já concluídos.
 ## 🟢 Features de alto valor
 
 - [ ] **9. Persistência em disco (SQLite)** — Tudo some no restart: salas, mensagens, DMs. Adicionar `better-sqlite3` para manter histórico entre reinícios.
-- [x] **10. Perfis / papéis / admin** — Nome já identifica o usuário. Adicionar flag de admin (ex: nome na lista de admins no config) para controlar deleção de salas e tirar lives. ✅ Feito: `ADMIN_NAMES` no `.env`, flag `admin` no welcome/userlist, apenas criador/admin deletam sala, admin pode forçar o fim de uma live (`live_force_stop`).
+- [x] **10. Perfis / papéis / admin** — Nome já identifica o usuário. Adicionar flag de admin (ex: nome na lista de admins no config) para controlar deleção de salas e tirar lives. ✅ Feito: `ADMIN_NAMES` no `.env`, flag `admin` no welcome/userlist, apenas criador/admin deletam sala, admin pode forçar o fim de uma live (`live_force_stop`) e apagar mensagens de qualquer usuário no chat (`delete_message` liberado para admin).
 - [x] **11. Opus + WebRTC para voz** — PCM16 não comprimido gasta ~192kbps por falante. Opus corta isso em ~10x e melhora muito com latência. ✅ Feito (parcial): codec Opus via WebCodecs (`AudioEncoder`/`AudioDecoder`) com fallback automático para PCM quando o navegador não suporta. Frames carregam byte de codec. Pendente: WebRTC/ice para reduzir latência de verdade.
 - [ ] **12. Push-to-talk** — O store (`pushToTalk`/`pushToTalkKey`) já existe mas não está conectado. Fácil de ativar (tecla + indicador visual).
 - [x] **13. Indicador "quem está falando"** — O binário de voz já carrega o userId; basta destacar o usuário na UserList quando chega áudio dele. ✅ Feito: destaque verde pulsante na UserList quando um frame binário chega, com expiração automática após ~400ms sem áudio.
@@ -65,3 +66,5 @@ Melhorias visuais/interativas para o painel de salas (aplicáveis depois das fea
 | 30/07/2026 | 6-8: segurança (logout limpa credenciais, certs fora do git, limites de payload no servidor). Testes: 116 (66 server + 50 client) | ✅ Feito |
 | 30/07/2026 | 10, 11 (parcial), 13, 15: admin (ADMIN_NAMES, delete por criador/admin, force-stop de live), codec Opus via WebCodecs com fallback PCM, indicador de quem fala, DM com áudio/vídeo. Testes: 137 (74 server + 63 client) | ✅ Feito |
 | 30/07/2026 | R2, R3, R8, R10, R11: badge LIVE no room_list (servidor reenvia payload), criador da sala no payload, tooltip de ocupantes, lista colapsável no mobile, indicação de atividade por fala. Testes: 152 (79 server + 73 client) | ✅ Feito |
+| 31/07/2026 | Correção de áudio (item 20): resume/autoplay do speaker, volume persistente, fallback do codec Opus (watchdog 200ms + fail-open), sanitização de NaN, medidor RX no VoiceControls. Testes: 160 (79 server + 81 client) | ✅ Feito |
+| 31/07/2026 | Admin apaga mensagens de qualquer usuário (server + botão no ChatPanel), `ADMIN_NAMES=Cris` no `.env`. Testes restantes adicionados: codec NaN, speaker, VoiceControls RX (guard de NaN), VoiceManager (rxLevel), ChatPanel (delete admin). Testes: 171 (81 server + 90 client) | ✅ Feito |

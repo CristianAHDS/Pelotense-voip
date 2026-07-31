@@ -352,6 +352,43 @@ describe('Admin', () => {
     const live = adminServer.rooms.getLiveBroadcast(adminServer.rooms.findByName('Ao vivo')!.id)
     expect(live?.userId).toBe(b.id)
   })
+
+  it('admin pode apagar mensagem de outro usuário', async () => {
+    const admin = await adminClient('ChefeAdmin')
+    const comum = await adminClient('ComumMsg')
+    comum.send(WsMessageType.JoinRoom, 'Chats')
+    await comum.waitFor(WsMessageType.RoomJoined)
+    admin.send(WsMessageType.JoinRoom, 'Chats')
+    await admin.waitFor(WsMessageType.RoomJoined)
+
+    comum.send(WsMessageType.ChatMessage, { text: 'mensagem do comum' })
+    const received = await admin.waitFor(WsMessageType.ChatMessage)
+    const msg = received.payload as ChatMessage
+
+    admin.send(WsMessageType.DeleteMessage, { messageId: msg.id })
+    const deleted = await comum.waitFor(WsMessageType.MessageDeleted)
+    expect(deleted.payload).toMatchObject({ messageId: msg.id })
+    const room = adminServer.rooms.findByName('Chats')
+    expect(room!.messages.find((m) => m.id === msg.id)).toBeUndefined()
+  })
+
+  it('não-admin não pode apagar mensagem de outro usuário', async () => {
+    const a = await adminClient('MsgAutor')
+    const b = await adminClient('MsgIntruso')
+    a.send(WsMessageType.JoinRoom, 'Chats')
+    await a.waitFor(WsMessageType.RoomJoined)
+    b.send(WsMessageType.JoinRoom, 'Chats')
+    await b.waitFor(WsMessageType.RoomJoined)
+
+    a.send(WsMessageType.ChatMessage, { text: 'mensagem protegida' })
+    const received = await b.waitFor(WsMessageType.ChatMessage)
+    const msg = received.payload as ChatMessage
+
+    b.send(WsMessageType.DeleteMessage, { messageId: msg.id })
+    await expect(b.waitFor(WsMessageType.MessageDeleted, 300)).rejects.toThrow()
+    const room = adminServer.rooms.findByName('Chats')
+    expect(room!.messages.find((m) => m.id === msg.id)).toBeDefined()
+  })
 })
 
 describe('Chat', () => {

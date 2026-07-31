@@ -116,6 +116,7 @@ export interface VoiceState {
   muted: boolean
   volume: number
   level: number
+  rxLevel: number
   speaking: Record<string, number>
 }
 

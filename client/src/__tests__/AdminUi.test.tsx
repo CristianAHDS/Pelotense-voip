@@ -9,7 +9,7 @@ import { useVoiceStore } from '../stores/voiceStore.ts'
 function resetStores(): void {
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu', admin: false, reconnecting: false })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [] })
-  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, speaking: {} })
+  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {} })
 }
 
 beforeEach(() => {

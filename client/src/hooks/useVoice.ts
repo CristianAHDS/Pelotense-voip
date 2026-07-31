@@ -5,11 +5,12 @@ import { useVoiceStore } from '../stores/voiceStore.ts'
 export function useVoice() {
   const mic = useMicrophone()
   const speaker = useSpeaker()
-  const { level } = useVoiceStore()
+  const { level, rxLevel } = useVoiceStore()
 
   return {
     ...mic,
     ...speaker,
     level,
+    rxLevel,
   }
 }

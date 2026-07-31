@@ -206,6 +206,14 @@ describe('voiceStore', () => {
     expect(useVoiceStore.getState().level).toBe(0.9)
   })
 
+  it('controla o nível de recepção (rxLevel)', () => {
+    expect(useVoiceStore.getState().rxLevel).toBe(0)
+    useVoiceStore.getState().setRxLevel(0.7)
+    expect(useVoiceStore.getState().rxLevel).toBe(0.7)
+    useVoiceStore.getState().setRxLevel(0)
+    expect(useVoiceStore.getState().rxLevel).toBe(0)
+  })
+
   it('marca quem está falando e remove após expirar', async () => {
     expect(useVoiceStore.getState().speaking).toEqual({})
     useVoiceStore.getState().markSpeaking('u1')

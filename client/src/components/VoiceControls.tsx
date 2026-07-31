@@ -13,7 +13,7 @@ const HTTPS_CLIENT_PORT = 3443
 const HTTPS_HOST = `${window.location.hostname}:${HTTPS_CLIENT_PORT}`
 
 export function VoiceControls({ compact }: Props) {
-  const { muted, volume, level, toggleMute, setVolume } = useVoice()
+  const { muted, volume, level, rxLevel, toggleMute, setVolume } = useVoice()
   const connected = useConnectionStore((s) => s.connected)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const micDisabled = currentRoomName === 'Boletins gravados'
@@ -27,9 +27,11 @@ export function VoiceControls({ compact }: Props) {
     }
   }, [currentRoomName])
 
-  const pct = Math.round(level * 100)
+  const pct = Math.round((Number.isFinite(level) ? level : 0) * 100)
   const bars = compact ? 8 : 10
-  const filled = Math.round(level * bars)
+  const filled = Math.round((Number.isFinite(level) ? level : 0) * bars)
+  const rxPct = Math.round((Number.isFinite(rxLevel) ? rxLevel : 0) * 100)
+  const rxFilled = Math.round((Number.isFinite(rxLevel) ? rxLevel : 0) * bars)
 
   if (!IS_HTTPS) {
     if (compact) {
@@ -120,6 +122,19 @@ export function VoiceControls({ compact }: Props) {
           </div>
           <span className="voice-bar-vu-label">{pct}%</span>
         </div>
+        <div className="voice-bar-vu voice-bar-vu--rx">
+          <div className="voice-bar-vu-track">
+            {Array.from({ length: bars }, (_, i) => (
+              <div
+                key={i}
+                className={`vu-bar ${i < rxFilled ? 'vu-bar--active' : ''} ${
+                  i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="voice-bar-vu-label voice-bar-vu-label--rx">RX {rxPct}%</span>
+        </div>
         <div className="voice-bar-volume">
           <label>Vol</label>
           <input
@@ -171,6 +186,20 @@ export function VoiceControls({ compact }: Props) {
           ))}
         </div>
         <div className="vu-meter-value">{pct}%</div>
+      </div>
+      <div className="vu-meter vu-meter--rx">
+        <div className="vu-meter-label">RX</div>
+        <div className="vu-meter-track">
+          {Array.from({ length: bars }, (_, i) => (
+            <div
+              key={i}
+              className={`vu-bar ${i < rxFilled ? 'vu-bar--active' : ''} ${
+                i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+              }`}
+            />
+          ))}
+        </div>
+        <div className="vu-meter-value">{rxPct}%</div>
       </div>
     </div>
   )

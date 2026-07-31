@@ -1,6 +1,8 @@
 export const CODEC_PCM = 0
 export const CODEC_OPUS = 1
 
+const CODEC_WATCHDOG_MS = 200
+
 type EncodeResolver = (frame: ArrayBuffer) => void
 type DecodeResolver = (pcm: Float32Array) => void
 
@@ -38,6 +40,7 @@ class OpusCodec {
   private decoder: any = null
   private encodeTimestamp = 0
   private decodeTimestamp = 0
+  private failed = false
   private pendingEncode = new Map<number, EncodeResolver>()
   private pendingDecode = new Map<number, DecodeResolver>()
 
@@ -65,6 +68,7 @@ class OpusCodec {
         resolver(buffer)
       },
       error: () => {
+        this.failed = true
         this.pendingEncode.clear()
       },
     })
@@ -81,10 +85,14 @@ class OpusCodec {
         this.pendingDecode.delete(audioData.timestamp)
         const pcm = new Float32Array(audioData.numberOfFrames)
         audioData.copyTo(pcm, { planeIndex: 0 })
+        for (let i = 0; i < pcm.length; i++) {
+          if (!Number.isFinite(pcm[i])) pcm[i] = 0
+        }
         resolver(pcm)
         audioData.close()
       },
       error: () => {
+        this.failed = true
         this.pendingDecode.clear()
       },
     })
@@ -92,12 +100,20 @@ class OpusCodec {
   }
 
   async encode(pcm: Float32Array): Promise<ArrayBuffer> {
+    if (this.failed) throw new Error('Opus encoder failed')
     this.ensureEncoder()
     return new Promise((resolve) => {
       const g = globalThis as any
       const timestamp = this.encodeTimestamp
       this.encodeTimestamp += pcm.length
-      this.pendingEncode.set(timestamp, resolve)
+      const timer = setTimeout(() => {
+        this.pendingEncode.delete(timestamp)
+        resolve(new ArrayBuffer(1))
+      }, CODEC_WATCHDOG_MS)
+      this.pendingEncode.set(timestamp, (frame) => {
+        clearTimeout(timer)
+        resolve(frame)
+      })
       const audioData = new g.AudioData({
         format: 'f32',
         sampleRate: this.sampleRate,
@@ -111,12 +127,20 @@ class OpusCodec {
   }
 
   async decode(frame: ArrayBuffer): Promise<Float32Array> {
+    if (this.failed) throw new Error('Opus decoder failed')
     this.ensureDecoder()
     return new Promise((resolve) => {
       const g = globalThis as any
       const timestamp = this.decodeTimestamp
       this.decodeTimestamp += 1
-      this.pendingDecode.set(timestamp, resolve)
+      const timer = setTimeout(() => {
+        this.pendingDecode.delete(timestamp)
+        resolve(new Float32Array(0))
+      }, CODEC_WATCHDOG_MS)
+      this.pendingDecode.set(timestamp, (pcm) => {
+        clearTimeout(timer)
+        resolve(pcm)
+      })
       const chunk = new g.EncodedAudioChunk({
         type: 'key',
         timestamp,
@@ -137,30 +161,49 @@ class OpusCodec {
 }
 
 export class AudioCodec {
-  readonly name: 'pcm' | 'opus'
   private pcm: PcmCodec
   private opus: OpusCodec | null
 
   private constructor(opus: OpusCodec | null) {
     this.pcm = new PcmCodec()
     this.opus = opus
-    this.name = opus ? 'opus' : 'pcm'
   }
 
   static create(): AudioCodec {
     return new AudioCodec(OpusCodec.isSupported() ? new OpusCodec() : null)
   }
 
+  get name(): 'pcm' | 'opus' {
+    return this.opus ? 'opus' : 'pcm'
+  }
+
   async encode(pcm: Float32Array): Promise<ArrayBuffer> {
-    if (this.opus) return this.opus.encode(pcm)
+    if (this.opus) {
+      try {
+        return await this.opus.encode(pcm)
+      } catch {
+        this.opus.destroy()
+        this.opus = null
+      }
+    }
     return this.pcm.encode(pcm)
   }
 
   async decode(frame: ArrayBuffer): Promise<Float32Array> {
-    const codecByte = frame.byteLength > 0 ? new DataView(frame).getUint8(0) : CODEC_PCM
+    if (frame.byteLength <= 1) return new Float32Array(0)
+
+    const codecByte = new DataView(frame).getUint8(0)
     if (codecByte === CODEC_OPUS) {
-      if (!this.opus) throw new Error('Opus not supported by this client')
-      return this.opus.decode(frame)
+      if (this.opus) {
+        try {
+          return await this.opus.decode(frame)
+        } catch {
+          this.opus.destroy()
+          this.opus = null
+        }
+      }
+      // Sem suporte/falha no Opus: silêncio em vez de travar o pipeline.
+      return new Float32Array(0)
     }
     return this.pcm.decode(frame)
   }

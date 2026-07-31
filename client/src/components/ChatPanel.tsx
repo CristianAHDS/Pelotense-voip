@@ -36,6 +36,7 @@ export function ChatPanel() {
   const messages = useRoomStore((s) => s.messages)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const myId = useConnectionStore((s) => s.id)
+  const myAdmin = useConnectionStore((s) => s.admin)
   const connected = useConnectionStore((s) => s.connected)
   const broadcaster = useLiveStore((s) => s.broadcaster)
   const pendingRequest = useLiveStore((s) => s.pendingRequest)
@@ -249,6 +250,7 @@ export function ChatPanel() {
               key={i}
               msg={msg}
               isSelf={isSelf}
+              canDelete={isSelf || myAdmin}
               avatarColor={color}
               showAvatar={i === 0 || messages[i - 1].userId !== msg.userId}
             />
@@ -573,9 +575,10 @@ export function ChatPanel() {
   )
 }
 
-function ChatBubble({ msg, isSelf, avatarColor, showAvatar }: {
+function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
   msg: ChatMsg
   isSelf: boolean
+  canDelete: boolean
   avatarColor: string
   showAvatar: boolean
 }) {
@@ -700,7 +703,7 @@ function ChatBubble({ msg, isSelf, avatarColor, showAvatar }: {
           <span className="chat-bubble-time">
             {msg.videoData ? formatDuration(msg.duration ?? 0) : formatTime(msg.timestamp)}
           </span>
-          {isSelf && (
+          {canDelete && (
             <button
               onClick={() => msg.id && deleteMessage(msg.id)}
               className="chat-bubble-delete-btn"

@@ -10,6 +10,7 @@ export class VoiceManager {
   private active: boolean = false;
   private onSendAudio: ((data: ArrayBuffer) => void) | null = null;
   private smoothLevel: number = 0;
+  private smoothRxLevel: number = 0;
 
   constructor() {
     this.microphone = new Microphone();
@@ -27,6 +28,10 @@ export class VoiceManager {
     }
     const ok = await this.microphone.start();
     if (!ok) return false;
+
+    // Gesto de usuário: garante que o contexto de saída (speaker) esteja rodando
+    // (política de autoplay do navegador).
+    void this.speaker.resume();
 
     this.microphone.setOnData((data: Float32Array) => {
       if (useVoiceStore.getState().muted) {
@@ -63,9 +68,24 @@ export class VoiceManager {
   }
 
   playAudio(data: ArrayBuffer): void {
-    void this.audioCodec.decode(data)
-      .then((pcm) => this.speaker.play(pcm))
-      .catch(() => { /* unsupported codec, skip */ });
+    void this.audioCodec
+      .decode(data)
+      .then((pcm) => {
+        let sum = 0;
+        for (let i = 0; i < pcm.length; i++) {
+          const v = pcm[i];
+          if (Number.isFinite(v)) sum += v * v;
+        }
+        const rms = Math.sqrt(sum / Math.max(1, pcm.length));
+        const raw = Number.isFinite(rms) ? Math.min(1, rms * 3) : 0;
+        this.smoothRxLevel =
+          this.smoothRxLevel + (raw - this.smoothRxLevel) * LEVEL_SMOOTHING;
+        useVoiceStore.getState().setRxLevel(this.smoothRxLevel);
+
+        void this.speaker.resume();
+        this.speaker.play(pcm);
+      })
+      .catch(() => { /* codec indisponível para este frame; pula */ });
   }
 
   setVolume(volume: number): void {

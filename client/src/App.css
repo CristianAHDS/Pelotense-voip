@@ -891,6 +891,40 @@ body {
   flex-shrink: 0;
 }
 
+.voice-bar-vu--rx {
+  flex: 0.6;
+  max-width: 140px;
+}
+
+.voice-bar-vu--rx .vu-bar--active.vu-bar--low {
+  background: #22c55e;
+}
+
+.voice-bar-vu--rx .vu-bar--active.vu-bar--mid {
+  background: #eab308;
+}
+
+.voice-bar-vu--rx .vu-bar--active.vu-bar--high {
+  background: #f59e0b;
+}
+
+.voice-bar-vu-label--rx {
+  color: #4ade80;
+  min-width: 44px;
+}
+
+.vu-meter--rx .vu-bar--active.vu-bar--low {
+  background: #22c55e;
+}
+
+.vu-meter--rx .vu-bar--active.vu-bar--mid {
+  background: #eab308;
+}
+
+.vu-meter--rx .vu-bar--active.vu-bar--high {
+  background: #f59e0b;
+}
+
 .voice-bar-volume {
   display: flex;
   align-items: center;

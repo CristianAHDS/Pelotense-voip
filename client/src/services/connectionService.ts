@@ -59,6 +59,7 @@ function voiceOnRoomJoined(): void {
 
 function voiceOnRoomLeft(): void {
   voiceManager?.stopMicrophone()
+  useVoiceStore.getState().setRxLevel(0)
 }
 
 export function connectToServer(address: string, name: string, password: string): void {
@@ -282,6 +283,7 @@ export function disconnectFromServer(): void {
   useLiveStore.getState().setBroadcaster(null)
   useLiveStore.getState().clearChunks()
   useVoiceStore.getState().clearSpeaking()
+  useVoiceStore.getState().setRxLevel(0)
 }
 
 export function requestRoomList(): void {
