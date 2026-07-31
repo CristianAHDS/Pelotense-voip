@@ -12,11 +12,11 @@ export function Avatar({ id, name, avatar, maxInitials = 2, className }: {
   if (avatar) {
     return (
       <span
-        className={`${cls} ${cls}--img`}
+        className={`${cls} user-avatar--img`}
         style={{ background: 'transparent' }}
         title={name}
       >
-        <img src={avatar} alt={name} className={`${cls}-img`} />
+        <img src={avatar} alt={name} className="user-avatar-img" />
       </span>
     )
   }

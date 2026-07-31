@@ -68,6 +68,15 @@ describe('RadioBot', () => {
     expect(mockPlayer.stop).toHaveBeenCalled()
   })
 
+  it('não para o player ao desmontar uma instância enquanto outra segue montada (tela cheia)', () => {
+    const first = render(<RadioBot />)
+    const second = render(<RadioBot />)
+    second.unmount()
+    expect(mockPlayer.stop).not.toHaveBeenCalled()
+    first.unmount()
+    expect(mockPlayer.stop).toHaveBeenCalled()
+  })
+
   it('reflete o estado "playing" vindo do player', async () => {
     const { container } = render(<RadioBot />)
     await act(async () => { emitState('playing') })

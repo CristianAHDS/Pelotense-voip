@@ -21,6 +21,7 @@ export interface StoredPrivateMessage {
   text?: string
   audioData?: string
   videoData?: string
+  imageData?: string
   duration?: number
   timestamp: number
 }
@@ -33,6 +34,8 @@ export interface Account {
   avatar?: string
   emailConfirmed?: boolean
   confirmCode?: string
+  isAdmin?: boolean
+  tags?: string[]
   createdAt?: number
 }
 
@@ -44,10 +47,19 @@ interface AccountRow {
   avatar: string | null
   emailConfirmed: number | null
   confirmCode: string | null
+  isAdmin: number | null
+  tags: string | null
   createdAt: number | null
 }
 
 function mapAccount(row: AccountRow): Account {
+  let tags: string[] | undefined
+  if (row.tags) {
+    try {
+      const parsed = JSON.parse(row.tags)
+      if (Array.isArray(parsed)) tags = parsed.filter((t) => typeof t === 'string')
+    } catch { /* ignore */ }
+  }
   return {
     name: row.name,
     id: row.id ?? undefined,
@@ -56,6 +68,8 @@ function mapAccount(row: AccountRow): Account {
     avatar: row.avatar ?? undefined,
     emailConfirmed: row.emailConfirmed === 1,
     confirmCode: row.confirmCode ?? undefined,
+    isAdmin: row.isAdmin === 1,
+    tags,
     createdAt: row.createdAt ?? undefined,
   }
 }
@@ -105,6 +119,7 @@ export class SqliteStore {
         text TEXT,
         audioData TEXT,
         videoData TEXT,
+        imageData TEXT,
         duration INTEGER,
         timestamp INTEGER NOT NULL
       );
@@ -117,6 +132,8 @@ export class SqliteStore {
         avatar TEXT,
         emailConfirmed INTEGER NOT NULL DEFAULT 0,
         confirmCode TEXT,
+        isAdmin INTEGER NOT NULL DEFAULT 0,
+        tags TEXT,
         createdAt INTEGER
       );
     `)
@@ -134,10 +151,21 @@ export class SqliteStore {
     if (!cols.some((c) => c.name === 'confirmCode')) {
       this.db.exec('ALTER TABLE accounts ADD COLUMN confirmCode TEXT')
     }
+    if (!cols.some((c) => c.name === 'isAdmin')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN isAdmin INTEGER NOT NULL DEFAULT 0')
+    }
+    if (!cols.some((c) => c.name === 'tags')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN tags TEXT')
+    }
     if (!cols.some((c) => c.name === 'createdAt')) {
       this.db.exec('ALTER TABLE accounts ADD COLUMN createdAt INTEGER')
     }
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email)')
+
+    const pmCols = this.db.prepare('PRAGMA table_info(private_messages)').all() as Array<{ name: string }>
+    if (!pmCols.some((c) => c.name === 'imageData')) {
+      this.db.exec('ALTER TABLE private_messages ADD COLUMN imageData TEXT')
+    }
   }
 
   close(): void {
@@ -253,12 +281,13 @@ export class SqliteStore {
 
   savePrivateMessage(msg: StoredPrivateMessage): void {
     this.db.prepare(`
-      INSERT INTO private_messages (id, fromUserId, fromUserName, toUserId, toUserName, text, audioData, videoData, duration, timestamp)
-      VALUES (@id, @fromUserId, @fromUserName, @toUserId, @toUserName, @text, @audioData, @videoData, @duration, @timestamp)
+      INSERT INTO private_messages (id, fromUserId, fromUserName, toUserId, toUserName, text, audioData, videoData, imageData, duration, timestamp)
+      VALUES (@id, @fromUserId, @fromUserName, @toUserId, @toUserName, @text, @audioData, @videoData, @imageData, @duration, @timestamp)
       ON CONFLICT(id) DO UPDATE SET
         text = @text,
         audioData = @audioData,
         videoData = @videoData,
+        imageData = @imageData,
         duration = @duration
     `).run({
       id: msg.id ?? '',
@@ -269,9 +298,44 @@ export class SqliteStore {
       text: msg.text ?? null,
       audioData: msg.audioData ?? null,
       videoData: msg.videoData ?? null,
+      imageData: msg.imageData ?? null,
       duration: msg.duration ?? null,
       timestamp: msg.timestamp,
     })
+  }
+
+  getPrivateMessage(id: string): StoredPrivateMessage | undefined {
+    const row = this.db.prepare('SELECT * FROM private_messages WHERE id = ?').get(id) as {
+      id: string
+      fromUserId: string
+      fromUserName: string
+      toUserId: string
+      toUserName: string
+      text: string | null
+      audioData: string | null
+      videoData: string | null
+      imageData: string | null
+      duration: number | null
+      timestamp: number
+    } | undefined
+    if (!row) return undefined
+    return {
+      id: row.id,
+      fromUserId: row.fromUserId,
+      fromUserName: row.fromUserName,
+      toUserId: row.toUserId,
+      toUserName: row.toUserName,
+      text: row.text ?? undefined,
+      audioData: row.audioData ?? undefined,
+      videoData: row.videoData ?? undefined,
+      imageData: row.imageData ?? undefined,
+      duration: row.duration ?? undefined,
+      timestamp: row.timestamp,
+    }
+  }
+
+  deletePrivateMessage(id: string): void {
+    this.db.prepare('DELETE FROM private_messages WHERE id = ?').run(id)
   }
 
   loadPrivateMessages(nameA: string, nameB: string): StoredPrivateMessage[] {
@@ -288,6 +352,7 @@ export class SqliteStore {
       text: string | null
       audioData: string | null
       videoData: string | null
+      imageData: string | null
       duration: number | null
       timestamp: number
     }>
@@ -300,6 +365,7 @@ export class SqliteStore {
       text: r.text ?? undefined,
       audioData: r.audioData ?? undefined,
       videoData: r.videoData ?? undefined,
+      imageData: r.imageData ?? undefined,
       duration: r.duration ?? undefined,
       timestamp: r.timestamp,
     }))
@@ -323,6 +389,33 @@ export class SqliteStore {
     return mapAccount(row)
   }
 
+  getAccountById(id: string): Account | undefined {
+    const row = this.db.prepare('SELECT * FROM accounts WHERE id = ?').get(id) as AccountRow | undefined
+    if (!row) return undefined
+    return mapAccount(row)
+  }
+
+  getAllAccounts(): Array<{ id?: string; name: string; email?: string; avatar?: string; emailConfirmed?: boolean; isAdmin?: boolean; tags?: string[] }> {
+    const rows = this.db.prepare('SELECT name, id, email, avatar, emailConfirmed, isAdmin, tags FROM accounts ORDER BY name COLLATE NOCASE').all() as Array<{
+      name: string
+      id: string | null
+      email: string | null
+      avatar: string | null
+      emailConfirmed: number | null
+      isAdmin: number | null
+      tags: string | null
+    }>
+    return rows.map((r) => ({
+      id: r.id ?? undefined,
+      name: r.name,
+      email: r.email ?? undefined,
+      avatar: r.avatar ?? undefined,
+      emailConfirmed: r.emailConfirmed === 1,
+      isAdmin: r.isAdmin === 1,
+      tags: r.tags ? JSON.parse(r.tags) : undefined,
+    }))
+  }
+
   // Busca conta por nome OU e-mail (login aceita ambos).
   getAccountByIdentifier(identifier: string): Account | undefined {
     const row = this.db.prepare('SELECT * FROM accounts WHERE name = ? OR email = ? COLLATE NOCASE LIMIT 1').get(identifier, identifier) as AccountRow | undefined
@@ -339,8 +432,8 @@ export class SqliteStore {
 
   saveAccount(account: Account): void {
     this.db.prepare(`
-      INSERT INTO accounts (name, id, email, password, avatar, emailConfirmed, confirmCode, createdAt)
-      VALUES (@name, @id, @email, @password, @avatar, COALESCE(@emailConfirmed, 0), @confirmCode, @createdAt)
+      INSERT INTO accounts (name, id, email, password, avatar, emailConfirmed, confirmCode, isAdmin, tags, createdAt)
+      VALUES (@name, @id, @email, @password, @avatar, COALESCE(@emailConfirmed, 0), @confirmCode, COALESCE(@isAdmin, 0), @tags, @createdAt)
       ON CONFLICT(name) DO UPDATE SET
         id = COALESCE(@id, id),
         email = COALESCE(@email, email),
@@ -348,6 +441,8 @@ export class SqliteStore {
         avatar = COALESCE(@avatar, avatar),
         emailConfirmed = COALESCE(@emailConfirmed, emailConfirmed),
         confirmCode = @confirmCode,
+        isAdmin = COALESCE(@isAdmin, isAdmin),
+        tags = COALESCE(@tags, tags),
         createdAt = COALESCE(@createdAt, createdAt)
     `).run({
       name: account.name,
@@ -357,6 +452,8 @@ export class SqliteStore {
       avatar: account.avatar ?? null,
       emailConfirmed: account.emailConfirmed === undefined ? null : account.emailConfirmed ? 1 : 0,
       confirmCode: account.confirmCode ?? null,
+      isAdmin: account.isAdmin === undefined ? null : account.isAdmin ? 1 : 0,
+      tags: account.tags === undefined ? null : JSON.stringify(account.tags),
       createdAt: account.createdAt ?? Date.now(),
     })
   }

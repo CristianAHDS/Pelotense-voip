@@ -16,7 +16,6 @@ let reconnecting: boolean = false
 let intentionalDisconnect: boolean = false
 let voiceManager: VoiceManager | null = null
 let voiceCleanup: (() => void) | null = null
-let pendingLogin: { name: string; password: string; email?: string; confirmCode?: string } | null = null
 
 export function getWsClient(): WsClient | null {
   return wsClient
@@ -125,10 +124,9 @@ function maybeNotifyPrivate(payload: PrivateChatMsg, body: string): void {
   notifyNewMessage(payload.fromUserName, body)
 }
 
-export function connectToServer(address: string, name: string, password: string, email?: string): void {
+export function connectToServer(address: string, name: string, password: string, email?: string, intent?: 'login' | 'register'): void {
   if (wsClient) disconnectFromServer()
 
-  pendingLogin = { name, password, email: email || undefined, confirmCode: undefined }
   useConnectionStore.getState().setLoginStep('none')
 
   wsClient = new WsClient()
@@ -136,7 +134,9 @@ export function connectToServer(address: string, name: string, password: string,
   initVoice()
 
   wsClient.on('connected', () => {
-    resendLogin({})
+    const avatar = useAccountStore.getState().avatar
+    const payload: LoginPayload = { name, password, email: email || undefined, avatar: avatar || undefined, intent }
+    wsClient?.send(WsMessageType.Login, payload)
   })
   wsClient.on('disconnected', () => {
     if (intentionalDisconnect) {
@@ -162,6 +162,7 @@ export function connectToServer(address: string, name: string, password: string,
       useAccountStore.getState().setPrefs({ email: payload.email })
     }
     requestRoomList()
+    requestAccounts()
     voiceOnLogin()
     requestNotificationPermission()
 
@@ -173,6 +174,13 @@ export function connectToServer(address: string, name: string, password: string,
     if (currentRoomName) {
       joinRoom(currentRoomName)
     }
+
+    // Reabre o DM que estava ativo antes do refresh/reconexão e pede o
+    // histórico persistido no servidor, para as mensagens não "sumirem".
+    const activeDm = usePrivateChatStore.getState().activeUserId
+    if (activeDm) {
+      requestPrivateHistory(activeDm)
+    }
   })
 
   wsClient.on(WsMessageType.RoomList, (msg) => {
@@ -182,6 +190,10 @@ export function connectToServer(address: string, name: string, password: string,
 
   wsClient.on(WsMessageType.UserList, (msg) => {
     useRoomStore.getState().setUsers(msg.payload as any)
+  })
+
+  wsClient.on(WsMessageType.AccountsList, (msg) => {
+    useRoomStore.getState().setAccounts(msg.payload as any)
   })
 
   wsClient.on(WsMessageType.RoomJoined, async (msg) => {
@@ -326,6 +338,22 @@ function dmKey(payload: PrivateChatMsg): string {
     maybeNotifyPrivate(payload, '🎬 Mensagem de vídeo')
   })
 
+  wsClient.on(WsMessageType.PrivateImageMessage, (msg) => {
+    const payload = msg.payload as PrivateChatMsg
+    usePrivateChatStore.getState().addMessage(payload)
+    persistDm(dmKey(payload))
+    maybeNotifyPrivate(payload, '🖼️ Imagem')
+  })
+
+  wsClient.on(WsMessageType.PrivateMessageDeleted, (msg) => {
+    const payload = msg.payload as { messageId: string }
+    const peerId = usePrivateChatStore.getState().activeUserId
+    usePrivateChatStore.getState().removeMessage(payload.messageId)
+    if (peerId) {
+      void chatHistory.saveDmMessages(peerId, usePrivateChatStore.getState().messages[peerId] ?? [])
+    }
+  })
+
   wsClient.on(WsMessageType.PrivateHistory, async (msg) => {
     const payload = msg.payload as { withUserId: string; messages: PrivateChatMsg[] }
     const serverMsgs = payload.messages ?? []
@@ -346,58 +374,13 @@ function dmKey(payload: PrivateChatMsg): string {
     useAccountStore.getState().setPrefs({ name: payload.name, avatar: payload.avatar ?? '' })
   })
 
-  wsClient.on(WsMessageType.EmailRequired, (msg) => {
-    const payload = msg.payload as { name: string }
-    if (pendingLogin) {
-      pendingLogin = { ...pendingLogin, name: payload.name }
-    }
-    useConnectionStore.getState().setLoginStep('email_required')
-  })
-
-  wsClient.on(WsMessageType.ConfirmRequired, (msg) => {
-    const payload = msg.payload as { name: string; email?: string }
-    if (pendingLogin) {
-      pendingLogin = { ...pendingLogin, name: payload.name, email: payload.email ?? pendingLogin.email }
-    }
-    useConnectionStore.getState().setLoginStep('confirm_required')
-  })
-
   wsClient.on(WsMessageType.Error, (msg) => {
     const error = String(msg.payload ?? 'Unknown error')
-    // Erros relacionados à criação/confirmação de conta não desconectam.
-    if (
-      error === 'Email required'
-      || error === 'Email in use'
-      || error === 'Invalid email'
-      || error === 'Email not registered'
-      || error === 'Wrong password'
-      || error === 'Name too long'
-      || error === 'Password too long'
-    ) {
-      useConnectionStore.getState().setLoginStep('error', error)
-      return
-    }
     useConnectionStore.getState().setDisconnected()
     useToastStore.getState().show('error', `Connection error: ${error}`)
   })
 
   wsClient.connect(address)
-}
-
-// Reenvia o login no mesmo socket (fluxo de confirmação de e-mail). O servidor
-// mantém a conexão aberta enquanto aguarda o e-mail/código.
-export function resendLogin(extra: { email?: string; confirmCode?: string }): void {
-  if (!wsClient || !pendingLogin) return
-  pendingLogin = { ...pendingLogin, ...extra }
-  const avatar = useAccountStore.getState().avatar
-  const payload: LoginPayload = {
-    name: pendingLogin.name,
-    password: pendingLogin.password,
-    email: pendingLogin.email || undefined,
-    confirmCode: pendingLogin.confirmCode || undefined,
-    avatar: avatar || undefined,
-  }
-  wsClient.send(WsMessageType.Login, payload)
 }
 
 export function joinRoom(roomName: string): void {
@@ -464,9 +447,9 @@ export function deleteMessage(messageId: string): void {
   wsClient.send(WsMessageType.DeleteMessage, { messageId })
 }
 
-export function sendPrivateMessage(toUserId: string, text: string): void {
+export function sendPrivateMessage(toUserId: string, text: string, id?: string): void {
   if (!wsClient) { console.error('sendPrivateMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.PrivateMessage, { toUserId, text })
+  wsClient.send(WsMessageType.PrivateMessage, { toUserId, text, id })
 }
 
 export function sendPrivateAudioMessage(toUserId: string, id: string, audioData: string, duration: number): void {
@@ -477,6 +460,16 @@ export function sendPrivateAudioMessage(toUserId: string, id: string, audioData:
 export function sendPrivateVideoMessage(toUserId: string, id: string, videoData: string, duration: number): void {
   if (!wsClient) { console.error('sendPrivateVideoMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.PrivateVideoMessage, { toUserId, id, videoData, duration })
+}
+
+export function sendPrivateImageMessage(toUserId: string, id: string, imageData: string): void {
+  if (!wsClient) { console.error('sendPrivateImageMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.PrivateImageMessage, { toUserId, id, imageData })
+}
+
+export function deletePrivateMessage(messageId: string): void {
+  if (!wsClient) { console.error('deletePrivateMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.DeletePrivateMessage, { messageId })
 }
 
 export function requestPrivateHistory(withUserId: string): void {
@@ -498,7 +491,6 @@ export function disconnectFromServer(): void {
   cleanupVoice()
   intentionalDisconnect = true
   reconnecting = false
-  pendingLogin = null
   wsClient?.disconnect()
   wsClient = null
   useConnectionStore.getState().setDisconnected()
@@ -506,6 +498,7 @@ export function disconnectFromServer(): void {
   useRoomStore.getState().clearMessages()
   useRoomStore.getState().setRooms([])
   useRoomStore.getState().setUsers([])
+  useRoomStore.getState().setAccounts([])
   useLiveStore.getState().setBroadcaster(null)
   useLiveStore.getState().clearChunks()
   useVoiceStore.getState().clearSpeaking()
@@ -522,6 +515,15 @@ export function requestRoomList(): void {
 
 export function requestUserList(): void {
   wsClient?.send(WsMessageType.ListUsers)
+}
+
+export function requestAccounts(): void {
+  wsClient?.send(WsMessageType.ListAccounts)
+}
+
+export function sendAdminUpdateAccount(payload: { userId?: string; userName?: string; name?: string; email?: string; password?: string; isAdmin?: boolean; tags?: string[] }): void {
+  if (!wsClient) { console.error('sendAdminUpdateAccount: wsClient is null'); return }
+  wsClient.send(WsMessageType.AdminUpdateAccount, payload)
 }
 
 export function sendLiveStart(): void {

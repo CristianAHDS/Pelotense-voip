@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { RoomInfo, UserInfo, ChatMsg } from '../types/index.ts'
+import { RoomInfo, UserInfo, ChatMsg, AccountInfo } from '../types/index.ts'
 
 const CURRENT_ROOM_KEY = 'voip.currentRoom'
 
@@ -31,6 +31,7 @@ const restored = loadCurrentRoom()
 interface RoomStore {
   rooms: RoomInfo[]
   users: UserInfo[]
+  accounts: AccountInfo[]
   currentRoom: string | null
   currentRoomName: string | null
   messages: ChatMsg[]
@@ -39,6 +40,7 @@ interface RoomStore {
   loadingMessages: boolean
   setRooms: (rooms: RoomInfo[]) => void
   setUsers: (users: UserInfo[]) => void
+  setAccounts: (accounts: AccountInfo[]) => void
   setCurrentRoom: (roomId: string | null, roomName?: string | null) => void
   addUser: (user: UserInfo) => void
   removeUser: (userId: string) => void
@@ -56,6 +58,7 @@ interface RoomStore {
 export const useRoomStore = create<RoomStore>((set) => ({
   rooms: [],
   users: [],
+  accounts: [],
   currentRoom: restored.currentRoom,
   currentRoomName: restored.currentRoomName,
   messages: [],
@@ -64,6 +67,7 @@ export const useRoomStore = create<RoomStore>((set) => ({
   loadingMessages: false,
   setRooms: (rooms) => set({ rooms }),
   setUsers: (users) => set({ users }),
+  setAccounts: (accounts) => set({ accounts }),
   setCurrentRoom: (roomId, roomName) => {
     persistCurrentRoom(roomId, roomName ?? null)
     set({ currentRoom: roomId, currentRoomName: roomName ?? null })

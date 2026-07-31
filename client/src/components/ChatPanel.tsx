@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
@@ -9,11 +9,11 @@ import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
 import { LiveViewer } from './LiveViewer.tsx'
 import { RadioBot } from './RadioBot.tsx'
+import { ChatMedia } from './ChatMedia.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
 import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit } from '../utils/image.ts'
-import { downloadAudioAsWav, audioMessageFilename } from '../utils/download.ts'
 import { useT, tStatic } from '../i18n/index.ts'
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -804,111 +804,12 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onF
   onForward: (msg: ChatMsg) => void
   onLightbox: (src: string) => void
 }) {
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const progressRef = useRef<HTMLDivElement>(null)
-  const [playing, setPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(msg.duration ?? 0)
-  const [seeking, setSeeking] = useState(false)
-  const [rate, setRate] = useState(1)
   const [reactionsOpen, setReactionsOpen] = useState(false)
-
-  const RATES = [0.5, 1, 1.5, 2]
-
-  // Alturas das barras da onda: determinísticas por mensagem, para não
-  // "tremeluzir" a cada atualização de currentTime (timeupdate).
-  const bars = useMemo(
-    () => Array.from({ length: 32 }, (_, i) => 20 + Math.sin(i * 0.8) * 30 + ((i * 37) % 10)),
-    []
-  )
-
-  useEffect(() => {
-    if (msg.audioData && !audioUrl) {
-      const url = URL.createObjectURL(
-        new Blob(
-          [Uint8Array.from(atob(msg.audioData), (c) => c.charCodeAt(0))],
-          { type: 'audio/webm' }
-        )
-      )
-      setAudioUrl(url)
-    }
-    if (msg.videoData && !videoUrl) {
-      const url = URL.createObjectURL(
-        new Blob(
-          [Uint8Array.from(atob(msg.videoData), (c) => c.charCodeAt(0))],
-          { type: 'video/webm' }
-        )
-      )
-      setVideoUrl(url)
-    }
-    return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl)
-      if (videoUrl) URL.revokeObjectURL(videoUrl)
-    }
-  }, [msg.audioData, msg.videoData])
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = rate
-  }, [rate])
-
-  function togglePlay() {
-    if (!audioRef.current) return
-    if (playing) {
-      audioRef.current.pause()
-    } else {
-      audioRef.current.playbackRate = rate
-      audioRef.current.play()
-    }
-  }
-
-  function cycleRate() {
-    setRate((r) => {
-      const next = RATES[(RATES.indexOf(r) + 1) % RATES.length]
-      if (audioRef.current) audioRef.current.playbackRate = next
-      return next
-    })
-  }
 
   function toggleReaction(emoji: string) {
     if (!msg.id) return
     sendMessageReaction(msg.id, emoji)
     setReactionsOpen(false)
-  }
-
-  const totalDuration =
-    audioRef.current?.duration && isFinite(audioRef.current.duration)
-      ? audioRef.current.duration
-      : duration
-
-  const progress = totalDuration > 0 ? Math.min(1, Math.max(0, currentTime / totalDuration)) : 0
-
-  function seekFromClientX(clientX: number) {
-    if (!audioRef.current || !progressRef.current) return
-    const rect = progressRef.current.getBoundingClientRect()
-    if (rect.width === 0) return
-    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-    const target = ratio * totalDuration
-    audioRef.current.currentTime = target
-    setCurrentTime(target)
-  }
-
-  function seekBy(delta: number) {
-    if (!audioRef.current) return
-    const next = Math.min(totalDuration, Math.max(0, audioRef.current.currentTime + delta))
-    audioRef.current.currentTime = next
-    setCurrentTime(next)
-  }
-
-  function handleSeekKey(e: React.KeyboardEvent) {
-    if (e.key === 'ArrowRight') {
-      e.preventDefault()
-      seekBy(5)
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault()
-      seekBy(-5)
-    }
   }
 
   function formatDuration(seconds: number): string {
@@ -925,7 +826,7 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onF
         </div>
       )}
       {!showAvatar && !isSelf && <div className="chat-avatar-spacer" />}
-      <div className={`chat-bubble ${isSelf ? 'chat-bubble--self' : ''}`}>
+      <div className={`chat-bubble ${isSelf ? 'chat-bubble--self' : ''} ${msg.audioData ? 'chat-bubble--audio' : ''}`}>
         {!isSelf && (
           <div className="chat-bubble-author" style={{ color: avatarColor }}>
             {msg.userName}
@@ -934,122 +835,16 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onF
         {msg.forwarded && (
           <div className="chat-bubble-forwarded">{tStatic('forwarded')}</div>
         )}
-        {msg.videoData ? (
-          <div className="chat-bubble-video">
-            {videoUrl && (
-              <video
-                src={videoUrl}
-                controls
-                className="chat-video-player"
-              />
-            )}
-            <div className="chat-bubble-time">{formatDuration(msg.duration ?? 0)}</div>
-          </div>
-        ) : msg.imageData ? (
-          <div className="chat-bubble-image">
-            <img
-              src={`data:image/jpeg;base64,${msg.imageData}`}
-              className="chat-image"
-              alt=""
-              onClick={() => onLightbox(`data:image/jpeg;base64,${msg.imageData}`)}
-            />
-          </div>
-        ) : msg.audioData ? (
-          <div className="chat-bubble-audio">
-            <button
-              onClick={togglePlay}
-              className="chat-audio-play-btn"
-              title={playing ? tStatic('audioPause') : tStatic('audioPlay')}
-            >
-              {playing ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <rect x="6" y="4" width="4" height="16" rx="1" />
-                  <rect x="14" y="4" width="4" height="16" rx="1" />
-                </svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={cycleRate}
-              className="chat-audio-rate-btn"
-              title={tStatic('speed')}
-            >
-              {rate}x
-            </button>
-            {msg.audioData && (
-              <button
-                onClick={() => {
-                  if (!msg.audioData) return
-                  void downloadAudioAsWav(msg.audioData, audioMessageFilename(msg.userName, msg.timestamp, 'wav'))
-                }}
-                className="chat-audio-download-btn"
-                title={tStatic('download')}
-                aria-label={tStatic('download')}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              </button>
-            )}
-            <div
-              ref={progressRef}
-              className="chat-audio-progress"
-              role="slider"
-              aria-label="Linha do tempo do áudio"
-              aria-valuemin={0}
-              aria-valuemax={Math.round(totalDuration)}
-              aria-valuenow={Math.round(currentTime)}
-              tabIndex={0}
-              onPointerDown={(e) => {
-                e.preventDefault()
-                ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-                setSeeking(true)
-                seekFromClientX(e.clientX)
-              }}
-              onPointerMove={(e) => {
-                if (seeking) seekFromClientX(e.clientX)
-              }}
-              onPointerUp={() => setSeeking(false)}
-              onPointerCancel={() => setSeeking(false)}
-              onPointerLeave={() => setSeeking(false)}
-              onKeyDown={handleSeekKey}
-            >
-              <div className="chat-audio-wave">
-                {bars.map((h, i) => (
-                  <div
-                    key={i}
-                    className={`chat-audio-bar ${(i + 1) / bars.length <= progress ? 'chat-audio-bar--active' : ''}`}
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
-              </div>
-              <div className="chat-audio-time-row">
-                <span className="chat-audio-time">{formatDuration(currentTime)}</span>
-                <span className="chat-audio-duration">{formatDuration(duration)}</span>
-              </div>
-            </div>
-            <audio
-              ref={audioRef}
-              src={audioUrl ?? undefined}
-              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-              onLoadedMetadata={(e) => {
-                if (Number.isFinite(e.currentTarget.duration) && e.currentTarget.duration > 0) {
-                  setDuration(e.currentTarget.duration)
-                }
-              }}
-              onEnded={() => {
-                setPlaying(false)
-                setCurrentTime(0)
-              }}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-            />
-          </div>
+        {msg.audioData || msg.videoData || msg.imageData ? (
+          <ChatMedia
+            audioData={msg.audioData}
+            videoData={msg.videoData}
+            imageData={msg.imageData}
+            duration={msg.duration}
+            userName={msg.userName}
+            timestamp={msg.timestamp}
+            onLightbox={onLightbox}
+          />
         ) : (
           <div className="chat-bubble-text">{msg.text}</div>
         )}

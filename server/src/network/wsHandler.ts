@@ -6,7 +6,8 @@ import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
 import { SqliteStore } from '../storage/index.js'
-import { Mailer } from '../utils/mailer.js'
+
+const MASTER_USER_ID = 'fc2su3qi'
 
 export class WsHandler {
   private wss: WebSocketServer
@@ -17,8 +18,6 @@ export class WsHandler {
   private adminNames: string[]
   private adminIds: string[]
   private storage?: SqliteStore
-  private mailer?: Mailer
-  private skipEmailConfirmation: boolean
   private pendingClients = new Map<WebSocket, { ip: string }>()
   private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
 
@@ -31,8 +30,6 @@ export class WsHandler {
     adminNames: string[] = [],
     storage?: SqliteStore,
     adminIds: string[] = [],
-    mailer?: Mailer,
-    skipEmailConfirmation = false,
   ) {
     this.wss = wss
     this.clients = clients
@@ -42,8 +39,6 @@ export class WsHandler {
     this.adminNames = adminNames
     this.adminIds = adminIds
     this.storage = storage
-    this.mailer = mailer
-    this.skipEmailConfirmation = skipEmailConfirmation
     this.setup()
     this.startDeadConnectionMonitor()
   }
@@ -70,7 +65,7 @@ export class WsHandler {
           const msg: WsMessage = JSON.parse(data.toString())
           if (msg.type === WsMessageType.Login) {
             armLoginTimer()
-            this.handleLogin(ws, msg.payload as { name: string; email?: string; password: string; confirmCode?: string; avatar?: string })
+            this.handleLogin(ws, msg.payload as { name: string; email?: string; password: string; avatar?: string })
           } else {
             this.send(ws, { type: WsMessageType.Error, payload: 'Login first' })
             ws.close()
@@ -114,7 +109,7 @@ export class WsHandler {
     }
   }
 
-  private handleLogin(ws: WebSocket, payload: { name: string; email?: string; password: string; confirmCode?: string; avatar?: string }): void {
+  private handleLogin(ws: WebSocket, payload: { name: string; email?: string; password: string; avatar?: string; intent?: string }): void {
     const pending = this.pendingClients.get(ws)
     if (!pending) return
 
@@ -140,28 +135,61 @@ export class WsHandler {
       return
     }
 
-    // `name` pode ser nick ou e-mail. `email` é usado na criação da conta.
+    // `name` pode ser nick ou e-mail. `email` é opcional (usado na criação/login por e-mail).
     const identifier = name.trim()
     const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : ''
-    const confirmCode = typeof payload.confirmCode === 'string' ? payload.confirmCode.trim() : ''
     if (email && !this.isValidEmail(email)) {
       this.send(ws, { type: WsMessageType.Error, payload: 'Invalid email' })
+      ws.close()
       return
     }
 
+    const intent = typeof payload.intent === 'string' ? payload.intent : ''
     const isEmailIdentifier = identifier.includes('@')
     let account = this.storage?.getAccountByIdentifier(identifier)
 
-    // 1) Conta não existe.
-    if (!account) {
-      if (isEmailIdentifier) {
-        // E-mail digitado como identificador sem conta cadastrada.
-        this.send(ws, { type: WsMessageType.Error, payload: 'Email not registered' })
+    // Se informou um e-mail que já pertence a outra conta, impede o uso.
+    if (email && this.storage) {
+      const owner = this.storage.getAccountByEmail(email)
+      if (owner && owner.name !== (account?.name ?? identifier)) {
+        this.send(ws, { type: WsMessageType.Error, payload: 'Email in use' })
+        ws.close()
         return
       }
+    }
 
-      // Criação de conta: exige e-mail (a menos que a confirmação esteja desligada).
-      if (this.skipEmailConfirmation) {
+    if (intent === 'register') {
+      // Registro tradicional: exige e-mail e nome livre.
+      if (!email) {
+        this.send(ws, { type: WsMessageType.Error, payload: 'Email required' })
+        ws.close()
+        return
+      }
+      if (account) {
+        this.send(ws, { type: WsMessageType.Error, payload: 'Name in use' })
+        ws.close()
+        return
+      }
+      account = {
+        name: identifier,
+        id: this.generateId(),
+        email,
+        password,
+        avatar,
+        emailConfirmed: true,
+        createdAt: Date.now(),
+      }
+      this.storage?.saveAccount(account)
+    } else if (intent === 'login') {
+      // Login tradicional: a conta precisa já existir.
+      if (!account && !isEmailIdentifier) {
+        this.send(ws, { type: WsMessageType.Error, payload: 'Account not found' })
+        ws.close()
+        return
+      }
+    } else {
+      // Sem intent: mantém o comportamento legado (nick novo cria conta na hora).
+      if (!account && !isEmailIdentifier) {
         account = {
           name: identifier,
           id: this.generateId(),
@@ -172,54 +200,14 @@ export class WsHandler {
           createdAt: Date.now(),
         }
         this.storage?.saveAccount(account)
-      } else {
-        if (!email) {
-          this.send(ws, { type: WsMessageType.EmailRequired, payload: { name: identifier } })
-          return
-        }
-        const owner = this.storage?.getAccountByEmail(email)
-        if (owner) {
-          this.send(ws, { type: WsMessageType.Error, payload: 'Email in use' })
-          return
-        }
-        const code = this.generateConfirmCode()
-        account = {
-          name: identifier,
-          id: this.generateId(),
-          email,
-          password,
-          avatar,
-          emailConfirmed: false,
-          confirmCode: code,
-          createdAt: Date.now(),
-        }
-        this.storage?.saveAccount(account)
-        void this.mailer?.sendConfirmationEmail(email, identifier, code)
-        this.send(ws, { type: WsMessageType.ConfirmRequired, payload: { name: identifier, email } })
-        return
       }
     }
 
-    // 2) Conta pendente de confirmação de e-mail.
-    if (!account.emailConfirmed && account.email) {
-      if (this.skipEmailConfirmation) {
-        this.storage?.setAccountConfirmation(account.name, true)
-        account.emailConfirmed = true
-      } else if (confirmCode && account.confirmCode && confirmCode === account.confirmCode) {
-        this.storage?.setAccountConfirmation(account.name, true)
-        account.emailConfirmed = true
-        account.confirmCode = undefined
-      } else {
-        // Sem código válido: pede o código (reenvia o e-mail se vier sem código).
-        if (!confirmCode) {
-          const code = this.generateConfirmCode()
-          account.confirmCode = code
-          this.storage?.saveAccount(account)
-          void this.mailer?.sendConfirmationEmail(account.email, account.name, code)
-        }
-        this.send(ws, { type: WsMessageType.ConfirmRequired, payload: { name: account.name, email: account.email } })
-        return
-      }
+    if (!account) {
+      // E-mail digitado como identificador sem conta cadastrada.
+      this.send(ws, { type: WsMessageType.Error, payload: 'Email not registered' })
+      ws.close()
+      return
     }
 
     if (account.password !== password) {
@@ -228,15 +216,8 @@ export class WsHandler {
       return
     }
 
-    // Associa e-mail à conta caso tenha sido informado e ainda não exista,
-    // desde que não pertença a outra conta.
+    // Associa e-mail à conta caso tenha sido informado e ainda não exista.
     if (email && this.storage && account && !account.email) {
-      const owner = this.storage.getAccountByEmail(email)
-      if (owner && owner.name !== account.name) {
-        this.send(ws, { type: WsMessageType.Error, payload: 'Email in use' })
-        ws.close()
-        return
-      }
       account.email = email
       this.storage.saveAccount(account)
     }
@@ -261,9 +242,10 @@ export class WsHandler {
       udpPort: 0,
       ip: pending.ip,
       lastPing: Date.now(),
-      admin: this.adminNames.includes(resolvedName) || this.adminIds.includes(id),
+      admin: id === MASTER_USER_ID || this.adminNames.includes(resolvedName) || this.adminIds.includes(id) || account.isAdmin === true,
       avatar: avatar ?? account.avatar,
       email: account.email,
+      tags: account.tags,
       ws,
     }
 
@@ -379,6 +361,14 @@ export class WsHandler {
         })
         break
 
+      case WsMessageType.ListAccounts:
+        this.handleListAccounts(client)
+        break
+
+      case WsMessageType.AdminUpdateAccount:
+        this.handleAdminUpdateAccount(client, msg.payload as { userId?: string; userName?: string; name?: string; email?: string; password?: string; isAdmin?: boolean; tags?: string[] })
+        break
+
       case WsMessageType.ChatMessage:
         this.handleChatMessage(client, msg.payload as { text: string })
         break
@@ -417,6 +407,14 @@ export class WsHandler {
 
       case WsMessageType.PrivateVideoMessage:
         this.handlePrivateVideoMessage(client, msg.payload as { toUserId: string; videoData: string; duration: number })
+        break
+
+      case WsMessageType.PrivateImageMessage:
+        this.handlePrivateImageMessage(client, msg.payload as { toUserId: string; id?: string; imageData: string })
+        break
+
+      case WsMessageType.DeletePrivateMessage:
+        this.handleDeletePrivateMessage(client, msg.payload as { messageId: string })
         break
 
       case WsMessageType.ListPrivateMessages:
@@ -661,24 +659,24 @@ export class WsHandler {
     })
   }
 
-  private handlePrivateMessage(client: Client, payload: { toUserId: string; text: string }): void {
+  private handlePrivateMessage(client: Client, payload: { toUserId: string; text: string; id?: string }): void {
     if (!payload.toUserId || !payload.text?.trim()) return
     if (payload.text.length > this.limits.maxTextLength) {
       logger.warn('WsHandler', `Private message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
       return
     }
 
-    const target = this.clients.get(payload.toUserId)
-    if (!target) return
+    const resolved = this.resolvePrivateTarget(payload.toUserId)
+    if (!resolved) return
 
     const msg = {
       type: WsMessageType.PrivateMessage,
       payload: {
-        id: this.generateMessageId(),
+        id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
         fromUserId: client.id,
         fromUserName: client.name,
         toUserId: payload.toUserId,
-        toUserName: target.name,
+        toUserName: resolved.name,
         text: payload.text.trim(),
         timestamp: Date.now(),
       },
@@ -686,7 +684,7 @@ export class WsHandler {
 
     this.storage?.savePrivateMessage(msg.payload)
 
-    this.send(target.ws, msg)
+    if (resolved.ws) this.send(resolved.ws, msg)
     this.send(client.ws, msg)
   }
 
@@ -697,8 +695,8 @@ export class WsHandler {
       return
     }
 
-    const target = this.clients.get(payload.toUserId)
-    if (!target) return
+    const resolved = this.resolvePrivateTarget(payload.toUserId)
+    if (!resolved) return
 
     const msg = {
       type: WsMessageType.PrivateAudioMessage,
@@ -707,7 +705,7 @@ export class WsHandler {
         fromUserId: client.id,
         fromUserName: client.name,
         toUserId: payload.toUserId,
-        toUserName: target.name,
+        toUserName: resolved.name,
         audioData: payload.audioData,
         duration: payload.duration,
         timestamp: Date.now(),
@@ -716,7 +714,7 @@ export class WsHandler {
 
     this.storage?.savePrivateMessage(msg.payload)
 
-    this.send(target.ws, msg)
+    if (resolved.ws) this.send(resolved.ws, msg)
     this.send(client.ws, msg)
   }
 
@@ -727,8 +725,8 @@ export class WsHandler {
       return
     }
 
-    const target = this.clients.get(payload.toUserId)
-    if (!target) return
+    const resolved = this.resolvePrivateTarget(payload.toUserId)
+    if (!resolved) return
 
     const msg = {
       type: WsMessageType.PrivateVideoMessage,
@@ -737,7 +735,7 @@ export class WsHandler {
         fromUserId: client.id,
         fromUserName: client.name,
         toUserId: payload.toUserId,
-        toUserName: target.name,
+        toUserName: resolved.name,
         videoData: payload.videoData,
         duration: payload.duration,
         timestamp: Date.now(),
@@ -746,21 +744,205 @@ export class WsHandler {
 
     this.storage?.savePrivateMessage(msg.payload)
 
-    this.send(target.ws, msg)
+    if (resolved.ws) this.send(resolved.ws, msg)
     this.send(client.ws, msg)
+  }
+
+  private handlePrivateImageMessage(client: Client, payload: { toUserId: string; id?: string; imageData: string }): void {
+    if (!payload.toUserId || !payload.imageData) return
+    if (this.base64Exceeds(payload.imageData, this.limits.maxImageMessageBytes)) {
+      logger.warn('WsHandler', `Private image message from ${client.id} exceeds ${this.limits.maxImageMessageBytes} bytes, dropped`)
+      return
+    }
+
+    const resolved = this.resolvePrivateTarget(payload.toUserId)
+    if (!resolved) return
+
+    const msg = {
+      type: WsMessageType.PrivateImageMessage,
+      payload: {
+        id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
+        fromUserId: client.id,
+        fromUserName: client.name,
+        toUserId: payload.toUserId,
+        toUserName: resolved.name,
+        imageData: payload.imageData,
+        timestamp: Date.now(),
+      },
+    }
+
+    this.storage?.savePrivateMessage(msg.payload)
+
+    if (resolved.ws) this.send(resolved.ws, msg)
+    this.send(client.ws, msg)
+  }
+
+  private handleDeletePrivateMessage(client: Client, payload: { messageId: string }): void {
+    if (!payload.messageId || !this.storage) return
+
+    const msg = this.storage.getPrivateMessage(payload.messageId)
+    if (!msg) return
+
+    // Só o autor (ou admin) apaga a mensagem privada.
+    if (msg.fromUserId !== client.id && !client.admin) return
+
+    this.storage.deletePrivateMessage(payload.messageId)
+
+    const peers = [msg.fromUserId, msg.toUserId]
+    peers.forEach((id) => {
+      const c = this.clients.get(id)
+      if (c) {
+        this.send(c.ws, {
+          type: WsMessageType.PrivateMessageDeleted,
+          payload: { messageId: payload.messageId },
+        })
+      }
+    })
+  }
+
+  // Resolve o destinatário de uma mensagem privada: cliente online ou conta
+  // cadastrada (offline). Permite persistir mensagens mesmo com o alvo offline.
+  private resolvePrivateTarget(userId: string): { ws: WebSocket | null; name: string } | null {
+    const target = this.clients.get(userId)
+    if (target) return { ws: target.ws, name: target.name }
+    if (this.storage) {
+      const acc = this.storage.getAccountById(userId)
+      if (acc) return { ws: null, name: acc.name }
+    }
+    return null
+  }
+
+  private handleListAccounts(client: Client): void {
+    if (!this.storage) {
+      this.send(client.ws, { type: WsMessageType.AccountsList, payload: [] })
+      return
+    }
+    this.send(client.ws, { type: WsMessageType.AccountsList, payload: this.buildAccountsList() })
+  }
+
+  private isAccountAdmin(a: { id?: string; name: string; isAdmin?: boolean }): boolean {
+    return a.id === MASTER_USER_ID
+      || (!!a.id && this.adminIds.includes(a.id))
+      || this.adminNames.includes(a.name)
+      || a.isAdmin === true
+  }
+
+  private buildAccountsList(): Array<{ id?: string; name: string; email?: string; avatar?: string; admin: boolean; online: boolean; tags?: string[] }> {
+    const onlineIds = new Set(this.clients.getAll().map((c) => c.id))
+    return this.storage!.getAllAccounts().map((a) => ({
+      id: a.id,
+      name: a.name,
+      email: a.email,
+      avatar: a.avatar,
+      admin: this.isAccountAdmin(a),
+      online: !!a.id && onlineIds.has(a.id),
+      tags: a.tags,
+    }))
+  }
+
+  private handleAdminUpdateAccount(client: Client, payload: { userId?: string; userName?: string; name?: string; email?: string; password?: string; isAdmin?: boolean; tags?: string[] }): void {
+    if (!client.admin) {
+      logger.warn('WsHandler', `${client.name} (${client.id}) tried to update another account without admin`)
+      return
+    }
+    if (!this.storage) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Storage unavailable' })
+      return
+    }
+
+    const target = payload.userId
+      ? this.storage.getAccountById(payload.userId)
+      : payload.userName
+        ? this.storage.getAccount(payload.userName)
+        : undefined
+    if (!target) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Account not found' })
+      return
+    }
+
+    const name = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : target.name
+    if (name.length > this.limits.maxNameLength) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Name too long' })
+      return
+    }
+    const email = typeof payload.email === 'string' && payload.email.trim() ? payload.email.trim().toLowerCase() : (target.email ?? '')
+    if (email && !this.isValidEmail(email)) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Invalid email' })
+      return
+    }
+    const password = typeof payload.password === 'string' && payload.password ? payload.password : target.password
+    if (password.length > this.limits.maxPasswordLength) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Password too long' })
+      return
+    }
+
+    if (name !== target.name) {
+      const byName = this.storage.getAccount(name)
+      const onlineTaken = this.clients.getAll().find((c) => c.id !== target.id && c.name === name)
+      if (byName || onlineTaken) {
+        this.send(client.ws, { type: WsMessageType.Error, payload: 'Name in use' })
+        return
+      }
+    }
+    if (email && email !== target.email) {
+      const byEmail = this.storage.getAccountByEmail(email)
+      if (byEmail && byEmail.name !== target.name) {
+        this.send(client.ws, { type: WsMessageType.Error, payload: 'Email in use' })
+        return
+      }
+    }
+
+    const oldName = target.name
+    const isAdmin = typeof payload.isAdmin === 'boolean' ? payload.isAdmin : target.isAdmin === true
+    if (target.id === MASTER_USER_ID && !isAdmin) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Master admin cannot be demoted' })
+      return
+    }
+    const tags = Array.isArray(payload.tags)
+      ? payload.tags.filter((t) => typeof t === 'string' && t.length > 0 && t.length <= 32).slice(0, 10)
+      : target.tags
+    const updated = { name, id: target.id, email: email || undefined, password, avatar: target.avatar, isAdmin, tags }
+    if (name !== oldName) {
+      this.storage.renameAccount(oldName, updated)
+    } else {
+      this.storage.saveAccount(updated)
+    }
+
+    // Se o alvo está online, atualiza a sessão dele para refletir as mudanças.
+    const onlineTarget = this.clients.getAll().find((c) => c.id === target.id)
+    if (onlineTarget) {
+      onlineTarget.name = name
+      onlineTarget.email = email || undefined
+      onlineTarget.password = password
+      onlineTarget.admin = this.isAccountAdmin(updated)
+      onlineTarget.tags = tags
+      this.broadcast({
+        type: WsMessageType.UserList,
+        payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
+      })
+    }
+
+    this.broadcast({ type: WsMessageType.AccountsList, payload: this.buildAccountsList() })
+    logger.info('WsHandler', `Admin ${client.name} updated account ${oldName} -> ${name}`)
   }
 
   private handleListPrivateMessages(client: Client, payload: { withUserId: string }): void {
     if (!payload.withUserId || !this.storage) return
+
     const peer = this.clients.get(payload.withUserId)
-    if (!peer) {
+    let peerName = peer?.name
+    if (!peerName) {
+      const acc = this.storage.getAccountById(payload.withUserId)
+      peerName = acc?.name
+    }
+    if (!peerName) {
       this.send(client.ws, {
         type: WsMessageType.PrivateHistory,
         payload: { withUserId: payload.withUserId, messages: [] },
       })
       return
     }
-    const messages = this.storage.loadPrivateMessages(client.name, peer.name)
+    const messages = this.storage.loadPrivateMessages(client.name, peerName)
     this.send(client.ws, {
       type: WsMessageType.PrivateHistory,
       payload: { withUserId: payload.withUserId, messages },
@@ -821,9 +1003,9 @@ export class WsHandler {
     if (this.storage) {
       const id = client.id
       if (name !== oldName) {
-        this.storage.renameAccount(oldName, { name, id, email: client.email, password, avatar: client.avatar })
+        this.storage.renameAccount(oldName, { name, id, email: client.email, password, avatar: client.avatar, isAdmin: client.admin, tags: client.tags })
       } else {
-        this.storage.saveAccount({ name, id, email: client.email, password, avatar: client.avatar })
+        this.storage.saveAccount({ name, id, email: client.email, password, avatar: client.avatar, isAdmin: client.admin, tags: client.tags })
       }
     }
 
@@ -1251,10 +1433,6 @@ export class WsHandler {
     return Math.random().toString(36).substring(2, 10)
   }
 
-  private generateConfirmCode(): string {
-    return String(Math.floor(100000 + Math.random() * 900000))
-  }
-
   private generateMessageId(): string {
     return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8)
   }
@@ -1267,13 +1445,14 @@ export class WsHandler {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
-  private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean; avatar?: string } {
+  private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean; avatar?: string; tags?: string[] } {
     return {
       id: client.id,
       name: client.name,
       room: client.room,
       admin: client.admin,
       avatar: client.avatar,
+      tags: client.tags,
     }
   }
 }

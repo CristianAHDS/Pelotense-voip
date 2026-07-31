@@ -8,7 +8,7 @@ import { useVoiceStore } from '../stores/voiceStore.ts'
 
 function resetStores(): void {
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu', admin: false, reconnecting: false })
-  useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [] })
+  useRoomStore.setState({ rooms: [], users: [], accounts: [], currentRoom: null, currentRoomName: null, messages: [] })
   useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {} })
 }
 
@@ -44,6 +44,39 @@ describe('UserList (admin)', () => {
     const { container } = render(<UserList />)
     const item = container.querySelector('.user-item')
     expect(item?.className).toContain('user-item--speaking')
+  })
+})
+
+describe('UserList (usuários cadastrados)', () => {
+  it('mostra caixas separadas para usuários online e offline', () => {
+    useRoomStore.getState().setUsers([{ id: 'u1', name: 'Ana', room: null }])
+    useRoomStore.getState().setAccounts([
+      { id: 'u2', name: 'Bruno', online: false },
+      { id: 'u3', name: 'Carla', online: false },
+    ])
+    const { container } = render(<UserList />)
+    expect(container.querySelectorAll('.user-list-section').length).toBe(2)
+    expect(container.querySelectorAll('.user-item--offline').length).toBe(2)
+    expect(container.querySelectorAll('.user-item--clickable').length).toBe(3)
+  })
+
+  it('não mostra a caixa offline quando não há usuários cadastrados', () => {
+    useRoomStore.getState().setUsers([{ id: 'u1', name: 'Ana', room: null }])
+    useRoomStore.getState().setAccounts([])
+    const { container } = render(<UserList />)
+    expect(container.querySelectorAll('.user-list-section').length).toBe(1)
+    expect(container.querySelectorAll('.user-item--offline').length).toBe(0)
+  })
+
+  it('não lista usuário online na caixa offline', () => {
+    useRoomStore.getState().setUsers([{ id: 'u1', name: 'Ana', room: null }])
+    useRoomStore.getState().setAccounts([
+      { id: 'u1', name: 'Ana', online: true },
+      { id: 'u2', name: 'Bruno', online: false },
+    ])
+    const { container } = render(<UserList />)
+    expect(container.querySelectorAll('.user-item--offline').length).toBe(1)
+    expect(container.querySelector('.user-item--offline')?.textContent).toContain('Bruno')
   })
 })
 

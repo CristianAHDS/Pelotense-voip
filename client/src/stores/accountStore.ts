@@ -60,11 +60,16 @@ interface AccountStore {
   avatar: string
   prefsOpen: boolean
   chatFullscreen: boolean
+  dmFullscreen: boolean
+  adminOpen: boolean
   setPrefs: (prefs: Partial<AccountPrefs>) => void
   savePrefs: (prefs: AccountPrefs) => void
   openPrefs: () => void
   closePrefs: () => void
   toggleFullscreen: () => void
+  toggleDmFullscreen: () => void
+  openAdmin: () => void
+  closeAdmin: () => void
 }
 
 const initial = loadCredentials()
@@ -76,6 +81,8 @@ export const useAccountStore = create<AccountStore>((set) => ({
   avatar: loadAvatar(),
   prefsOpen: false,
   chatFullscreen: false,
+  dmFullscreen: false,
+  adminOpen: false,
   setPrefs: (prefs) =>
     set((s) => ({
       name: prefs.name ?? s.name,
@@ -91,5 +98,8 @@ export const useAccountStore = create<AccountStore>((set) => ({
   openPrefs: () => set({ prefsOpen: true }),
   closePrefs: () => set({ prefsOpen: false }),
   toggleFullscreen: () => set((s) => ({ chatFullscreen: !s.chatFullscreen })),
+  toggleDmFullscreen: () => set((s) => ({ dmFullscreen: !s.dmFullscreen })),
+  openAdmin: () => set({ adminOpen: true }),
+  closeAdmin: () => set({ adminOpen: false }),
 }))
 

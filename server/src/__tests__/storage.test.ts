@@ -499,7 +499,7 @@ describe('Perfil de conta (UpdateProfile)', () => {
   })
 })
 
-describe('Confirmação de e-mail na criação de conta', () => {
+describe('Criação e login de conta', () => {
   let dir: string
   let dbPath: string
   let server: TestServer
@@ -517,7 +517,7 @@ describe('Confirmação de e-mail na criação de conta', () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'voip-confirm-'))
+    dir = mkdtempSync(join(tmpdir(), 'voip-account-'))
     dbPath = join(dir, 'test.db')
   })
 
@@ -530,66 +530,145 @@ describe('Confirmação de e-mail na criação de conta', () => {
     removeDir(dir)
   })
 
-  it('pede o e-mail ao tentar criar conta com nick novo sem e-mail', async () => {
+  it('cria a conta se o nick não existe', async () => {
     const store = new SqliteStore(dbPath)
-    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    server = await startTestServer(100, 20, undefined, [], store)
     const c = await connectRaw()
-    c.send(WsMessageType.Login, { name: 'NovoUsuario', password: 'segredo' })
-    const emailRequired = await c.waitFor(WsMessageType.EmailRequired)
-    expect(emailRequired.payload).toMatchObject({ name: 'NovoUsuario' })
-    store.close()
-  })
-
-  it('cria conta pendente e envia código de confirmação', async () => {
-    const store = new SqliteStore(dbPath)
-    server = await startTestServer(100, 20, undefined, [], store, [], false)
-    const c = await connectRaw()
-    c.send(WsMessageType.Login, { name: 'NovoComEmail', password: 'segredo', email: 'novo@test.com' })
-    const confirm = await c.waitFor(WsMessageType.ConfirmRequired)
-    expect((confirm.payload as { email: string }).email).toBe('novo@test.com')
-
-    const account = store.getAccount('NovoComEmail')
-    expect(account?.email).toBe('novo@test.com')
-    expect(account?.emailConfirmed).toBe(false)
-    expect(account?.confirmCode).toMatch(/^\d{6}$/)
-    store.close()
-  })
-
-  it('confirma a conta com o código e faz login', async () => {
-    const store = new SqliteStore(dbPath)
-    server = await startTestServer(100, 20, undefined, [], store, [], false)
-    const c = await connectRaw()
-    c.send(WsMessageType.Login, { name: 'ConfirmaAqui', password: 'segredo', email: 'confirma@test.com' })
-    await c.waitFor(WsMessageType.ConfirmRequired)
-
-    const code = store.getAccount('ConfirmaAqui')!.confirmCode!
-    c.send(WsMessageType.Login, { name: 'ConfirmaAqui', password: 'segredo', email: 'confirma@test.com', confirmCode: code })
+    c.send(WsMessageType.Login, { name: 'NovoNick', password: 'segredo', email: 'novo@test.com' })
     const welcome = await c.waitFor(WsMessageType.Welcome)
-    expect(welcome.payload).toMatchObject({ name: 'ConfirmaAqui' })
-    expect(store.getAccount('ConfirmaAqui')?.emailConfirmed).toBe(true)
+    expect(welcome.payload).toMatchObject({ name: 'NovoNick' })
+    expect(store.getAccount('NovoNick')).toMatchObject({ email: 'novo@test.com' })
     store.close()
   })
 
-  it('rejeita código inválido', async () => {
+  it('cria a conta sem e-mail quando o nick não existe', async () => {
     const store = new SqliteStore(dbPath)
-    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    server = await startTestServer(100, 20, undefined, [], store)
     const c = await connectRaw()
-    c.send(WsMessageType.Login, { name: 'CodigoErrado', password: 'segredo', email: 'errado@test.com' })
-    await c.waitFor(WsMessageType.ConfirmRequired)
+    c.send(WsMessageType.Login, { name: 'SemEmail', password: 'segredo' })
+    const welcome = await c.waitFor(WsMessageType.Welcome)
+    expect(welcome.payload).toMatchObject({ name: 'SemEmail' })
+    store.close()
+  })
 
-    c.send(WsMessageType.Login, { name: 'CodigoErrado', password: 'segredo', email: 'errado@test.com', confirmCode: '000000' })
-    const confirm = await c.waitFor(WsMessageType.ConfirmRequired)
-    expect(confirm.payload).toMatchObject({ name: 'CodigoErrado' })
-    expect(store.getAccount('CodigoErrado')?.emailConfirmed).toBe(false)
+  it('registro tradicional exige e-mail', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'SemEmailReg', password: 'segredo', intent: 'register' })
+    const err = await c.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Email required')
+    store.close()
+  })
+
+  it('registro tradicional cria a conta com e-mail e nome livre', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'RegistroNovo', password: 'segredo', email: 'reg@test.com', intent: 'register' })
+    const welcome = await c.waitFor(WsMessageType.Welcome)
+    expect(welcome.payload).toMatchObject({ name: 'RegistroNovo' })
+    expect(store.getAccount('RegistroNovo')).toMatchObject({ email: 'reg@test.com', password: 'segredo' })
+    store.close()
+  })
+
+  it('registro tradicional rejeita nome já em uso', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'Duplicado', password: 'segredo', email: 'dup@test.com', intent: 'register' })
+    await c.waitFor(WsMessageType.Welcome)
+    for (const cl of clients) { try { cl.ws.terminate() } catch { /* ignore */ } }
+    clients.length = 0
+
+    const d = await connectRaw()
+    d.send(WsMessageType.Login, { name: 'Duplicado', password: 'outra', email: 'dup2@test.com', intent: 'register' })
+    const err = await d.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Name in use')
+    store.close()
+  })
+
+  it('login tradicional rejeita conta inexistente em vez de criá-la', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'NaoExiste', password: 'segredo', intent: 'login' })
+    const err = await c.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Account not found')
+    expect(store.getAccount('NaoExiste')).toBeUndefined()
+    store.close()
+  })
+
+  it('login tradicional aceita conta existente criada no registro', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'DepoisLogin', password: 'segredo', email: 'dl@test.com', intent: 'register' })
+    await c.waitFor(WsMessageType.Welcome)
+    for (const cl of clients) { try { cl.ws.terminate() } catch { /* ignore */ } }
+    clients.length = 0
+
+    const d = await connectRaw()
+    d.send(WsMessageType.Login, { name: 'DepoisLogin', password: 'segredo', intent: 'login' })
+    const welcome = await d.waitFor(WsMessageType.Welcome)
+    expect(welcome.payload).toMatchObject({ name: 'DepoisLogin' })
+    store.close()
+  })
+
+  it('login por nick + senha quando a conta existe', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'Existente', password: 'segredo', email: 'exist@test.com' })
+    await c.waitFor(WsMessageType.Welcome)
+    for (const cl of clients) { try { cl.ws.terminate() } catch { /* ignore */ } }
+    clients.length = 0
+
+    const d = await connectRaw()
+    d.send(WsMessageType.Login, { name: 'Existente', password: 'segredo' })
+    const welcome = await d.waitFor(WsMessageType.Welcome)
+    expect(welcome.payload).toMatchObject({ name: 'Existente' })
+    store.close()
+  })
+
+  it('login por e-mail + senha quando a conta existe', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'PorEmail', password: 'segredo', email: 'mail@test.com' })
+    await c.waitFor(WsMessageType.Welcome)
+    for (const cl of clients) { try { cl.ws.terminate() } catch { /* ignore */ } }
+    clients.length = 0
+
+    const d = await connectRaw()
+    d.send(WsMessageType.Login, { name: 'mail@test.com', password: 'segredo' })
+    const welcome = await d.waitFor(WsMessageType.Welcome)
+    expect((welcome.payload as { name: string }).name).toBe('PorEmail')
+    store.close()
+  })
+
+  it('rejeita senha errada para conta existente', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'ComSenha', password: 'correta', email: 'senha@test.com' })
+    await c.waitFor(WsMessageType.Welcome)
+    for (const cl of clients) { try { cl.ws.terminate() } catch { /* ignore */ } }
+    clients.length = 0
+
+    const d = await connectRaw()
+    d.send(WsMessageType.Login, { name: 'ComSenha', password: 'errada' })
+    const err = await d.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Wrong password')
     store.close()
   })
 
   it('rejeita e-mail já em uso por outra conta', async () => {
     const store = new SqliteStore(dbPath)
-    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    server = await startTestServer(100, 20, undefined, [], store)
     const c = await connectRaw()
     c.send(WsMessageType.Login, { name: 'DonoEmail', password: 'segredo', email: 'dono@test.com' })
-    await c.waitFor(WsMessageType.ConfirmRequired)
+    await c.waitFor(WsMessageType.Welcome)
 
     const d = await connectRaw()
     d.send(WsMessageType.Login, { name: 'Outro', password: 'x', email: 'dono@test.com' })
@@ -598,36 +677,210 @@ describe('Confirmação de e-mail na criação de conta', () => {
     store.close()
   })
 
-  it('login com e-mail de conta existente confirma a identidade', async () => {
+  it('rejeita e-mail inválido', async () => {
     const store = new SqliteStore(dbPath)
-    server = await startTestServer(100, 20, undefined, [], store, [], false)
-    // Cria e confirma a conta
-    const c = await connectRaw()
-    c.send(WsMessageType.Login, { name: 'LoginPorEmail', password: 'segredo', email: 'login@test.com' })
-    await c.waitFor(WsMessageType.ConfirmRequired)
-    const code = store.getAccount('LoginPorEmail')!.confirmCode!
-    c.send(WsMessageType.Login, { name: 'LoginPorEmail', password: 'segredo', email: 'login@test.com', confirmCode: code })
-    await c.waitFor(WsMessageType.Welcome)
-
-    // Sessão anterior terminada; nova conexão pelo e-mail + senha
-    for (const cl of clients) { try { cl.ws.terminate() } catch { /* ignore */ } }
-    clients.length = 0
-
-    const d = await connectRaw()
-    d.send(WsMessageType.Login, { name: 'login@test.com', password: 'segredo' })
-    const welcome = await d.waitFor(WsMessageType.Welcome)
-    expect((welcome.payload as { name: string }).name).toBe('LoginPorEmail')
-    store.close()
-  })
-
-  it('e-mail inválido é rejeitado', async () => {
-    const store = new SqliteStore(dbPath)
-    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    server = await startTestServer(100, 20, undefined, [], store)
     const c = await connectRaw()
     c.send(WsMessageType.Login, { name: 'EmailRuim', password: 'x', email: 'nao-e-email' })
     const err = await c.waitFor(WsMessageType.Error)
     expect(err.payload).toBe('Invalid email')
     store.close()
   })
+
+  it('list_accounts retorna contas cadastradas com status online/offline', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await connectRaw()
+    a.send(WsMessageType.Login, { name: 'ContaOffline', password: 'segredo', email: 'off@test.com' })
+    await a.waitFor(WsMessageType.Welcome)
+
+    a.ws.terminate()
+
+    const b = await connectRaw()
+    b.send(WsMessageType.Login, { name: 'ContaOnline', password: 'segredo', email: 'on@test.com' })
+    await b.waitFor(WsMessageType.Welcome)
+
+    b.send(WsMessageType.ListAccounts)
+    const msg = await b.waitFor(WsMessageType.AccountsList)
+    const accounts = msg.payload as Array<{ name: string; online: boolean; admin: boolean }>
+    const offline = accounts.find((x) => x.name === 'ContaOffline')
+    const online = accounts.find((x) => x.name === 'ContaOnline')
+    expect(offline).toBeDefined()
+    expect(offline!.online).toBe(false)
+    expect(online).toBeDefined()
+    expect(online!.online).toBe(true)
+    store.close()
+  })
+
+  it('admin_update_account altera nick/e-mail/senha e flag de admin do alvo', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, ['ChefeAdmin'], store)
+    const admin = await connectRaw()
+    admin.send(WsMessageType.Login, { name: 'ChefeAdmin', password: 'pass' })
+    await admin.waitFor(WsMessageType.Welcome)
+
+    const target = await connectRaw()
+    target.send(WsMessageType.Login, { name: 'Alvo', password: 'segredo', email: 'alvo@test.com' })
+    await target.waitFor(WsMessageType.Welcome)
+
+    admin.send(WsMessageType.AdminUpdateAccount, {
+      userName: 'Alvo',
+      name: 'AlvoEditado',
+      email: 'editado@test.com',
+      password: 'nova',
+      isAdmin: true,
+    })
+    const list = await admin.waitFor(WsMessageType.AccountsList)
+    const accounts = list.payload as Array<{ name: string; admin: boolean }>
+    const edited = accounts.find((x) => x.name === 'AlvoEditado')
+    expect(edited).toBeDefined()
+    expect(edited!.admin).toBe(true)
+
+    const saved = store.getAccount('AlvoEditado')
+    expect(saved).toMatchObject({ email: 'editado@test.com', password: 'nova', isAdmin: true })
+    expect(store.getAccount('Alvo')).toBeUndefined()
+    store.close()
+  })
+
+  it('admin_update_account é ignorado para quem não é admin', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const comum = await connectRaw()
+    comum.send(WsMessageType.Login, { name: 'Comum', password: 'pass' })
+    await comum.waitFor(WsMessageType.Welcome)
+
+    comum.send(WsMessageType.AdminUpdateAccount, { userName: 'Comum', name: 'Hacker', isAdmin: true })
+    await expect(comum.waitFor(WsMessageType.AccountsList, 700)).rejects.toThrow()
+    expect(store.getAccount('Comum')?.name).toBe('Comum')
+    store.close()
+  })
+
+  it('admin_update_account persiste tags e aparece na lista de contas', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, ['ChefeAdmin'], store)
+    const admin = await connectRaw()
+    admin.send(WsMessageType.Login, { name: 'ChefeAdmin', password: 'pass' })
+    await admin.waitFor(WsMessageType.Welcome)
+
+    const target = await connectRaw()
+    target.send(WsMessageType.Login, { name: 'AlvoTags', password: 'segredo' })
+    await target.waitFor(WsMessageType.Welcome)
+
+    admin.send(WsMessageType.AdminUpdateAccount, {
+      userName: 'AlvoTags',
+      tags: ['Repórter', 'Vídeo'],
+    })
+    const list = await admin.waitFor(WsMessageType.AccountsList)
+    const accounts = list.payload as Array<{ name: string; tags?: string[] }>
+    const edited = accounts.find((x) => x.name === 'AlvoTags')
+    expect(edited?.tags).toEqual(['Repórter', 'Vídeo'])
+
+    const saved = store.getAccount('AlvoTags')
+    expect(saved?.tags).toEqual(['Repórter', 'Vídeo'])
+    store.close()
+  })
 })
+
+describe('Deleção de mensagens privadas', () => {
+  let dir: string
+  let dbPath: string
+  let server: TestServer
+  const clients: TestClient[] = []
+
+  async function connectRaw(): Promise<TestClient> {
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}`)
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve())
+      ws.on('error', (err) => reject(err))
+    })
+    const client = new TestClient(ws)
+    clients.push(client)
+    return client
+  }
+
+  async function loginClient(name: string): Promise<TestClient> {
+    const client = await connectRaw()
+    client.send(WsMessageType.Login, { name, password: 'pass' })
+    const welcome = await client.waitFor(WsMessageType.Welcome)
+    ;(client.ws as unknown as { _clientId: string })._clientId = (welcome.payload as { id: string }).id
+    return client
+  }
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'voip-pvt-del-'))
+    dbPath = join(dir, 'test.db')
+  })
+
+  afterEach(async () => {
+    for (const c of clients) {
+      try { c.ws.terminate() } catch { /* ignore */ }
+    }
+    clients.length = 0
+    if (server) await server.close()
+    removeDir(dir)
+  })
+
+  it('deleta mensagem privada pelo autor e notifica os dois lados', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await loginClient('PvtDelA')
+    const b = await loginClient('PvtDelB')
+
+    a.send(WsMessageType.PrivateMessage, { toUserId: b.id, text: 'apagar isso' })
+    const sent = await a.waitFor(WsMessageType.PrivateMessage)
+    const msgId = (sent.payload as { id: string }).id
+    await b.waitFor(WsMessageType.PrivateMessage)
+
+    a.send(WsMessageType.DeletePrivateMessage, { messageId: msgId })
+    const delA = await a.waitFor(WsMessageType.PrivateMessageDeleted)
+    const delB = await b.waitFor(WsMessageType.PrivateMessageDeleted)
+    expect(delA.payload).toEqual({ messageId: msgId })
+    expect(delB.payload).toEqual({ messageId: msgId })
+    expect(store.getPrivateMessage(msgId)).toBeUndefined()
+    store.close()
+  })
+
+  it('não deixa usuário apagar mensagem privada de outro', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await loginClient('PvtDelC')
+    const b = await loginClient('PvtDelD')
+    const c = await loginClient('PvtDelE')
+
+    a.send(WsMessageType.PrivateMessage, { toUserId: b.id, text: 'minha msg' })
+    const sent = await a.waitFor(WsMessageType.PrivateMessage)
+    const msgId = (sent.payload as { id: string }).id
+
+    c.send(WsMessageType.DeletePrivateMessage, { messageId: msgId })
+    await expect(c.waitFor(WsMessageType.PrivateMessageDeleted, 700)).rejects.toThrow()
+    expect(store.getPrivateMessage(msgId)).toBeDefined()
+    store.close()
+  })
+
+  it('mensagens privadas persistem após reconexão (refresh) com destinatário offline', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await loginClient('PvtPersA')
+    const b = await loginClient('PvtPersB')
+    const bId = b.id!
+
+    a.send(WsMessageType.PrivateMessage, { toUserId: bId, text: 'persiste isso' })
+    const sent = await a.waitFor(WsMessageType.PrivateMessage)
+    const msgId = (sent.payload as { id: string }).id
+
+    // "Refresh": desconecta tudo e reconecta só o A (B fica offline).
+    for (const cl of clients) {
+      try { cl.ws.terminate() } catch { /* ignore */ }
+    }
+    clients.length = 0
+
+    const a2 = await loginClient('PvtPersA')
+    a2.send(WsMessageType.ListPrivateMessages, { withUserId: bId })
+    const history = await a2.waitFor(WsMessageType.PrivateHistory)
+    const msgs = (history.payload as { messages: Array<{ id: string; text: string }> }).messages
+    expect(msgs.some((m) => m.id === msgId && m.text === 'persiste isso')).toBe(true)
+    store.close()
+  })
+})
+
 

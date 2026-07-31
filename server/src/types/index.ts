@@ -11,6 +11,7 @@ export interface Client {
   admin: boolean
   avatar?: string
   email?: string
+  tags?: string[]
   ws: WsWebSocket
 }
 
@@ -80,6 +81,9 @@ export enum WsMessageType {
   DeleteRoom = 'delete_room',
   ListRooms = 'list_rooms',
   ListUsers = 'list_users',
+  ListAccounts = 'list_accounts',
+  AccountsList = 'accounts_list',
+  AdminUpdateAccount = 'admin_update_account',
   Heartbeat = 'heartbeat',
   RoomJoined = 'room_joined',
   RoomLeft = 'room_left',
@@ -114,12 +118,13 @@ export enum WsMessageType {
   LiveForceStop = 'live_force_stop',
   PrivateAudioMessage = 'private_audio_message',
   PrivateVideoMessage = 'private_video_message',
+  PrivateImageMessage = 'private_image_message',
+  DeletePrivateMessage = 'delete_private_message',
+  PrivateMessageDeleted = 'private_message_deleted',
   ListPrivateMessages = 'list_private_messages',
   PrivateHistory = 'private_history',
   UpdateProfile = 'update_profile',
   ProfileUpdated = 'profile_updated',
-  EmailRequired = 'email_required',
-  ConfirmRequired = 'confirm_required',
 }
 
 export interface WsMessage {

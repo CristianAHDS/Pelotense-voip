@@ -4,6 +4,13 @@ import { radioPlayer, RadioState, RADIO_STREAM_URL } from '../services/radioStre
 
 export { RADIO_STREAM_URL }
 
+// Contador de instâncias montadas do bot. O `radioPlayer` é um singleton
+// compartilhado (chat + tela cheia + lista de pessoas), então o stream só deve
+// parar quando a ÚLTIMA instância principal desmonta (ex: sair da sala). Sem
+// isso, abrir/fechar a tela cheia do chat derrubava o áudio do rádio.
+let mountedCount = 0
+let hadPrimary = false
+
 export function RadioBot({ compact = false }: { compact?: boolean }) {
   const t = useT()
   const [state, setState] = useState<RadioState>('idle')
@@ -39,11 +46,17 @@ export function RadioBot({ compact = false }: { compact?: boolean }) {
   }
 
   useEffect(() => {
+    mountedCount++
+    if (!compact) hadPrimary = true
     const unsubscribe = radioPlayer.onStateChange((s) => setState(s))
     return () => {
+      mountedCount--
       disarmUnlock()
-      if (!compact) radioPlayer.stop()
-      else unsubscribe()
+      unsubscribe()
+      if (!compact && mountedCount === 0 && hadPrimary) {
+        hadPrimary = false
+        radioPlayer.stop()
+      }
     }
   }, [])
 

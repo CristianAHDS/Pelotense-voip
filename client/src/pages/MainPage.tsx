@@ -8,6 +8,8 @@ import { PrivateChatPanel } from '../components/PrivateChatPanel.tsx';
 import { Toasts } from '../components/Toasts.tsx';
 import { AccountPrefsModal } from '../components/AccountPrefsModal.tsx';
 import { FullscreenChat } from '../components/FullscreenChat.tsx';
+import { FullscreenDm } from '../components/FullscreenDm.tsx';
+import { AdminPanel } from '../components/AdminPanel.tsx';
 import { useConnectionStore } from '../stores/connectionStore.ts';
 import { useAccountStore } from '../stores/accountStore.ts';
 import { useRoomStore } from '../stores/roomStore.ts';
@@ -21,6 +23,7 @@ export function MainPage() {
   const connected = useConnectionStore((s) => s.connected);
   const reconnecting = useConnectionStore((s) => s.reconnecting);
   const connectedName = useConnectionStore((s) => s.name);
+  const isAdmin = useConnectionStore((s) => s.admin);
   const currentRoomName = useRoomStore((s) => s.currentRoomName);
   const unreadCount = usePrivateChatStore((s) => Object.keys(s.unread).length);
   const theme = useSettingsStore((s) => s.theme);
@@ -136,13 +139,24 @@ export function MainPage() {
         <aside className="sidebar sidebar-left">
           <ConnectionPanel />
           <VoiceControls />
-          <button
-            className="btn btn-account-prefs"
-            onClick={() => useAccountStore.getState().openPrefs()}
-            title={t('accountPrefs')}
-          >
-            ⚙ {t('accountPrefs')}
-          </button>
+          {connected && (
+            <button
+              className="btn btn-account-prefs"
+              onClick={() => useAccountStore.getState().openPrefs()}
+              title={t('accountPrefs')}
+            >
+              ⚙ {t('accountPrefs')}
+            </button>
+          )}
+          {connected && isAdmin && (
+            <button
+              className="btn btn-account-prefs btn-admin"
+              onClick={() => useAccountStore.getState().openAdmin()}
+              title={t('adminPanel')}
+            >
+              🛡 {t('adminPanel')}
+            </button>
+          )}
         </aside>
         <main className="main-content">
           <RoomList />
@@ -196,6 +210,8 @@ export function MainPage() {
       <Toasts />
       <AccountPrefsModal />
       <FullscreenChat />
+      <FullscreenDm />
+      <AdminPanel />
     </div>
   );
 }

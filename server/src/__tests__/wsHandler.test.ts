@@ -631,6 +631,18 @@ describe('Mensagens privadas', () => {
     expect((sent.payload as { videoData: string }).videoData).toBe('dmlkZW8=')
     expect(received.payload).toEqual(sent.payload)
   })
+
+  it('envia mensagem de imagem para o remetente e o destinatário', async () => {
+    const a = await freshClient('PvtImgA')
+    const b = await freshClient('PvtImgB')
+    a.send(WsMessageType.PrivateImageMessage, { toUserId: b.id, id: 'cli-img', imageData: 'aW1n' })
+
+    const sent = await a.waitFor(WsMessageType.PrivateImageMessage)
+    const received = await b.waitFor(WsMessageType.PrivateImageMessage)
+    expect((sent.payload as { id: string }).id).toBe('cli-img')
+    expect((sent.payload as { imageData: string }).imageData).toBe('aW1n')
+    expect(received.payload).toEqual(sent.payload)
+  })
 })
 
 describe('Transmissão ao vivo', () => {
