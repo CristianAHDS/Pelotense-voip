@@ -47,8 +47,12 @@ export function ChatPanel() {
   }, [messages])
 
   useEffect(() => {
-    if (videoPreviewRef.current) {
-      videoPreviewRef.current.srcObject = videoRec.stream
+    const el = videoPreviewRef.current
+    if (el) {
+      el.srcObject = videoRec.stream
+      if (videoRec.stream) {
+        el.play().catch(() => {})
+      }
     }
   }, [videoRec.stream])
 
