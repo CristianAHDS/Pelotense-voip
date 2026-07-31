@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { WebSocket } from 'ws'
 import { SqliteStore } from '../storage/index.js'
 import { RoomManager } from '../rooms/manager.js'
 import { TestClient, TestServer, startTestServer, connectClient } from './helpers.js'
@@ -319,6 +320,151 @@ describe('RoomManager com storage', () => {
     expect(rooms.delete(room.id)).toBe(true)
     expect(store.loadRooms()).toHaveLength(0)
     expect(store.loadMessages(room.id)).toHaveLength(0)
+  })
+
+  it('salva e carrega contas (perfil do usuário)', () => {
+    store.saveAccount({ name: 'Reporter', password: 'segredo', avatar: 'data:image/png;base64,abc' })
+    const account = store.getAccount('Reporter')
+    expect(account).toMatchObject({ name: 'Reporter', password: 'segredo', avatar: 'data:image/png;base64,abc' })
+    expect(store.getAccount('Inexistente')).toBeUndefined()
+  })
+
+  it('atualiza conta no conflito de nome', () => {
+    store.saveAccount({ name: 'Reporter', password: 'velha', avatar: 'a' })
+    store.saveAccount({ name: 'Reporter', password: 'nova', avatar: 'b' })
+    expect(store.getAccount('Reporter')).toMatchObject({ password: 'nova', avatar: 'b' })
+  })
+
+  it('renomeia conta preservando senha e avatar', () => {
+    store.saveAccount({ name: 'Antigo', password: 'segredo', avatar: 'avatar' })
+    store.renameAccount('Antigo', { name: 'Novo', password: 'segredo', avatar: 'avatar' })
+    expect(store.getAccount('Antigo')).toBeUndefined()
+    expect(store.getAccount('Novo')).toMatchObject({ name: 'Novo', password: 'segredo', avatar: 'avatar' })
+  })
+})
+
+describe('Perfil de conta (UpdateProfile)', () => {
+  let dir: string
+  let dbPath: string
+  let server: TestServer
+  const clients: TestClient[] = []
+
+  async function freshClient(name: string, password = 'pass', avatar?: string): Promise<TestClient> {
+    const c = await connectClient(server.port, name, password, avatar)
+    clients.push(c)
+    return c
+  }
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'voip-profile-'))
+    dbPath = join(dir, 'test.db')
+  })
+
+  afterEach(async () => {
+    for (const c of clients) {
+      try { c.ws.terminate() } catch { /* ignore */ }
+    }
+    clients.length = 0
+    if (server) await server.close()
+    removeDir(dir)
+  })
+
+  it('login envia avatar no welcome e na lista de usuários', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await freshClient('AvatarUser', 'pass', 'data:image/png;base64,abc')
+
+    const b = await freshClient('Spectator')
+    b.send(WsMessageType.ListUsers)
+    const list = await b.waitFor(WsMessageType.UserList)
+    const users = list.payload as Array<{ name: string; avatar?: string }>
+    expect(users.find((u) => u.name === 'AvatarUser')?.avatar).toBe('data:image/png;base64,abc')
+    store.close()
+  })
+
+  it('update_profile altera nome e avisa todos os usuários', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await freshClient('PerfilA')
+    const b = await freshClient('PerfilB')
+    // Consome o UserList inicial do login do B para o teste ler o broadcast seguinte.
+    await b.waitFor(WsMessageType.UserList)
+
+    a.send(WsMessageType.UpdateProfile, { name: 'PerfilANovo', avatar: 'data:image/png;base64,xyz' })
+    const updated = await a.waitFor(WsMessageType.ProfileUpdated)
+    expect(updated.payload).toMatchObject({ name: 'PerfilANovo', avatar: 'data:image/png;base64,xyz' })
+
+    const list = await b.waitFor(WsMessageType.UserList)
+    const users = list.payload as Array<{ name: string; avatar?: string }>
+    expect(users.some((u) => u.name === 'PerfilANovo')).toBe(true)
+    expect(users.some((u) => u.name === 'PerfilA')).toBe(false)
+
+    const account = store.getAccount('PerfilANovo')
+    expect(account?.password).toBe('pass')
+    expect(account?.avatar).toBe('data:image/png;base64,xyz')
+    store.close()
+  })
+
+  it('persiste o novo perfil e valida a nova senha no próximo login', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await freshClient('ContaAntiga', 'velha')
+    a.send(WsMessageType.UpdateProfile, { name: 'ContaNova', password: 'nova', avatar: 'data:image/png;base64,1' })
+    await a.waitFor(WsMessageType.ProfileUpdated)
+    store.close()
+
+    const store2 = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store2)
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}`)
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve())
+      ws.on('error', (err) => reject(err))
+    })
+    const wrong = new TestClient(ws)
+    clients.push(wrong)
+    wrong.send(WsMessageType.Login, { name: 'ContaNova', password: 'errada' })
+    const err = await wrong.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Wrong password')
+    await wrong.waitForClose()
+
+    const ok = await freshClient('ContaNova', 'nova')
+    const account = store2.getAccount('ContaNova')
+    expect(account?.password).toBe('nova')
+    expect(account?.avatar).toBe('data:image/png;base64,1')
+    store2.close()
+  })
+
+  it('rejeita nome já em uso por outro usuário online', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await freshClient('DonoNome')
+    await freshClient('OutroUser')
+    a.send(WsMessageType.UpdateProfile, { name: 'OutroUser' })
+    const err = await a.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Name in use')
+    store.close()
+  })
+
+  it('rejeita avatar acima do limite', async () => {
+    const store = new SqliteStore(dbPath)
+    const LIMITS = {
+      maxNameLength: 32,
+      maxPasswordLength: 128,
+      maxRoomNameLength: 64,
+      maxTextLength: 4000,
+      maxAudioMessageBytes: 512 * 1024,
+      maxVideoMessageBytes: 5 * 1024 * 1024,
+      maxImageMessageBytes: 5 * 1024 * 1024,
+      maxLiveChunkBytes: 512 * 1024,
+      maxVoiceFrameBytes: 64 * 1024,
+      maxAvatarBytes: 100,
+    }
+    server = await startTestServer(100, 20, LIMITS, [], store)
+    const a = await freshClient('AvatarGrande')
+    a.send(WsMessageType.UpdateProfile, { avatar: 'a'.repeat(500) })
+    const err = await a.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Avatar too large')
+    store.close()
   })
 })
 

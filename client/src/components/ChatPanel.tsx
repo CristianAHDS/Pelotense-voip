@@ -6,6 +6,7 @@ import { useToastStore } from '../stores/toastStore.ts'
 import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
+import { useAccountStore } from '../stores/accountStore.ts'
 import { LiveViewer } from './LiveViewer.tsx'
 import { RadioBot } from './RadioBot.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
@@ -149,6 +150,7 @@ export function ChatPanel() {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [forwardMsg, setForwardMsg] = useState<ChatMsg | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const toggleFullscreen = useAccountStore((s) => s.toggleFullscreen)
   const t = useT()
 
   useEffect(() => {
@@ -381,6 +383,19 @@ export function ChatPanel() {
       <div className="chat-header">
         <span className="chat-header-name">#{currentRoomName}</span>
         <span className="chat-header-count">{t('messagesCount', { count: messages.length })}</span>
+        <button
+          className="chat-fullscreen-btn"
+          onClick={toggleFullscreen}
+          title={t('chatFullscreen')}
+          aria-label={t('chatFullscreen')}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+            <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+            <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+          </svg>
+        </button>
       </div>
 
       {isAoVivo && broadcaster && broadcaster.userId !== myId && (

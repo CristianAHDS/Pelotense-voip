@@ -117,14 +117,16 @@ export class TestClient {
   }
 }
 
-export async function connectClient(port: number, name: string, password: string): Promise<TestClient> {
+export async function connectClient(port: number, name: string, password: string, avatar?: string): Promise<TestClient> {
   const ws = new WebSocket(`ws://127.0.0.1:${port}`)
   await new Promise<void>((resolve, reject) => {
     ws.on('open', () => resolve())
     ws.on('error', (err) => reject(err))
   })
   const client = new TestClient(ws)
-  client.send(WsMessageType.Login, { name, password })
+  const loginPayload: { name: string; password: string; avatar?: string } = { name, password }
+  if (avatar !== undefined) loginPayload.avatar = avatar
+  client.send(WsMessageType.Login, loginPayload)
   const welcome = await client.waitFor(WsMessageType.Welcome)
   const payload = welcome.payload as { id: string }
   ;(ws as unknown as { _clientId: string })._clientId = payload.id

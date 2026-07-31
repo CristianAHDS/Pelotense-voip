@@ -39,6 +39,7 @@ npm run dev
 | MAX_USERS    | 100     | Max clients     |
 | MAX_ROOMS    | 20      | Max rooms       |
 | DB_PATH      | ./data/voip.db | SQLite database path (persistence) |
+| MAX_AVATAR_BYTES | 2MB | Max avatar size (bytes) |
 | LOG_LEVEL    | INFO    | DEBUG/INFO/WARN/ERROR |
 
 ## Client
@@ -61,6 +62,7 @@ npm run tauri dev  # Tauri desktop
 - `join_room`, `leave_room`, `create_room`, `delete_room`
 - `list_rooms`, `list_users`
 - `list_private_messages`, `private_history`
+- `update_profile`, `profile_updated`
 - `heartbeat`
 
 ### UDP Packet Format (binary)

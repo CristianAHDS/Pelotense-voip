@@ -14,6 +14,7 @@ export interface UserInfo {
   name: string
   room: string | null
   admin?: boolean
+  avatar?: string
 }
 
 export enum WsMessageType {
@@ -59,6 +60,8 @@ export enum WsMessageType {
   PrivateVideoMessage = 'private_video_message',
   ListPrivateMessages = 'list_private_messages',
   PrivateHistory = 'private_history',
+  UpdateProfile = 'update_profile',
+  ProfileUpdated = 'profile_updated',
 }
 
 export interface WsMessage {
@@ -69,6 +72,7 @@ export interface WsMessage {
 export interface LoginPayload {
   name: string
   password: string
+  avatar?: string
 }
 
 export interface WelcomePayload {
@@ -76,6 +80,7 @@ export interface WelcomePayload {
   name: string
   udpPort: number
   admin?: boolean
+  avatar?: string
 }
 
 export interface ChatMsg {

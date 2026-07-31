@@ -74,6 +74,11 @@ export class SqliteStore {
         timestamp INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_private_pair ON private_messages(fromUserName, toUserName);
+      CREATE TABLE IF NOT EXISTS accounts (
+        name TEXT PRIMARY KEY,
+        password TEXT NOT NULL,
+        avatar TEXT
+      );
     `)
   }
 
@@ -252,5 +257,36 @@ export class SqliteStore {
       WHERE fromUserName = @me OR toUserName = @me
     `).all({ me: name }) as Array<{ peer: string }>
     return rows.map((r) => r.peer)
+  }
+
+  getAccount(name: string): { name: string; password: string; avatar?: string } | undefined {
+    const row = this.db.prepare('SELECT * FROM accounts WHERE name = ?').get(name) as
+      | { name: string; password: string; avatar: string | null }
+      | undefined
+    if (!row) return undefined
+    return { name: row.name, password: row.password, avatar: row.avatar ?? undefined }
+  }
+
+  saveAccount(account: { name: string; password: string; avatar?: string }): void {
+    this.db.prepare(`
+      INSERT INTO accounts (name, password, avatar)
+      VALUES (@name, @password, @avatar)
+      ON CONFLICT(name) DO UPDATE SET
+        password = @password,
+        avatar = @avatar
+    `).run({
+      name: account.name,
+      password: account.password,
+      avatar: account.avatar ?? null,
+    })
+  }
+
+  renameAccount(oldName: string, newAccount: { name: string; password: string; avatar?: string }): void {
+    this.db.prepare('DELETE FROM accounts WHERE name = ?').run(oldName)
+    this.saveAccount(newAccount)
+  }
+
+  deleteAccount(name: string): void {
+    this.db.prepare('DELETE FROM accounts WHERE name = ?').run(name)
   }
 }

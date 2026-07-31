@@ -98,11 +98,11 @@ export class WsHandler {
     }
   }
 
-  private handleLogin(ws: WebSocket, payload: { name: string; password: string }): void {
+  private handleLogin(ws: WebSocket, payload: { name: string; password: string; avatar?: string }): void {
     const pending = this.pendingClients.get(ws)
     if (!pending) return
 
-    const { name, password } = payload
+    const { name, password, avatar } = payload
     if (!name || !password) {
       this.send(ws, { type: WsMessageType.Error, payload: 'Name and password required' })
       ws.close()
@@ -118,6 +118,11 @@ export class WsHandler {
       ws.close()
       return
     }
+    if (avatar !== undefined && this.base64Exceeds(avatar, this.limits.maxAvatarBytes)) {
+      this.send(ws, { type: WsMessageType.Error, payload: 'Avatar too large' })
+      ws.close()
+      return
+    }
 
     const existing = this.clients.findByName(name)
     if (existing) {
@@ -127,6 +132,14 @@ export class WsHandler {
         return
       }
       this.removeExistingClient(existing)
+    } else if (this.storage) {
+      // Conta persistida: valida a senha mesmo sem ninguém online.
+      const account = this.storage.getAccount(name)
+      if (account && account.password !== password) {
+        this.send(ws, { type: WsMessageType.Error, payload: 'Wrong password' })
+        ws.close()
+        return
+      }
     }
 
     const id = this.generateId()
@@ -139,6 +152,7 @@ export class WsHandler {
       ip: pending.ip,
       lastPing: Date.now(),
       admin: this.adminNames.includes(name),
+      avatar: avatar ?? this.storage?.getAccount(name)?.avatar,
       ws,
     }
 
@@ -169,8 +183,12 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin },
+      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar },
     })
+
+    if (this.storage) {
+      this.storage.saveAccount({ name: client.name, password: client.password, avatar: client.avatar })
+    }
 
     this.broadcast({
       type: WsMessageType.UserList,
@@ -292,6 +310,10 @@ export class WsHandler {
 
       case WsMessageType.ListPrivateMessages:
         this.handleListPrivateMessages(client, msg.payload as { withUserId: string })
+        break
+
+      case WsMessageType.UpdateProfile:
+        this.handleUpdateProfile(client, msg.payload as { name?: string; password?: string; avatar?: string })
         break
 
       case WsMessageType.LiveForceStop:
@@ -631,6 +653,62 @@ export class WsHandler {
     this.send(client.ws, {
       type: WsMessageType.PrivateHistory,
       payload: { withUserId: payload.withUserId, messages },
+    })
+  }
+
+  private handleUpdateProfile(client: Client, payload: { name?: string; password?: string; avatar?: string }): void {
+    const name = typeof payload.name === 'string' ? payload.name.trim() : client.name
+    if (!name) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Name required' })
+      return
+    }
+    if (name.length > this.limits.maxNameLength) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Name too long' })
+      return
+    }
+    const password = typeof payload.password === 'string' ? payload.password : client.password
+    if (password.length > this.limits.maxPasswordLength) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Password too long' })
+      return
+    }
+    if (payload.avatar !== undefined && this.base64Exceeds(payload.avatar, this.limits.maxAvatarBytes)) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Avatar too large' })
+      return
+    }
+    if (name !== client.name) {
+      const taken = this.clients.getAll().find((c) => c.id !== client.id && c.name === name)
+      if (taken) {
+        this.send(client.ws, { type: WsMessageType.Error, payload: 'Name in use' })
+        return
+      }
+      if (this.storage && this.storage.getAccount(name) && this.storage.getAccount(name)!.password !== password) {
+        this.send(client.ws, { type: WsMessageType.Error, payload: 'Wrong password' })
+        return
+      }
+    }
+
+    const oldName = client.name
+    client.name = name
+    client.password = password
+    if (payload.avatar !== undefined) {
+      client.avatar = payload.avatar || undefined
+    }
+
+    if (this.storage) {
+      if (name !== oldName) {
+        this.storage.renameAccount(oldName, { name, password, avatar: client.avatar })
+      } else {
+        this.storage.saveAccount({ name, password, avatar: client.avatar })
+      }
+    }
+
+    this.send(client.ws, {
+      type: WsMessageType.ProfileUpdated,
+      payload: { id: client.id, name, avatar: client.avatar },
+    })
+    this.broadcast({
+      type: WsMessageType.UserList,
+      payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
     })
   }
 
@@ -1056,12 +1134,13 @@ export class WsHandler {
     return data.length > Math.ceil((maxBytes * 4) / 3) + 4
   }
 
-  private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean } {
+  private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean; avatar?: string } {
     return {
       id: client.id,
       name: client.name,
       room: client.room,
       admin: client.admin,
+      avatar: client.avatar,
     }
   }
 }

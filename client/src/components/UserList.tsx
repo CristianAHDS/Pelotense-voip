@@ -6,7 +6,7 @@ import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { useVoiceStore, SPEAKING_TIMEOUT_MS } from '../stores/voiceStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { sendLiveForceStop, requestPrivateHistory } from '../services/connectionService.ts'
-import { userColor, initials } from '../ui/avatar.ts'
+import { Avatar } from '../ui/Avatar.tsx'
 import { useT } from '../i18n/index.ts'
 import { RadioBot } from './RadioBot.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
@@ -57,9 +57,7 @@ export function UserList() {
               tabIndex={!isMe ? 0 : undefined}
               onKeyDown={(e) => e.key === 'Enter' && handleClick(user.id, user.name)}
             >
-              <span className="user-avatar" style={{ background: userColor(user.id) }} title={user.name}>
-                {initials(user.name)}
-              </span>
+              <Avatar id={user.id} name={user.name} avatar={user.avatar} />
               <span className="user-name">
                 {user.name}{isMe ? ' (you)' : ''}
                 {user.admin && <span className="user-admin-badge" title="Admin">Admin</span>}

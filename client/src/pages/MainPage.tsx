@@ -6,7 +6,10 @@ import { VoiceControls } from '../components/VoiceControls.tsx';
 import { ChatPanel } from '../components/ChatPanel.tsx';
 import { PrivateChatPanel } from '../components/PrivateChatPanel.tsx';
 import { Toasts } from '../components/Toasts.tsx';
+import { AccountPrefsModal } from '../components/AccountPrefsModal.tsx';
+import { FullscreenChat } from '../components/FullscreenChat.tsx';
 import { useConnectionStore } from '../stores/connectionStore.ts';
+import { useAccountStore } from '../stores/accountStore.ts';
 import { useRoomStore } from '../stores/roomStore.ts';
 import { usePrivateChatStore } from '../stores/privateChatStore.ts';
 import { useSettingsStore, applyTheme } from '../stores/settingsStore.ts';
@@ -133,6 +136,13 @@ export function MainPage() {
         <aside className="sidebar sidebar-left">
           <ConnectionPanel />
           <VoiceControls />
+          <button
+            className="btn btn-account-prefs"
+            onClick={() => useAccountStore.getState().openPrefs()}
+            title={t('accountPrefs')}
+          >
+            ⚙ {t('accountPrefs')}
+          </button>
         </aside>
         <main className="main-content">
           <RoomList />
@@ -184,6 +194,8 @@ export function MainPage() {
       </div>
 
       <Toasts />
+      <AccountPrefsModal />
+      <FullscreenChat />
     </div>
   );
 }

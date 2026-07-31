@@ -49,4 +49,5 @@ export const securityLimits: SecurityLimits = {
   maxImageMessageBytes: getInt('MAX_IMAGE_MESSAGE_BYTES', DEFAULT_SECURITY_LIMITS.maxImageMessageBytes),
   maxLiveChunkBytes: getInt('MAX_LIVE_CHUNK_BYTES', DEFAULT_SECURITY_LIMITS.maxLiveChunkBytes),
   maxVoiceFrameBytes: getInt('MAX_VOICE_FRAME_BYTES', DEFAULT_SECURITY_LIMITS.maxVoiceFrameBytes),
+  maxAvatarBytes: getInt('MAX_AVATAR_BYTES', DEFAULT_SECURITY_LIMITS.maxAvatarBytes),
 }

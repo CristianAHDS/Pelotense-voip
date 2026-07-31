@@ -13,6 +13,7 @@ const LIMITS: SecurityLimits = {
   maxImageMessageBytes: 100,
   maxLiveChunkBytes: 100,
   maxVoiceFrameBytes: 100,
+  maxAvatarBytes: 100,
 }
 
 let server: TestServer

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useConnection } from '../hooks/useConnection.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
+import { useAccountStore, clearAccountPrefs } from '../stores/accountStore.ts'
 import { connectToServer } from '../services/connectionService.ts'
 
 const STORAGE_KEY = 'voip_credentials'
@@ -120,8 +121,10 @@ export function ConnectionPanel() {
   function handleLogout() {
     disconnect()
     clearStoredCredentials()
+    clearAccountPrefs()
     setNickname('')
     setPassword('')
+    useAccountStore.getState().setPrefs({ name: '', password: '', avatar: '' })
   }
 
   const statusText = reconnecting

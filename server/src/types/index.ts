@@ -9,6 +9,7 @@ export interface Client {
   ip: string
   lastPing: number
   admin: boolean
+  avatar?: string
   ws: WsWebSocket
 }
 
@@ -114,6 +115,8 @@ export enum WsMessageType {
   PrivateVideoMessage = 'private_video_message',
   ListPrivateMessages = 'list_private_messages',
   PrivateHistory = 'private_history',
+  UpdateProfile = 'update_profile',
+  ProfileUpdated = 'profile_updated',
 }
 
 export interface WsMessage {
@@ -179,6 +182,7 @@ export interface SecurityLimits {
   maxImageMessageBytes: number
   maxLiveChunkBytes: number
   maxVoiceFrameBytes: number
+  maxAvatarBytes: number
 }
 
 export const DEFAULT_SECURITY_LIMITS: SecurityLimits = {
@@ -191,4 +195,5 @@ export const DEFAULT_SECURITY_LIMITS: SecurityLimits = {
   maxImageMessageBytes: 5 * 1024 * 1024,
   maxLiveChunkBytes: 512 * 1024,
   maxVoiceFrameBytes: 64 * 1024,
+  maxAvatarBytes: 2 * 1024 * 1024,
 }

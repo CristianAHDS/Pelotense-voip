@@ -1,6 +1,7 @@
 import { WsClient } from '../network/wsClient.ts'
 import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg, PrivateChatMsg } from '../types/index.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
+import { useAccountStore } from '../stores/accountStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { VoiceManager } from '../voice/index.ts'
@@ -126,10 +127,10 @@ export function connectToServer(address: string, name: string, password: string)
   initVoice()
 
   wsClient.on('connected', () => {
-    const payload: LoginPayload = { name, password }
+    const avatar = useAccountStore.getState().avatar
+    const payload: LoginPayload = { name, password, avatar: avatar || undefined }
     wsClient?.send(WsMessageType.Login, payload)
   })
-
   wsClient.on('disconnected', () => {
     if (intentionalDisconnect) {
       intentionalDisconnect = false
@@ -147,6 +148,9 @@ export function connectToServer(address: string, name: string, password: string)
     reconnecting = false
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
+    if (payload.avatar) {
+      useAccountStore.getState().setPrefs({ avatar: payload.avatar })
+    }
     requestRoomList()
     voiceOnLogin()
     requestNotificationPermission()
@@ -287,6 +291,12 @@ export function connectToServer(address: string, name: string, password: string)
     usePrivateChatStore.getState().setMessages(payload.withUserId, payload.messages)
   })
 
+  wsClient.on(WsMessageType.ProfileUpdated, (msg) => {
+    const payload = msg.payload as { id: string; name: string; avatar?: string }
+    useConnectionStore.getState().setConnected(payload.id, payload.name, useConnectionStore.getState().admin)
+    useAccountStore.getState().setPrefs({ name: payload.name, avatar: payload.avatar ?? '' })
+  })
+
   wsClient.on(WsMessageType.Error, (msg) => {
     const error = String(msg.payload ?? 'Unknown error')
     useConnectionStore.getState().setDisconnected()
@@ -378,6 +388,11 @@ export function sendPrivateVideoMessage(toUserId: string, id: string, videoData:
 export function requestPrivateHistory(withUserId: string): void {
   if (!wsClient) { console.error('requestPrivateHistory: wsClient is null'); return }
   wsClient.send(WsMessageType.ListPrivateMessages, { withUserId })
+}
+
+export function sendUpdateProfile(profile: { name?: string; password?: string; avatar?: string }): void {
+  if (!wsClient) { console.error('sendUpdateProfile: wsClient is null'); return }
+  wsClient.send(WsMessageType.UpdateProfile, profile)
 }
 
 export function sendLiveForceStop(targetUserId: string): void {
