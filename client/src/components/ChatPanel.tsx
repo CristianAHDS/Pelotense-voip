@@ -46,11 +46,11 @@ export function ChatPanel() {
   }, [messages])
 
   const setVideoPreview = useCallback((el: HTMLVideoElement | null) => {
-    if (el && videoRec.stream) {
-      el.srcObject = videoRec.stream
+    if (el && videoRec.streamRef.current) {
+      el.srcObject = videoRec.streamRef.current
       el.play().catch(() => {})
     }
-  }, [videoRec.stream])
+  }, [videoRec.hasStream])
 
   function handleSend() {
     if (!text.trim()) return
@@ -121,7 +121,7 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
-      {videoRec.stream ? (
+      {videoRec.hasStream ? (
         <div className="chat-video-preview-overlay">
           <div className="chat-video-preview-box">
             <video

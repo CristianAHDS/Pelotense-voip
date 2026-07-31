@@ -3,7 +3,7 @@ import { useState, useRef, useCallback } from 'react'
 export function useVideoRecorder() {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
-  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [hasStream, setHasStream] = useState(false)
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -24,7 +24,7 @@ export function useVideoRecorder() {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
-    setStream(null)
+    setHasStream(false)
     setRecording(false)
     setDuration(0)
   }, [])
@@ -42,7 +42,7 @@ export function useVideoRecorder() {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
-    setStream(null)
+    setHasStream(false)
     setRecording(false)
     setDuration(0)
   }, [])
@@ -52,7 +52,7 @@ export function useVideoRecorder() {
       navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then((s) => {
           streamRef.current = s
-          setStream(s)
+          setHasStream(true)
           chunksRef.current = []
           setDuration(0)
 
@@ -105,5 +105,5 @@ export function useVideoRecorder() {
     })
   }, [stopRecording])
 
-  return { recording, duration, stream, startRecording, stopRecording, cancelRecording }
+  return { recording, duration, hasStream, streamRef, startRecording, stopRecording, cancelRecording }
 }
