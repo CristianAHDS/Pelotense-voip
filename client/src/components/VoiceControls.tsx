@@ -1,8 +1,10 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useVoice } from '../hooks/useVoice.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
+import { getVoiceManager } from '../services/connectionService.ts'
+import type { MicrophoneInfo } from '../audio/index.ts'
 
 interface Props {
   compact?: boolean
@@ -11,12 +13,28 @@ interface Props {
 const IS_HTTPS = window.location.protocol === 'https:'
 const HTTPS_CLIENT_PORT = 3443
 const HTTPS_HOST = `${window.location.hostname}:${HTTPS_CLIENT_PORT}`
+const MIC_DEVICE_KEY = 'voip_mic_device'
+
+function loadSavedMic(): string {
+  try {
+    return localStorage.getItem(MIC_DEVICE_KEY) ?? ''
+  } catch { /* ignore */ }
+  return ''
+}
+
+function saveMicDevice(deviceId: string): void {
+  try {
+    localStorage.setItem(MIC_DEVICE_KEY, deviceId)
+  } catch { /* ignore */ }
+}
 
 export function VoiceControls({ compact }: Props) {
   const { muted, volume, level, rxLevel, toggleMute, setVolume } = useVoice()
   const connected = useConnectionStore((s) => s.connected)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const micDisabled = currentRoomName === 'Boletins gravados'
+  const [micDevices, setMicDevices] = useState<MicrophoneInfo[]>([])
+  const [micDevice, setMicDevice] = useState(loadSavedMic)
 
   useEffect(() => {
     if (currentRoomName === 'Boletins gravados') {
@@ -26,6 +44,30 @@ export function VoiceControls({ compact }: Props) {
       }
     }
   }, [currentRoomName])
+
+  useEffect(() => {
+    if (!connected) return
+    const vm = getVoiceManager()
+    if (!vm) return
+    let cancelled = false
+    vm.listMicrophones().then((devices) => {
+      if (cancelled) return
+      setMicDevices(devices)
+      const saved = loadSavedMic()
+      if (devices.some((d) => d.deviceId === saved)) {
+        setMicDevice(saved)
+        void vm.setMicrophone(saved)
+      }
+    })
+    return () => { cancelled = true }
+  }, [connected])
+
+  function handleMicChange(deviceId: string): void {
+    setMicDevice(deviceId)
+    saveMicDevice(deviceId)
+    const vm = getVoiceManager()
+    void vm?.setMicrophone(deviceId)
+  }
 
   const pct = Math.round((Number.isFinite(level) ? level : 0) * 100)
   const bars = compact ? 8 : 10
@@ -109,6 +151,23 @@ export function VoiceControls({ compact }: Props) {
         >
           {micDisabled ? 'Muted' : muted ? 'Unmute' : 'Mute'}
         </button>
+        {micDevices.length > 1 && (
+          <select
+            className="voice-bar-mic-select"
+            value={micDevice}
+            onChange={(e) => handleMicChange(e.target.value)}
+            title="Selecionar microfone"
+            aria-label="Selecionar microfone"
+            disabled={!connected}
+          >
+            <option value="">Padrão</option>
+            {micDevices.map((d, i) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || `Microfone ${i + 1}`}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="voice-bar-vu">
           <div className="voice-bar-vu-track">
             {Array.from({ length: bars }, (_, i) => (
@@ -162,6 +221,24 @@ export function VoiceControls({ compact }: Props) {
           {micDisabled ? 'Muted' : muted ? 'Unmute' : 'Mute'}
         </button>
       </div>
+      {micDevices.length > 1 && (
+        <div className="mic-select-wrap">
+          <label className="mic-select-label">Microfone</label>
+          <select
+            className="mic-select"
+            value={micDevice}
+            onChange={(e) => handleMicChange(e.target.value)}
+            disabled={!connected}
+          >
+            <option value="">Padrão</option>
+            {micDevices.map((d, i) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || `Microfone ${i + 1}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="volume-control">
         <label>Volume: {Math.round(volume * 100)}%</label>
         <input

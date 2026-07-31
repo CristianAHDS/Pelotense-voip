@@ -5,8 +5,10 @@ import { CODEC_OPUS } from '../audio/codec.ts'
 
 class FakeAudioContext {
   static instances: FakeAudioContext[] = []
+  static sources: any[] = []
   state = 'suspended'
   currentTime = 0
+  audioWorklet = { addModule: vi.fn(() => Promise.resolve()) }
   resume = vi.fn(() => {
     this.state = 'running'
     return Promise.resolve()
@@ -17,7 +19,11 @@ class FakeAudioContext {
   }
 
   createGain(): any {
-    return { gain: { value: 0 }, connect: vi.fn() }
+    return {
+      gain: { value: 0 },
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    }
   }
 
   createBuffer(_channels: number, length: number): any {
@@ -25,7 +31,19 @@ class FakeAudioContext {
   }
 
   createBufferSource(): any {
-    return { buffer: null, connect: vi.fn(), start: vi.fn() }
+    const source = {
+      buffer: null,
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      onended: null,
+    }
+    FakeAudioContext.sources.push(source)
+    return source
+  }
+
+  createMediaStreamSource(): any {
+    return { connect: vi.fn(), disconnect: vi.fn() }
   }
 
   close(): Promise<void> {
@@ -106,10 +124,26 @@ function installFakeWebCodecs(opts: { nanDecode?: boolean } = {}): void {
   vi.stubGlobal('AudioData', FakeAudioData)
   vi.stubGlobal('EncodedAudioChunk', FakeEncodedAudioChunk)
   vi.stubGlobal('AudioContext', FakeAudioContext)
+  vi.stubGlobal('AudioWorkletNode', class FakeAudioWorkletNode {
+    port = { onmessage: null as any }
+    disconnect(): void {}
+  })
 }
 
 function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+function installFakeMediaDevices(devices: Array<{ kind: string; deviceId: string; label: string }>): { getUserMedia: ReturnType<typeof vi.fn> } {
+  const getUserMedia = vi.fn().mockResolvedValue({ getTracks: () => [] })
+  Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true,
+    value: {
+      enumerateDevices: vi.fn().mockResolvedValue(devices),
+      getUserMedia,
+    },
+  })
+  return { getUserMedia }
 }
 
 function opusFrame(): ArrayBuffer {
@@ -120,8 +154,10 @@ function opusFrame(): ArrayBuffer {
 
 afterEach(() => {
   FakeAudioContext.instances = []
+  FakeAudioContext.sources = []
   useVoiceStore.getState().setRxLevel(0)
   vi.unstubAllGlobals()
+  delete (navigator as any).mediaDevices
 })
 
 describe('VoiceManager (playAudio)', () => {
@@ -153,6 +189,85 @@ describe('VoiceManager (playAudio)', () => {
 
     expect(FakeAudioContext.instances).toHaveLength(1)
     expect(FakeAudioContext.instances[0].state).toBe('running')
+    vm.destroy()
+  })
+
+  it('listMicrophones retorna apenas dispositivos de entrada de áudio', async () => {
+    installFakeWebCodecs()
+    installFakeMediaDevices([
+      { kind: 'audioinput', deviceId: 'mic-1', label: 'Microfone USB' },
+      { kind: 'videoinput', deviceId: 'cam-1', label: 'Camera' },
+      { kind: 'audioinput', deviceId: 'mic-2', label: '' },
+    ])
+    const vm = new VoiceManager()
+    const devices = await vm.listMicrophones()
+    expect(devices).toEqual([
+      { deviceId: 'mic-1', label: 'Microfone USB' },
+      { deviceId: 'mic-2', label: '' },
+    ])
+    vm.destroy()
+  })
+
+  it('setMicrophone troca o dispositivo e reinicia o mic ativo com o deviceId', async () => {
+    installFakeWebCodecs()
+    const { getUserMedia } = installFakeMediaDevices([])
+    const vm = new VoiceManager()
+    await vm.startMicrophone()
+    expect(vm.activeMic).toBe(true)
+
+    await vm.setMicrophone('mic-1')
+    await flush()
+
+    const lastCall = getUserMedia.mock.calls[getUserMedia.mock.calls.length - 1][0] as { audio: MediaTrackConstraints }
+    expect(lastCall.audio.deviceId).toEqual({ exact: 'mic-1' })
+    expect(vm.activeMic).toBe(true)
+    vm.destroy()
+  })
+
+  it('setMicrophone sem mic ativo apenas define o dispositivo para o próximo start', async () => {
+    installFakeWebCodecs()
+    const { getUserMedia } = installFakeMediaDevices([])
+    const vm = new VoiceManager()
+    await vm.setMicrophone('mic-1')
+    expect(vm.activeMic).toBe(false)
+    expect(getUserMedia).not.toHaveBeenCalled()
+
+    await vm.startMicrophone()
+    const constraints = getUserMedia.mock.calls[0][0] as { audio: MediaTrackConstraints }
+    expect(constraints.audio.deviceId).toEqual({ exact: 'mic-1' })
+    vm.destroy()
+  })
+
+  it('flushAudio para imediatamente os buffers agendados de saída', async () => {
+    installFakeWebCodecs()
+    const vm = new VoiceManager()
+    vm.playAudio(opusFrame())
+    await flush()
+    expect(FakeAudioContext.sources.length).toBeGreaterThan(0)
+
+    vm.flushAudio()
+    for (const source of FakeAudioContext.sources) {
+      expect(source.stop).toHaveBeenCalled()
+    }
+    expect(useVoiceStore.getState().rxLevel).toBe(0)
+    vm.destroy()
+  })
+
+  it('não deixa a fila de saída acumular mais que ~150ms à frente do tempo atual', async () => {
+    installFakeWebCodecs()
+    const vm = new VoiceManager()
+    vm.playAudio(opusFrame())
+    await flush()
+    const speakerCtx = FakeAudioContext.instances[0]
+
+    speakerCtx.currentTime = 10
+    for (let i = 0; i < 50; i++) {
+      vm.playAudio(opusFrame())
+      await flush()
+    }
+
+    const lastStart = FakeAudioContext.sources[FakeAudioContext.sources.length - 1].start.mock.calls[0][0] as number
+    expect(lastStart - speakerCtx.currentTime).toBeLessThanOrEqual(0.15)
     vm.destroy()
   })
 })

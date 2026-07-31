@@ -40,8 +40,12 @@ vi.mock('../voice/index.ts', () => {
   class MockVoiceManager {
     static resumeCalls = 0
     static startMicCalls = 0
+    static flushAudioCalls = 0
     resumeOutput(): void {
       MockVoiceManager.resumeCalls += 1
+    }
+    flushAudio(): void {
+      MockVoiceManager.flushAudioCalls += 1
     }
     setOnSend(): void {}
     async startMicrophone(): Promise<boolean> {
@@ -59,7 +63,7 @@ vi.mock('../voice/index.ts', () => {
 const { connectToServer, disconnectFromServer, getWsClient } = await import('../services/connectionService.ts')
 const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom } = await import('../services/connectionService.ts')
 const voiceMock = await import('../voice/index.ts')
-const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number; startMicCalls: number }
+const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number; startMicCalls: number; flushAudioCalls: number }
 
 function emit(type: string, payload?: unknown): void {
   ;(getWsClient() as any).emit(type, { type, payload })
@@ -71,6 +75,7 @@ beforeEach(() => {
   connectedUrl = null
   MockVoiceManager.resumeCalls = 0
   MockVoiceManager.startMicCalls = 0
+  MockVoiceManager.flushAudioCalls = 0
   useConnectionStore.setState({ connected: false, reconnecting: false, id: null, name: null })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [] })
   useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
@@ -225,5 +230,20 @@ describe('connectionService', () => {
     const before = MockVoiceManager.startMicCalls
     emit(WsMessageType.Welcome, { id: 'id1', name: 'A' })
     expect(MockVoiceManager.startMicCalls).toBe(before + 1)
+  })
+
+  it('ao sair da sala, limpa o buffer de áudio de saída imediatamente', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit(WsMessageType.RoomJoined, { roomId: 'r1', roomName: 'Ao vivo', messages: [] })
+    emit(WsMessageType.RoomLeft, { roomId: 'r1' })
+    expect(MockVoiceManager.flushAudioCalls).toBeGreaterThanOrEqual(1)
+  })
+
+  it('ao entrar/trocar de sala, limpa o buffer de áudio da sala anterior', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit(WsMessageType.RoomJoined, { roomId: 'r1', roomName: 'Sala 1', messages: [] })
+    const before = MockVoiceManager.flushAudioCalls
+    emit(WsMessageType.RoomJoined, { roomId: 'r2', roomName: 'Sala 2', messages: [] })
+    expect(MockVoiceManager.flushAudioCalls).toBe(before + 1)
   })
 })

@@ -6,20 +6,33 @@ export class Speaker {
   // Próximo instante em que um buffer será reproduzido
   private nextPlayTime = 0;
 
+  // Fontes agendadas, para poder pará-las num flush
+  private activeSources = new Set<AudioBufferSourceNode>();
+
+  // Teto de quanto áudio pode ficar agendado à frente; acima disso o buffer
+  // é descartado para manter a reprodução quase em tempo real (jitter buffer).
+  private static readonly MAX_LOOKAHEAD_SECONDS = 0.15;
+
   private ensureContext(): AudioContext | null {
     if (!this.context) {
       try {
         this.context = new AudioContext({ sampleRate: 48000 });
-
-        this.gainNode = this.context.createGain();
-        this.gainNode.gain.value = this.pendingVolume;
-        this.gainNode.connect(this.context.destination);
-
         this.nextPlayTime = this.context.currentTime;
 
         if (this.context.state === 'suspended') {
           void this.context.resume();
         }
+      } catch {
+        return null;
+      }
+    }
+
+    // Após um flush o gainNode é descartado; recria-o ao tocar de novo.
+    if (!this.gainNode) {
+      try {
+        this.gainNode = this.context.createGain();
+        this.gainNode.gain.value = this.pendingVolume;
+        this.gainNode.connect(this.context.destination);
       } catch {
         return null;
       }
@@ -49,26 +62,61 @@ export class Speaker {
 
     if (audioData.length === 0) return;
 
+    const now = ctx.currentTime;
+    const duration = audioData.length / 48000;
+
+    // Se o áudio atrasou (perda de pacotes/jitter), reinicia a fila para
+    // não acumular latência.
+    if (this.nextPlayTime < now) {
+      this.nextPlayTime = now;
+    }
+
+    // Se já há muito áudio agendado à frente, descarta o excesso (mantém no
+    // máximo ~150ms de buffer) para a reprodução ficar em tempo real.
+    if (this.nextPlayTime - now > Speaker.MAX_LOOKAHEAD_SECONDS) {
+      this.nextPlayTime = now;
+    }
+
     const buffer = ctx.createBuffer(1, audioData.length, 48000);
     buffer.getChannelData(0).set(audioData);
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gainNode);
-
-    // Duração do buffer em segundos
-    const duration = audioData.length / 48000;
-
-    // Se o áudio atrasou, reinicia a fila para evitar acúmulo
-    if (this.nextPlayTime < ctx.currentTime) {
-      this.nextPlayTime = ctx.currentTime;
-    }
+    this.activeSources.add(source);
+    source.onended = () => {
+      this.activeSources.delete(source);
+    };
 
     // Agenda a reprodução exatamente após o buffer anterior
     source.start(this.nextPlayTime);
 
     // Atualiza o próximo horário
     this.nextPlayTime += duration;
+  }
+
+  // Para imediatamente todo o áudio agendado/em reprodução (ao sair da sala,
+  // desconectar ou trocar de cena). Silencia na hora via desconexão do nó de
+  // ganho e para as fontes agendadas.
+  flush(): void {
+    for (const source of this.activeSources) {
+      try {
+        source.stop();
+      } catch {
+        /* fonte já finalizada/não iniciada */
+      }
+    }
+    this.activeSources.clear();
+    this.nextPlayTime = 0;
+
+    if (this.gainNode) {
+      try {
+        this.gainNode.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this.gainNode = null;
+    }
   }
 
   setVolume(value: number): void {
@@ -79,10 +127,10 @@ export class Speaker {
   }
 
   destroy(): void {
+    this.flush();
     if (this.context) {
       void this.context.close().catch(() => {});
       this.context = null;
-      this.gainNode = null;
       this.nextPlayTime = 0;
     }
   }

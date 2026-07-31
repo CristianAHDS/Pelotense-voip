@@ -59,6 +59,8 @@ function voiceOnLogin(): void {
 }
 
 function voiceOnRoomJoined(): void {
+  // Ao entrar (ou trocar de sala) limpa qualquer áudio agendado da sala anterior.
+  voiceManager?.flushAudio()
   const muted = useVoiceStore.getState().muted
   if (!muted) {
     voiceManager?.startMicrophone().then((ok) => {
@@ -70,7 +72,7 @@ function voiceOnRoomJoined(): void {
 
 function voiceOnRoomLeft(): void {
   voiceManager?.stopMicrophone()
-  useVoiceStore.getState().setRxLevel(0)
+  voiceManager?.flushAudio()
 }
 
 export function connectToServer(address: string, name: string, password: string): void {

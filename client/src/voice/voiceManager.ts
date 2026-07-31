@@ -1,4 +1,5 @@
 import { Microphone, Speaker, AudioCodec } from '../audio/index.ts';
+import type { MicrophoneInfo } from '../audio/index.ts';
 import { useVoiceStore } from '../stores/voiceStore.ts';
 
 const LEVEL_SMOOTHING = 0.3;
@@ -11,6 +12,7 @@ export class VoiceManager {
   private onSendAudio: ((data: ArrayBuffer) => void) | null = null;
   private smoothLevel: number = 0;
   private smoothRxLevel: number = 0;
+  private micDeviceId: string | null = null;
 
   constructor() {
     this.microphone = new Microphone();
@@ -20,6 +22,21 @@ export class VoiceManager {
 
   setOnSend(cb: (data: ArrayBuffer) => void): void {
     this.onSendAudio = cb;
+  }
+
+  async listMicrophones(): Promise<MicrophoneInfo[]> {
+    return this.microphone.listDevices();
+  }
+
+  async setMicrophone(deviceId: string | null): Promise<boolean> {
+    if (this.micDeviceId === deviceId) return true;
+    this.micDeviceId = deviceId;
+    this.microphone.setDeviceId(deviceId);
+    if (this.active) {
+      this.stopMicrophone();
+      return this.startMicrophone();
+    }
+    return true;
   }
 
   async startMicrophone(): Promise<boolean> {
@@ -72,6 +89,14 @@ export class VoiceManager {
   // navegador (especialmente mobile) mantém o contexto suspenso e não há som.
   resumeOutput(): void {
     void this.speaker.resume();
+  }
+
+  // Para imediatamente todo o áudio de saída pendente (ao sair da sala ou
+  // desconectar), evitando que o buffer agendado continue tocando.
+  flushAudio(): void {
+    this.speaker.flush();
+    this.smoothRxLevel = 0;
+    useVoiceStore.getState().setRxLevel(0);
   }
 
   playAudio(data: ArrayBuffer): void {
