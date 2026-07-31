@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useConnection } from '../hooks/useConnection.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { connectToServer } from '../services/connectionService.ts'
@@ -74,6 +74,18 @@ export function ConnectionPanel() {
   useEffect(() => {
     checkCert()
   }, [checkCert])
+
+  const autoConnectRef = useRef(false)
+
+  useEffect(() => {
+    if (autoConnectRef.current) return
+    autoConnectRef.current = true
+    if (!connected && stored.name) {
+      const protocol = IS_HTTPS ? 'wss' : 'ws'
+      const port = IS_HTTPS ? stored.wssPort : stored.wsPort
+      connectToServer(`${protocol}://${stored.host}:${port}`, stored.name, stored.password)
+    }
+  }, [])
 
   useEffect(() => {
     const onVisibility = () => {
