@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage } from '../services/connectionService.ts'
@@ -37,7 +37,7 @@ export function ChatPanel() {
   const connected = useConnectionStore((s) => s.connected)
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
-  const videoPreviewRef = useRef<HTMLVideoElement>(null)
+  const previewRef = useRef<HTMLVideoElement | null>(null)
   const audioRec = useAudioRecorder()
   const videoRec = useVideoRecorder()
   const isRecording = audioRec.recording || videoRec.recording
@@ -46,8 +46,8 @@ export function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  useEffect(() => {
-    const el = videoPreviewRef.current
+  useLayoutEffect(() => {
+    const el = previewRef.current
     if (el) {
       el.srcObject = videoRec.stream
       if (videoRec.stream) {
@@ -129,7 +129,7 @@ export function ChatPanel() {
         <div className="chat-video-preview-overlay">
           <div className="chat-video-preview-box">
             <video
-              ref={videoPreviewRef}
+              ref={previewRef}
               autoPlay
               muted
               playsInline
