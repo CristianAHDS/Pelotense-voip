@@ -92,50 +92,12 @@ export function useVideoRecorder() {
       currentStream.addTrack(newVideoTrack)
 
       newStream.getAudioTracks().forEach((t) => {
-        currentStream.addTrack(t)
         t.stop()
       })
-
-      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-        cancelledRef.current = true
-        recorderRef.current.stop()
-        cancelledRef.current = false
-      }
-
-      const mimeType = mimeTypeRef.current
-      const newRecorder = new MediaRecorder(currentStream, { mimeType })
-      recorderRef.current = newRecorder
-
-      newRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
-      }
-
-      newRecorder.onstop = () => {
-        if (cancelledRef.current) {
-          cancelledRef.current = false
-          resolveRef.current?.(null)
-          return
-        }
-        const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
-        const blob = new Blob(chunksRef.current, { type: mimeType })
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1]
-          resolveRef.current?.({ data: base64, duration: finalDuration })
-        }
-        reader.readAsDataURL(blob)
-      }
-
-      newRecorder.onerror = () => {
-        stopRecording()
-        resolveRef.current?.(null)
-      }
-
-      newRecorder.start(100)
     } catch {
       // camera switch failed, keep old camera
     }
-  }, [stopRecording])
+  }, [])
 
   const startRecording = useCallback((): Promise<{ data: string; duration: number } | null> => {
     return new Promise((resolve) => {
