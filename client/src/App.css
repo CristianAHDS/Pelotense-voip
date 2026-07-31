@@ -1047,6 +1047,25 @@ body {
   background: #dc2626;
 }
 
+.chat-recording-start-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-recording-start-btn:hover {
+  background: #dc2626;
+}
+
 .chat-cancel-btn {
   width: 36px;
   height: 36px;
@@ -1454,7 +1473,8 @@ body {
   .chat-cam-btn,
   .chat-send-btn,
   .chat-cancel-btn,
-  .chat-recording-stop-btn {
+  .chat-recording-stop-btn,
+  .chat-recording-start-btn {
     width: 32px;
     height: 32px;
   }

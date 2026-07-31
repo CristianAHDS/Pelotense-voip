@@ -21,6 +21,23 @@ export function useVideoRecorder() {
   const startTimeRef = useRef(0)
   const mimeTypeRef = useRef('video/webm')
 
+  const cleanup = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.stop()
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    setHasStream(false)
+    setRecording(false)
+    setDuration(0)
+  }, [])
+
   const stopRecording = useCallback(() => {
     cancelledRef.current = false
     if (timerRef.current) {
@@ -124,7 +141,7 @@ export function useVideoRecorder() {
         }
 
         recorder.onerror = () => {
-          stopRecording()
+          cleanup()
           resolve(null)
         }
 
@@ -133,75 +150,99 @@ export function useVideoRecorder() {
     } catch {
       // camera switch failed, keep old camera
     }
-  }, [])
+  }, [cleanup])
 
-  const startRecording = useCallback((): Promise<{ data: string; duration: number } | null> => {
-    return new Promise((resolve) => {
+  const openCamera = useCallback(async (): Promise<boolean> => {
+    try {
       const constraints: MediaStreamConstraints = {
         video: cameraId ? { deviceId: { exact: cameraId } } : true,
         audio: true,
       }
-      navigator.mediaDevices.getUserMedia(constraints)
-        .then((s) => {
-          streamRef.current = s
-          setHasStream(true)
-          setStreamVersion((v) => v + 1)
-          chunksRef.current = []
-          setDuration(0)
+      const s = await navigator.mediaDevices.getUserMedia(constraints)
+      streamRef.current = s
+      setHasStream(true)
+      setStreamVersion((v) => v + 1)
+      return true
+    } catch {
+      return false
+    }
+  }, [cameraId])
 
-          startTimeRef.current = Date.now()
-          timerRef.current = setInterval(() => {
-            setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000))
-          }, 1000)
+  const beginRecording = useCallback((): Promise<{ data: string; duration: number } | null> => {
+    return new Promise((resolve) => {
+      const s = streamRef.current
+      if (!s) {
+        resolve(null)
+        return
+      }
 
-          const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-            ? 'video/webm;codecs=vp9'
-            : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
-              ? 'video/webm;codecs=vp8'
-              : 'video/webm'
-          mimeTypeRef.current = mimeType
+      resolveRef.current = resolve
+      chunksRef.current = []
+      setDuration(0)
 
-          const recorder = new MediaRecorder(s, { mimeType })
-          recorderRef.current = recorder
+      startTimeRef.current = Date.now()
+      timerRef.current = setInterval(() => {
+        setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000))
+      }, 1000)
 
-          recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) chunksRef.current.push(e.data)
-          }
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+          ? 'video/webm;codecs=vp8'
+          : 'video/webm'
+      mimeTypeRef.current = mimeType
 
-          recorder.onstop = () => {
-            if (cancelledRef.current) {
-              cancelledRef.current = false
-              resolve(null)
-              return
-            }
-            const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
-            const blob = new Blob(chunksRef.current, { type: mimeType })
-            const reader = new FileReader()
-            reader.onloadend = () => {
-              const base64 = (reader.result as string).split(',')[1]
-              resolve({ data: base64, duration: finalDuration })
-            }
-            reader.readAsDataURL(blob)
-          }
+      const recorder = new MediaRecorder(s, { mimeType })
+      recorderRef.current = recorder
 
-          recorder.onerror = () => {
-            stopRecording()
-            resolve(null)
-          }
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data)
+      }
 
-          recorder.start(100)
-          setRecording(true)
-          resolveRef.current = resolve
-        })
-        .catch(() => {
+      recorder.onstop = () => {
+        if (cancelledRef.current) {
+          cancelledRef.current = false
           resolve(null)
-        })
+          return
+        }
+        const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
+        const blob = new Blob(chunksRef.current, { type: mimeType })
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1]
+          resolve({ data: base64, duration: finalDuration })
+        }
+        reader.readAsDataURL(blob)
+      }
+
+      recorder.onerror = () => {
+        cleanup()
+        resolve(null)
+      }
+
+      recorder.start(100)
+      setRecording(true)
     })
-  }, [cameraId, stopRecording])
+  }, [cleanup])
+
+  const closeCamera = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    setHasStream(false)
+    setRecording(false)
+    setDuration(0)
+  }, [])
 
   return {
     recording, duration, hasStream, streamVersion, streamRef,
     devices, cameraId, setCameraId,
-    startRecording, stopRecording, cancelRecording, enumerateDevices, switchCamera,
+    openCamera, beginRecording, stopRecording, cancelRecording, closeCamera,
+    enumerateDevices, switchCamera,
   }
 }

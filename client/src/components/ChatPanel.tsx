@@ -73,11 +73,18 @@ export function ChatPanel() {
     }
   }
 
-  async function handleStartVideoRecording() {
+  async function handleOpenCamera() {
     if (videoRec.devices.length === 0) {
       await videoRec.enumerateDevices()
     }
-    const result = await videoRec.startRecording()
+    const ok = await videoRec.openCamera()
+    if (!ok) {
+      // camera access denied or failed
+    }
+  }
+
+  async function handleBeginRecording() {
+    const result = await videoRec.beginRecording()
     if (result) {
       sendChatVideoMessage(result.data, result.duration)
     }
@@ -182,15 +189,27 @@ export function ChatPanel() {
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
-                <button
-                  onClick={handleStopVideoRecording}
-                  className="chat-recording-stop-btn"
-                  title="Send"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </button>
+                {videoRec.recording ? (
+                  <button
+                    onClick={handleStopVideoRecording}
+                    className="chat-recording-stop-btn"
+                    title="Stop and send"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleBeginRecording}
+                    className="chat-recording-start-btn"
+                    title="Start recording"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="12" r="6" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -248,7 +267,7 @@ export function ChatPanel() {
                 </svg>
               </button>
               <button
-                onClick={handleStartVideoRecording}
+                onClick={handleOpenCamera}
                 className="chat-cam-btn"
                 title="Record video"
               >
