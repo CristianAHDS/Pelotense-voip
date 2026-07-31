@@ -21,23 +21,6 @@ export function useVideoRecorder() {
   const startTimeRef = useRef(0)
   const mimeTypeRef = useRef('video/webm')
 
-  const cleanup = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-      recorderRef.current.stop()
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
-    }
-    setHasStream(false)
-    setRecording(false)
-    setDuration(0)
-  }, [])
-
   const stopRecording = useCallback(() => {
     cancelledRef.current = false
     if (timerRef.current) {
@@ -96,7 +79,7 @@ export function useVideoRecorder() {
 
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: newCameraId } },
+        video: { deviceId: { exact: newCameraId }, width: { ideal: 640 }, height: { ideal: 480 } },
         audio: true,
       })
 
@@ -141,7 +124,11 @@ export function useVideoRecorder() {
         }
 
         recorder.onerror = () => {
-          cleanup()
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
+          setRecording(false)
           resolve(null)
         }
 
@@ -150,12 +137,14 @@ export function useVideoRecorder() {
     } catch {
       // camera switch failed, keep old camera
     }
-  }, [cleanup])
+  }, [])
 
   const openCamera = useCallback(async (): Promise<boolean> => {
     try {
       const constraints: MediaStreamConstraints = {
-        video: cameraId ? { deviceId: { exact: cameraId } } : true,
+        video: cameraId
+          ? { deviceId: { exact: cameraId }, width: { ideal: 640 }, height: { ideal: 480 } }
+          : { width: { ideal: 640 }, height: { ideal: 480 } },
         audio: true,
       }
       const s = await navigator.mediaDevices.getUserMedia(constraints)
@@ -216,14 +205,18 @@ export function useVideoRecorder() {
       }
 
       recorder.onerror = () => {
-        cleanup()
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+        setRecording(false)
         resolve(null)
       }
 
       recorder.start(100)
       setRecording(true)
     })
-  }, [cleanup])
+  }, [])
 
   const closeCamera = useCallback(() => {
     if (timerRef.current) {
