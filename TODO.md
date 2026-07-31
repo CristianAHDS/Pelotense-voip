@@ -57,6 +57,29 @@ Melhorias visuais/interativas para o painel de salas (aplicáveis depois das fea
 
 ---
 
+## 🎨 Design & usabilidade — modernização geral
+
+Modernização visual e melhorias de usabilidade em todo o client (tema escuro atual: `#111`/`#1a1a1a`, painéis `12px` de raio, VU meters simples). Prioridade de impacto indicada por 🔥 (alto) / ⚡ (médio) / ✨ (baixo).
+
+- [ ] **D1. Tokens de design (CSS variables)** 🔥 — Centralizar cores, espaçamento, raio e sombra em `:root` (`--bg`, `--panel`, `--accent`, `--radius`, `--space-*`). Permite trocar o tema inteiro em um lugar e deixa o CSS consistente.
+- [ ] **D2. Cor de destaque (accent) + estados hover/focus** 🔥 — Definir `--accent` (ex: verde/rádio ou violeta) para botões principais, badges e indicadores; adicionar `:hover`, `:active` (press) e `:focus-visible` (outline acessível) em todos os controles clicáveis. Hoje muitos botões são estáticos e sem feedback.
+- [ ] **D3. Header moderno + status de conexão** 🔥 — Header com marca/logo do app, e um pill de status (verde "Conectado" / âmbar "Reconectando" / vermelho "Offline") com ponto pulsante, substituindo o texto genérico de estado.
+- [ ] **D4. Bubbles de chat redesenhadas** ⚡ — Mensagens em bolhas (próprias à direita com accent, dos outros à esquerda), avatar colorido com iniciais, nome + hora (hora exata no hover), e data separadora ("Hoje", "Ontem"). Hoje as mensagens são listadas em largura total.
+- [ ] **D5. Empty states e skeletons** ⚡ — Estado vazio com ícone + CTA ("Crie a primeira sala", "Entre em uma sala para começar a conversar") e skeleton loading enquanto carrega salas/mensagens. Atualmente aparece texto cru.
+- [ ] **D6. Toasts / feedback de ações** ⚡ — Notificação curta (ex: "Sala copiada", "Mensagem apagada", "Conexão perdida") no canto, com animação. Hoje erros usam `alert()` nativo (bloqueia) e ações sem confirmação visual.
+- [ ] **D7. Slider de volume + VU meters com visual rádio** ⚡ — Customizar o `<input type="range">` (track/thumb) e dar aos VU meters gradiente (verde→amarelo→vermelho), glow e transição suave nas barras. Metros hoje são blocos estáticos.
+- [ ] **D8. Avatares com iniciais em toda a UI** ✨ — Padronizar avatares (círculo com iniciais + cor derivada do nome) em UserList, RoomList e DM, com tooltip de nome. Código de cor já existe no ChatPanel; reaproveitar.
+- [ ] **D9. Scrollbars e seleção de texto estilizadas** ✨ — Scrollbar fina escura em webkit (e `scrollbar-width`/`scrollbar-color` no Firefox) e `::selection` com accent, para o app parecer nativo.
+- [ ] **D10. Tipografia refinada** ✨ — Ajustar escala de fontes (headers, corpo, labels), `font-feature-settings`/`letter-spacing`, e hierarquia nos painéis (h2 com ícone). Hoje tudo tem tamanho parecido.
+- [ ] **D11. Modo claro/escuro (seguir sistema)** ✨ — Com as CSS variables do D1, adicionar toggle "tema claro/escuro/auto" (media query `prefers-color-scheme` + `data-theme`). 
+- [ ] **D12. Acessibilidade (a11y)** ⚡ — Revisar: foco visível em todos os controles, `aria-live` para status/toasts, contraste AA, alvos de toque ≥ 44px no mobile, e `prefers-reduced-motion` desligando animações.
+- [ ] **D13. Onboarding / primeiro acesso** ✨ — Tela inicial mais amigável: campos de login com labels e ícones, dica de porta/servidor, e botão "preencher padrão" em vez de campos crus.
+- [ ] **D14. Transições e micro-interações** ⚡ — Transições suaves (150-200ms) em painéis, abas, drawer mobile e hover de cards; botão de envio com feedback de "enviado". Cuidar para não atrapalhar em dispositivos fracos (media query reduz movimento).
+- [ ] **D15. Layout mobile: bottom-sheet unificado** ⚡ — Consolidar a navegação mobile (salas/usuários/chat) num bottom-sheet com abas, em vez dos sidebars que deslizam por cima; barra de voz já é fixa no rodapé.
+- [ ] **D16. Badge de não-lidas por sala** ⚡ — Contador de mensagens não-lidas por sala no RoomList (reusa a ideia do `menu-unread-badge` dos DMs) para o usuário saber onde tem conversa nova.
+
+---
+
 ## Histórico de progresso
 
 | Data       | Item                                                                                                                                                                                                                                                                            | Status   |
