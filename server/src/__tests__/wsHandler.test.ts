@@ -389,6 +389,43 @@ describe('Admin', () => {
     const room = adminServer.rooms.findByName('Chats')
     expect(room!.messages.find((m) => m.id === msg.id)).toBeDefined()
   })
+
+  it('marca admin=true quando o id está em ADMIN_IDS', async () => {
+    const { mkdtempSync, rmSync } = await import('fs')
+    const { tmpdir } = await import('os')
+    const { join } = await import('path')
+    const { SqliteStore } = await import('../storage/index.js')
+
+    const dir = mkdtempSync(join(tmpdir(), 'voip-admin-id-'))
+    const dbPath = join(dir, 'test.db')
+    const store = new SqliteStore(dbPath)
+    adminServer = await startTestServer(100, 20, undefined, ['ChefeAdmin'], store)
+
+    // Primeiro login captura o id da conta (persistido no store).
+    const ws = await connectRaw(adminServer.port)
+    const first = new TestClient(ws)
+    adminClients.push(first)
+    first.send(WsMessageType.Login, { name: 'IdAdminTarget', password: 'pass' })
+    const w = await first.waitFor(WsMessageType.Welcome)
+    const id = (w.payload as { id: string }).id
+    expect((w.payload as { admin?: boolean }).admin).toBe(false)
+
+    for (const c of adminClients) { try { c.ws.terminate() } catch { /* ignore */ } }
+    adminClients.length = 0
+    await adminServer.close()
+
+    // Novo servidor com o mesmo store e o id como admin.
+    adminServer = await startTestServer(100, 20, undefined, ['ChefeAdmin'], store, [id])
+    const ws2 = await connectRaw(adminServer.port)
+    const second = new TestClient(ws2)
+    adminClients.push(second)
+    second.send(WsMessageType.Login, { name: 'IdAdminTarget', password: 'pass' })
+    const w2 = await second.waitFor(WsMessageType.Welcome)
+    expect((w2.payload as { admin?: boolean }).admin).toBe(true)
+
+    store.close()
+    rmSync(dir, { recursive: true, force: true })
+  })
 })
 
 describe('Chat', () => {

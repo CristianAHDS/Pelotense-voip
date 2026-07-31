@@ -36,6 +36,7 @@ export const config = {
   maxWsPayload: getInt('MAX_WS_PAYLOAD', 8 * 1024 * 1024),
   logLevel: getLogLevel('LOG_LEVEL', LogLevel.INFO),
   adminNames: getList('ADMIN_NAMES', []),
+  adminIds: getList('ADMIN_IDS', []),
   dbPath: getEnv('DB_PATH', './data/voip.db'),
 }
 

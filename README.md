@@ -84,6 +84,7 @@ npm run dev
 | `MAX_WS_PAYLOAD`        | `8MB`             | Tamanho máximo de payload do WebSocket       |
 | `DB_PATH`               | `./data/voip.db`  | Caminho do banco SQLite (persistência)       |
 | `ADMIN_NAMES`           | *(vazio)*          | Nomes de usuários com papel de admin (lista separada por vírgula) |
+| `ADMIN_IDS`             | *(vazio)*          | IDs de usuários com papel de admin (lista separada por vírgula) |
 | `LOG_LEVEL`             | `INFO`            | Nível de log: `DEBUG`/`INFO`/`WARN`/`ERROR`  |
 
 #### Limites de segurança
@@ -150,7 +151,7 @@ VITE_SERVER_HOST=192.168.8.94 npm run dev
 - **Download de áudio em WAV**: botão para baixar mensagens de voz convertidas para WAV PCM.
 - **Chat em tela cheia**: botão no header do chat abre uma janela central com o chat e input fixo embaixo.
 - **Indicador de quem fala**: destaque verde pulsante no usuário que está falando.
-- **Admin**: nomes em `ADMIN_NAMES` podem deletar salas, forçar o fim de lives e apagar mensagens de qualquer usuário.
+- **Admin**: nomes em `ADMIN_NAMES` ou IDs em `ADMIN_IDS` podem deletar salas, forçar o fim de lives e apagar mensagens de qualquer usuário.
 - **Tema claro/escuro/automático**, i18n PT/EN, PWA com notificações e toasts.
 
 ---

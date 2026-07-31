@@ -14,6 +14,7 @@ export class WsHandler {
   private udpPort: number
   private limits: SecurityLimits
   private adminNames: string[]
+  private adminIds: string[]
   private storage?: SqliteStore
   private pendingClients = new Map<WebSocket, { ip: string }>()
   private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
@@ -26,6 +27,7 @@ export class WsHandler {
     limits: SecurityLimits = DEFAULT_SECURITY_LIMITS,
     adminNames: string[] = [],
     storage?: SqliteStore,
+    adminIds: string[] = [],
   ) {
     this.wss = wss
     this.clients = clients
@@ -33,6 +35,7 @@ export class WsHandler {
     this.udpPort = udpPort
     this.limits = limits
     this.adminNames = adminNames
+    this.adminIds = adminIds
     this.storage = storage
     this.setup()
     this.startDeadConnectionMonitor()
@@ -161,7 +164,7 @@ export class WsHandler {
       udpPort: 0,
       ip: pending.ip,
       lastPing: Date.now(),
-      admin: this.adminNames.includes(name),
+      admin: this.adminNames.includes(name) || this.adminIds.includes(id),
       avatar: avatar ?? accountAvatar,
       ws,
     }
