@@ -37,6 +37,7 @@ export function ChatPanel() {
   const connected = useConnectionStore((s) => s.connected)
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const videoPreviewRef = useRef<HTMLVideoElement>(null)
   const audioRec = useAudioRecorder()
   const videoRec = useVideoRecorder()
   const isRecording = audioRec.recording || videoRec.recording
@@ -44,6 +45,12 @@ export function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = videoRec.stream
+    }
+  }, [videoRec.stream])
 
   function handleSend() {
     if (!text.trim()) return
@@ -118,7 +125,7 @@ export function ChatPanel() {
         <div className="chat-video-preview-overlay">
           <div className="chat-video-preview-box">
             <video
-              ref={(el) => { if (el) el.srcObject = videoRec.stream }}
+              ref={videoPreviewRef}
               autoPlay
               muted
               playsInline
