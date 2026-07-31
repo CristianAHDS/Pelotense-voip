@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse, sendLiveRequestCancel } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { LiveViewer } from './LiveViewer.tsx'
@@ -121,6 +121,10 @@ export function ChatPanel() {
   }
 
   function handleCancelVideoRecording() {
+    if (takeoverRequested) {
+      sendLiveRequestCancel()
+      setTakeoverRequestSent(false)
+    }
     videoRec.cancelRecording()
     setCameraPickerOpen(false)
   }

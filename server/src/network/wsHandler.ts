@@ -251,6 +251,10 @@ export class WsHandler {
         this.handleLiveRequestResponse(client, msg.payload as { allow: boolean; requesterId: string })
         break
 
+      case WsMessageType.LiveRequestCancel:
+        this.handleLiveRequestCancel(client)
+        break
+
       default:
         logger.warn('WsHandler', `Unknown message type: ${msg.type}`)
     }
@@ -699,6 +703,22 @@ export class WsHandler {
       this.send(requester.ws, {
         type: WsMessageType.LiveRequestResponse,
         payload: { allow: false, fromUserId: client.id },
+      })
+    }
+  }
+
+  private handleLiveRequestCancel(client: Client): void {
+    const roomId = client.room
+    if (!roomId) return
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (!live || live.takeoverRequesterId !== client.id) return
+
+    live.takeoverRequesterId = undefined
+    const current = this.clients.get(live.userId)
+    if (current) {
+      this.send(current.ws, {
+        type: WsMessageType.LiveRequestCancelled,
+        payload: { fromUserId: client.id },
       })
     }
   }

@@ -167,6 +167,10 @@ export function connectToServer(address: string, name: string, password: string)
     useLiveStore.getState().setPendingRequest(payload)
   })
 
+  wsClient.on(WsMessageType.LiveRequestCancelled, () => {
+    useLiveStore.getState().setPendingRequest(null)
+  })
+
   wsClient.on(WsMessageType.LiveRequestResponse, (msg) => {
     const payload = msg.payload as { allow: boolean; fromUserId: string }
     useLiveStore.getState().setTakeoverRequestSent(false)
@@ -269,6 +273,10 @@ export function sendLiveStop(): void {
 
 export function sendLiveChunk(chunk: string, duration: number): void {
   wsClient?.send(WsMessageType.LiveChunk, { chunk, duration })
+}
+
+export function sendLiveRequestCancel(): void {
+  wsClient?.send(WsMessageType.LiveRequestCancel)
 }
 
 export function sendLiveRequestResponse(allow: boolean, requesterId: string): void {

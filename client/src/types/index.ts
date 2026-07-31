@@ -44,6 +44,8 @@ export enum WsMessageType {
   LiveStopped = 'live_stopped',
   LiveRequest = 'live_request',
   LiveRequestResponse = 'live_request_response',
+  LiveRequestCancel = 'live_request_cancel',
+  LiveRequestCancelled = 'live_request_cancelled',
   LiveChunkReceived = 'live_chunk_received',
 }
 
