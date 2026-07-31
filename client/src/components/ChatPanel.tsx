@@ -73,6 +73,9 @@ export function ChatPanel() {
   }
 
   async function handleStartVideoRecording() {
+    if (videoRec.devices.length === 0) {
+      await videoRec.enumerateDevices()
+    }
     const result = await videoRec.startRecording()
     if (result) {
       sendChatVideoMessage(result.data, result.duration)
@@ -132,10 +135,23 @@ export function ChatPanel() {
               className="chat-video-preview"
             />
             <div className="chat-video-preview-toolbar">
-              <span className="chat-recording-indicator">
-                <span className="chat-recording-dot" />
-                <span className="chat-recording-time">{videoRec.duration}s</span>
-              </span>
+              <div className="chat-video-preview-left">
+                <span className="chat-recording-indicator">
+                  <span className="chat-recording-dot" />
+                  <span className="chat-recording-time">{videoRec.duration}s</span>
+                </span>
+                {videoRec.devices.length > 1 && !videoRec.recording && (
+                  <select
+                    className="chat-camera-select"
+                    value={videoRec.cameraId}
+                    onChange={(e) => videoRec.setCameraId(e.target.value)}
+                  >
+                    {videoRec.devices.map((d) => (
+                      <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className="chat-video-preview-actions">
                 <button
                   onClick={handleCancelVideoRecording}

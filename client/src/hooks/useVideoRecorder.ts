@@ -1,9 +1,16 @@
 import { useState, useRef, useCallback } from 'react'
 
+interface VideoDevice {
+  deviceId: string
+  label: string
+}
+
 export function useVideoRecorder() {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
   const [hasStream, setHasStream] = useState(false)
+  const [devices, setDevices] = useState<VideoDevice[]>([])
+  const [cameraId, setCameraId] = useState<string>('')
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -47,9 +54,28 @@ export function useVideoRecorder() {
     setDuration(0)
   }, [])
 
+  const enumerateDevices = useCallback(async () => {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices()
+      const video = all
+        .filter((d) => d.kind === 'videoinput')
+        .map((d) => ({ deviceId: d.deviceId, label: d.label || `Camera ${d.deviceId.slice(0, 8)}` }))
+      setDevices(video)
+      if (video.length > 0 && !cameraId) {
+        setCameraId(video[0].deviceId)
+      }
+    } catch {
+      // silently fail
+    }
+  }, [cameraId])
+
   const startRecording = useCallback((): Promise<{ data: string; duration: number } | null> => {
     return new Promise((resolve) => {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      const constraints: MediaStreamConstraints = {
+        video: cameraId ? { deviceId: { exact: cameraId } } : true,
+        audio: true,
+      }
+      navigator.mediaDevices.getUserMedia(constraints)
         .then((s) => {
           streamRef.current = s
           setHasStream(true)
@@ -103,7 +129,11 @@ export function useVideoRecorder() {
           resolve(null)
         })
     })
-  }, [stopRecording])
+  }, [stopRecording, cameraId])
 
-  return { recording, duration, hasStream, streamRef, startRecording, stopRecording, cancelRecording }
+  return {
+    recording, duration, hasStream, streamRef,
+    devices, cameraId, setCameraId,
+    startRecording, stopRecording, cancelRecording, enumerateDevices,
+  }
 }
