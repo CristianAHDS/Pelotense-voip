@@ -55,6 +55,7 @@ function voiceOnRoomJoined(): void {
       if (!ok) useVoiceStore.getState().setMuted(true)
     })
   }
+  voiceManager?.resumeOutput()
 }
 
 function voiceOnRoomLeft(): void {
@@ -211,6 +212,7 @@ export function connectToServer(address: string, name: string, password: string)
 
 export function joinRoom(roomName: string): void {
   if (!wsClient) { console.error('joinRoom: wsClient is null'); return }
+  voiceManager?.resumeOutput()
   wsClient.send(WsMessageType.JoinRoom, roomName)
 }
 

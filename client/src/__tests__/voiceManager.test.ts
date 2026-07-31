@@ -144,4 +144,15 @@ describe('VoiceManager (playAudio)', () => {
     expect(useVoiceStore.getState().rxLevel).toBe(0)
     vm.destroy()
   })
+
+  it('resumeOutput cria e retoma o AudioContext de saída (gesto, mic mutado)', async () => {
+    installFakeWebCodecs()
+    const vm = new VoiceManager()
+    vm.resumeOutput()
+    await flush()
+
+    expect(FakeAudioContext.instances).toHaveLength(1)
+    expect(FakeAudioContext.instances[0].state).toBe('running')
+    vm.destroy()
+  })
 })

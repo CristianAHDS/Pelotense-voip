@@ -36,8 +36,12 @@ class MockWsClient {
 }
 
 vi.mock('../network/wsClient.ts', () => ({ WsClient: MockWsClient }))
-vi.mock('../voice/index.ts', () => ({
-  VoiceManager: class {
+vi.mock('../voice/index.ts', () => {
+  class MockVoiceManager {
+    static resumeCalls = 0
+    resumeOutput(): void {
+      MockVoiceManager.resumeCalls += 1
+    }
     setOnSend(): void {}
     async startMicrophone(): Promise<boolean> {
       return true
@@ -46,11 +50,14 @@ vi.mock('../voice/index.ts', () => ({
     playAudio(): void {}
     setVolume(): void {}
     destroy(): void {}
-  },
-}))
+  }
+  return { VoiceManager: MockVoiceManager }
+})
 
 const { connectToServer, disconnectFromServer, getWsClient } = await import('../services/connectionService.ts')
 const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom } = await import('../services/connectionService.ts')
+const voiceMock = await import('../voice/index.ts')
+const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number }
 
 function emit(type: string, payload?: unknown): void {
   ;(getWsClient() as any).emit(type, { type, payload })
@@ -60,6 +67,7 @@ beforeEach(() => {
   listeners.clear()
   sent.length = 0
   connectedUrl = null
+  MockVoiceManager.resumeCalls = 0
   useConnectionStore.setState({ connected: false, reconnecting: false, id: null, name: null })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [] })
   useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
@@ -200,5 +208,12 @@ describe('connectionService', () => {
     expect(useRoomStore.getState().currentRoom).toBeNull()
     expect(useRoomStore.getState().messages).toHaveLength(0)
     expect(useLiveStore.getState().broadcaster).toBeNull()
+  })
+
+  it('joinRoom retoma a saída de áudio mesmo com o mic mutado', () => {
+    connectToServer('ws://x', 'A', 'p')
+    const before = MockVoiceManager.resumeCalls
+    joinRoom('Ao vivo')
+    expect(MockVoiceManager.resumeCalls).toBe(before + 1)
   })
 })

@@ -67,6 +67,13 @@ export class VoiceManager {
     this.smoothLevel = 0;
   }
 
+  // Deve ser chamado dentro de um gesto de usuário (ex: clique em Join/Unmute):
+  // cria/retoma o AudioContext de saída mesmo com o microfone mutado, senão o
+  // navegador (especialmente mobile) mantém o contexto suspenso e não há som.
+  resumeOutput(): void {
+    void this.speaker.resume();
+  }
+
   playAudio(data: ArrayBuffer): void {
     void this.audioCodec
       .decode(data)
