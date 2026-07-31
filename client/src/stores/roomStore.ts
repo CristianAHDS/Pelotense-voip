@@ -7,6 +7,9 @@ interface RoomStore {
   currentRoom: string | null
   currentRoomName: string | null
   messages: ChatMsg[]
+  unread: Record<string, number>
+  loadingRooms: boolean
+  loadingMessages: boolean
   setRooms: (rooms: RoomInfo[]) => void
   setUsers: (users: UserInfo[]) => void
   setCurrentRoom: (roomId: string | null, roomName?: string | null) => void
@@ -16,6 +19,11 @@ interface RoomStore {
   removeMessage: (messageId: string) => void
   setMessages: (msgs: ChatMsg[]) => void
   clearMessages: () => void
+  incrementUnread: (roomId: string) => void
+  markRoomRead: (roomId: string) => void
+  clearUnread: () => void
+  setLoadingRooms: (loading: boolean) => void
+  setLoadingMessages: (loading: boolean) => void
 }
 
 export const useRoomStore = create<RoomStore>((set) => ({
@@ -24,6 +32,9 @@ export const useRoomStore = create<RoomStore>((set) => ({
   currentRoom: null,
   currentRoomName: null,
   messages: [],
+  unread: {},
+  loadingRooms: false,
+  loadingMessages: false,
   setRooms: (rooms) => set({ rooms }),
   setUsers: (users) => set({ users }),
   setCurrentRoom: (roomId, roomName) =>
@@ -35,4 +46,18 @@ export const useRoomStore = create<RoomStore>((set) => ({
   removeMessage: (messageId) => set((s) => ({ messages: s.messages.filter((m) => m.id !== messageId) })),
   setMessages: (msgs) => set({ messages: msgs }),
   clearMessages: () => set({ messages: [] }),
+  incrementUnread: (roomId) =>
+    set((s) => ({
+      unread: { ...s.unread, [roomId]: (s.unread[roomId] ?? 0) + 1 },
+    })),
+  markRoomRead: (roomId) =>
+    set((s) => {
+      if (!(roomId in s.unread)) return s
+      const unread = { ...s.unread }
+      delete unread[roomId]
+      return { unread }
+    }),
+  clearUnread: () => set({ unread: {} }),
+  setLoadingRooms: (loading) => set({ loadingRooms: loading }),
+  setLoadingMessages: (loading) => set({ loadingMessages: loading }),
 }))

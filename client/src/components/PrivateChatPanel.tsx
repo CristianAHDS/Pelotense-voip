@@ -4,6 +4,7 @@ import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage } from '../services/connectionService.ts'
 import { useMediaRecorder } from '../hooks/useMediaRecorder.ts'
+import { userColor, initials } from '../ui/avatar.ts'
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -117,6 +118,11 @@ export function PrivateChatPanel() {
           const isSelf = msg.fromUserId === myId
           return (
             <div key={i} className={`chat-row ${isSelf ? 'chat-row--self' : ''}`}>
+              {!isSelf && (
+                <div className="chat-avatar" style={{ background: userColor(msg.fromUserId) }} title={msg.fromUserName}>
+                  {initials(msg.fromUserName)}
+                </div>
+              )}
               <div className={`chat-bubble chat-bubble--dm ${isSelf ? 'chat-bubble--self' : ''}`}>
                 <DmMediaBubble msg={msg} />
               </div>

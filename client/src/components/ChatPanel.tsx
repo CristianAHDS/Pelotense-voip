@@ -2,25 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
+import { useToastStore } from '../stores/toastStore.ts'
 import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse, sendLiveRequestCancel } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { LiveViewer } from './LiveViewer.tsx'
 import type { ChatMsg } from '../types/index.ts'
-
-const COLORS = [
-  '#0984e3', '#e17055', '#00b894', '#fdcb6e', '#6c5ce7',
-  '#e84393', '#55efc4', '#fab1a0', '#74b9ff', '#a29bfe',
-]
-
-function userColor(userId: string): string {
-  let hash = 0
-  for (let i = 0; i < userId.length; i++) {
-    hash = ((hash << 5) - hash) + userId.charCodeAt(i)
-    hash |= 0
-  }
-  return COLORS[Math.abs(hash) % COLORS.length]
-}
+import { userColor, initials } from '../ui/avatar.ts'
 
 function formatTime(ts: number): string {
   const diff = Date.now() - ts
@@ -32,9 +20,43 @@ function formatTime(ts: number): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+function exactTime(ts: number): string {
+  const d = new Date(ts)
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function sameDay(a: number, b: number): boolean {
+  const da = new Date(a)
+  const db = new Date(b)
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  )
+}
+
+function dateLabel(ts: number): string {
+  const d = new Date(ts)
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (sameDay(ts, now.getTime())) return 'Hoje'
+  if (sameDay(ts, yesterday.getTime())) return 'Ontem'
+  return d.toLocaleDateString()
+}
+
+function DateSeparator({ ts }: { ts: number }) {
+  return (
+    <div className="chat-date-separator">
+      <span>{dateLabel(ts)}</span>
+    </div>
+  )
+}
+
 export function ChatPanel() {
   const messages = useRoomStore((s) => s.messages)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
+  const loadingMessages = useRoomStore((s) => s.loadingMessages)
   const myId = useConnectionStore((s) => s.id)
   const myAdmin = useConnectionStore((s) => s.admin)
   const connected = useConnectionStore((s) => s.connected)
@@ -242,20 +264,38 @@ export function ChatPanel() {
       )}
 
       <div className="chat-messages">
-        {messages.map((msg, i) => {
-          const isSelf = msg.userId === myId
-          const color = userColor(msg.userId)
-          return (
-            <ChatBubble
-              key={i}
-              msg={msg}
-              isSelf={isSelf}
-              canDelete={isSelf || myAdmin}
-              avatarColor={color}
-              showAvatar={i === 0 || messages[i - 1].userId !== msg.userId}
-            />
-          )
-        })}
+        {loadingMessages ? (
+          <div aria-busy="true" aria-label="Carregando mensagens">
+            <div className="skeleton skeleton-line" style={{ width: '55%' }} />
+            <div className="skeleton skeleton-line" style={{ width: '70%' }} />
+            <div className="skeleton skeleton-line" style={{ width: '40%' }} />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-state-icon">💬</span>
+            <span className="empty-state-title">Nenhuma mensagem ainda</span>
+            <span className="empty-state-hint">Esta sala está em silêncio. Seja a primeira voz por aqui!</span>
+          </div>
+        ) : (
+          messages.map((msg, i) => {
+            const isSelf = msg.userId === myId
+            const color = userColor(msg.userId)
+            const prev = messages[i - 1]
+            const showDate = !prev || !sameDay(prev.timestamp, msg.timestamp)
+            return (
+              <React.Fragment key={i}>
+                {showDate && <DateSeparator ts={msg.timestamp} />}
+                <ChatBubble
+                  msg={msg}
+                  isSelf={isSelf}
+                  canDelete={isSelf || myAdmin}
+                  avatarColor={color}
+                  showAvatar={!prev || prev.userId !== msg.userId}
+                />
+              </React.Fragment>
+            )
+          })
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -633,8 +673,8 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
   return (
     <div className={`chat-row ${isSelf ? 'chat-row--self' : ''}`}>
       {showAvatar && !isSelf && (
-        <div className="chat-avatar" style={{ background: avatarColor }}>
-          {msg.userName.charAt(0).toUpperCase()}
+        <div className="chat-avatar" style={{ background: avatarColor }} title={msg.userName}>
+          {initials(msg.userName)}
         </div>
       )}
       {!showAvatar && !isSelf && <div className="chat-avatar-spacer" />}
@@ -700,12 +740,16 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
           <div className="chat-bubble-text">{msg.text}</div>
         )}
         <div className="chat-bubble-footer">
-          <span className="chat-bubble-time">
+          <span className="chat-bubble-time" title={exactTime(msg.timestamp)}>
             {msg.videoData ? formatDuration(msg.duration ?? 0) : formatTime(msg.timestamp)}
           </span>
           {canDelete && (
             <button
-              onClick={() => msg.id && deleteMessage(msg.id)}
+              onClick={() => {
+                if (!msg.id) return
+                deleteMessage(msg.id)
+                useToastStore.getState().show('success', 'Mensagem apagada')
+              }}
               className="chat-bubble-delete-btn"
               title="Delete"
             >

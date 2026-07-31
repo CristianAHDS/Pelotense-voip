@@ -136,6 +136,14 @@ export function ConnectionPanel() {
       ? 'connected'
       : 'disconnected'
 
+  function fillDefault() {
+    const v = '192.168.8.94'
+    setHost(v)
+    setWsPort('3001')
+    setWssPort('3003')
+    saveStored(v, '3001', '3003', nickname, password)
+  }
+
   return (
     <div className="panel connection-panel">
       <div className="connection-status">
@@ -145,42 +153,55 @@ export function ConnectionPanel() {
       {id && !reconnecting && <div className="client-id">ID: {id}</div>}
       {!connected && (
         <>
-          <div className="server-inputs">
-            <input
-              type="text"
-              value={host}
-              onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, password) }}
-              placeholder="Server IP"
-              className="input"
-            />
-            <input
-              type="number"
-              value={activePort}
-              onChange={(e) => {
-                const v = e.target.value
-                if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, password) }
-                else { setWsPort(v); saveStored(host, v, wssPort, nickname, password) }
-              }}
-              placeholder={useWss ? 'WSS Port' : 'Port'}
-              className="input"
-            />
+          <div className="field">
+            <label className="field-label" htmlFor="cp-host">Servidor</label>
+            <div className="server-inputs">
+              <input
+                id="cp-host"
+                type="text"
+                value={host}
+                onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, password) }}
+                placeholder="Server IP"
+                className="input"
+              />
+              <input
+                id="cp-port"
+                type="number"
+                value={activePort}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, password) }
+                  else { setWsPort(v); saveStored(host, v, wssPort, nickname, password) }
+                }}
+                placeholder={useWss ? 'WSS Port' : 'Port'}
+                className="input"
+              />
+            </div>
           </div>
-          <div className="auth-inputs">
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, wsPort, wssPort, v, password) }}
-              placeholder="Nickname"
-              className="input"
-            />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, wsPort, wssPort, nickname, v) }}
-              placeholder="Password"
-              className="input"
-            />
+          <div className="field">
+            <label className="field-label" htmlFor="cp-nickname">Identificação</label>
+            <div className="auth-inputs">
+              <input
+                id="cp-nickname"
+                type="text"
+                value={nickname}
+                onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, wsPort, wssPort, v, password) }}
+                placeholder="Nickname"
+                className="input"
+              />
+              <input
+                id="cp-password"
+                type="password"
+                value={password}
+                onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, wsPort, wssPort, nickname, v) }}
+                placeholder="Password"
+                className="input"
+              />
+            </div>
           </div>
+          <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
+            Preencher padrão (192.168.8.94)
+          </button>
           {useWss && !certAccepted && (
             <div className="wss-hint">
               Antes de conectar, acesse <a href={`https://${host}:${wssPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{wssPort}/</a> no navegador e aceite o certificado SSL.

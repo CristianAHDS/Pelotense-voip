@@ -77,7 +77,7 @@ beforeEach(() => {
   MockVoiceManager.startMicCalls = 0
   MockVoiceManager.flushAudioCalls = 0
   useConnectionStore.setState({ connected: false, reconnecting: false, id: null, name: null })
-  useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [] })
+  useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [], unread: {}, loadingRooms: false, loadingMessages: false })
   useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
   usePrivateChatStore.setState({ activeUserId: null, activeUserName: null, messages: {}, unread: {} })
 })
@@ -245,5 +245,43 @@ describe('connectionService', () => {
     const before = MockVoiceManager.flushAudioCalls
     emit(WsMessageType.RoomJoined, { roomId: 'r2', roomName: 'Sala 2', messages: [] })
     expect(MockVoiceManager.flushAudioCalls).toBe(before + 1)
+  })
+
+  it('marca mensagem como não-lida por sala quando a aba está oculta', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit(WsMessageType.RoomJoined, { roomId: 'r1', roomName: 'Sala 1', messages: [] })
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true })
+    try {
+      emit(WsMessageType.ChatMessage, { id: 'm1', userId: 'u1', userName: 'X', text: 'oi', timestamp: 1 })
+      emit(WsMessageType.ChatMessage, { id: 'm2', userId: 'u1', userName: 'X', text: 'oi2', timestamp: 2 })
+    } finally {
+      Object.defineProperty(document, 'hidden', { value: false, configurable: true })
+    }
+    expect(useRoomStore.getState().unread.r1).toBe(2)
+  })
+
+  it('não marca não-lida quando a aba está visível', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit(WsMessageType.RoomJoined, { roomId: 'r1', roomName: 'Sala 1', messages: [] })
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true })
+    emit(WsMessageType.ChatMessage, { id: 'm1', userId: 'u1', userName: 'X', text: 'oi', timestamp: 1 })
+    expect(useRoomStore.getState().unread.r1).toBeUndefined()
+  })
+
+  it('RoomJoined limpa o não-lido da sala que está sendo vista', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit(WsMessageType.RoomJoined, { roomId: 'r1', roomName: 'Sala 1', messages: [] })
+    useRoomStore.getState().incrementUnread('r1')
+    useRoomStore.getState().incrementUnread('r1')
+    expect(useRoomStore.getState().unread.r1).toBe(2)
+    emit(WsMessageType.RoomJoined, { roomId: 'r1', roomName: 'Sala 1', messages: [] })
+    expect(useRoomStore.getState().unread.r1).toBeUndefined()
+  })
+
+  it('disconnectFromServer limpa o não-lido por sala', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useRoomStore.getState().incrementUnread('r1')
+    disconnectFromServer()
+    expect(useRoomStore.getState().unread).toEqual({})
   })
 })

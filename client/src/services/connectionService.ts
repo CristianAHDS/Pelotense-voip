@@ -6,6 +6,7 @@ import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { VoiceManager } from '../voice/index.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
+import { useToastStore } from '../stores/toastStore.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
@@ -75,6 +76,14 @@ function voiceOnRoomLeft(): void {
   voiceManager?.flushAudio()
 }
 
+function markRoomUnread(): void {
+  const store = useRoomStore.getState()
+  if (!store.currentRoom) return
+  if (typeof document !== 'undefined' && document.hidden) {
+    store.incrementUnread(store.currentRoom)
+  }
+}
+
 export function connectToServer(address: string, name: string, password: string): void {
   if (wsClient) disconnectFromServer()
 
@@ -110,6 +119,7 @@ export function connectToServer(address: string, name: string, password: string)
 
   wsClient.on(WsMessageType.RoomList, (msg) => {
     useRoomStore.getState().setRooms(msg.payload as any)
+    useRoomStore.getState().setLoadingRooms(false)
   })
 
   wsClient.on(WsMessageType.UserList, (msg) => {
@@ -120,6 +130,8 @@ export function connectToServer(address: string, name: string, password: string)
     const payload = msg.payload as any
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
     useRoomStore.getState().setMessages(payload.messages ?? [])
+    useRoomStore.getState().markRoomRead(payload.roomId)
+    useRoomStore.getState().setLoadingMessages(false)
     voiceOnRoomJoined()
   })
 
@@ -151,14 +163,17 @@ export function connectToServer(address: string, name: string, password: string)
 
   wsClient.on(WsMessageType.ChatMessage, (msg) => {
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
+    markRoomUnread()
   })
 
   wsClient.on(WsMessageType.ChatAudioMessage, (msg) => {
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
+    markRoomUnread()
   })
 
   wsClient.on(WsMessageType.ChatVideoMessage, (msg) => {
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
+    markRoomUnread()
   })
 
   wsClient.on(WsMessageType.MessageDeleted, (msg) => {
@@ -217,7 +232,7 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.on(WsMessageType.Error, (msg) => {
     const error = String(msg.payload ?? 'Unknown error')
     useConnectionStore.getState().setDisconnected()
-    alert(`Connection error: ${error}`)
+    useToastStore.getState().show('error', `Connection error: ${error}`)
   })
 
   wsClient.connect(address)
@@ -226,6 +241,7 @@ export function connectToServer(address: string, name: string, password: string)
 export function joinRoom(roomName: string): void {
   if (!wsClient) { console.error('joinRoom: wsClient is null'); return }
   voiceManager?.resumeOutput()
+  useRoomStore.getState().setLoadingMessages(true)
   wsClient.send(WsMessageType.JoinRoom, roomName)
 }
 
@@ -299,9 +315,13 @@ export function disconnectFromServer(): void {
   useLiveStore.getState().clearChunks()
   useVoiceStore.getState().clearSpeaking()
   useVoiceStore.getState().setRxLevel(0)
+  useRoomStore.getState().clearUnread()
+  useRoomStore.getState().setLoadingRooms(false)
+  useRoomStore.getState().setLoadingMessages(false)
 }
 
 export function requestRoomList(): void {
+  useRoomStore.getState().setLoadingRooms(true)
   wsClient?.send(WsMessageType.ListRooms)
 }
 

@@ -5,6 +5,7 @@ import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { useVoiceStore, SPEAKING_TIMEOUT_MS } from '../stores/voiceStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { sendLiveForceStop } from '../services/connectionService.ts'
+import { userColor, initials } from '../ui/avatar.ts'
 
 export function UserList() {
   const connected = useConnectionStore((s) => s.connected)
@@ -48,6 +49,9 @@ export function UserList() {
               tabIndex={!isMe ? 0 : undefined}
               onKeyDown={(e) => e.key === 'Enter' && handleClick(user.id, user.name)}
             >
+              <span className="user-avatar" style={{ background: userColor(user.id) }} title={user.name}>
+                {initials(user.name)}
+              </span>
               <span className="user-name">
                 {user.name}{isMe ? ' (you)' : ''}
                 {user.admin && <span className="user-admin-badge" title="Admin">Admin</span>}
@@ -71,7 +75,11 @@ export function UserList() {
         })}
       </div>
       {users.length === 0 && (
-        <p className="empty-state">No users connected</p>
+        <div className="empty-state">
+          <span className="empty-state-icon">👥</span>
+          <span className="empty-state-title">Ninguém conectado</span>
+          <span className="empty-state-hint">Quando alguém entrar, aparece aqui para chamar no privado.</span>
+        </div>
       )}
     </div>
   )
