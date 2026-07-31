@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { RoomList } from '../components/RoomList.tsx'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
@@ -63,5 +63,41 @@ describe('RoomList design (D5/D16)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Criar sala' }))
     const input = screen.getByPlaceholderText('Room name') as HTMLInputElement
     expect(document.activeElement).toBe(input)
+  })
+})
+
+describe('RoomList (indicador da sala atual)', () => {
+  it('mostra badge "Você está aqui" na sala atual', () => {
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Ao vivo', users: 2 }])
+    useRoomStore.getState().setCurrentRoom('r1', 'Ao vivo')
+    const { container } = render(<RoomList />)
+    expect(container.querySelector('.room-current-badge')).not.toBeNull()
+    expect(container.querySelector('.room-current-badge')!.textContent).toBe('Você está aqui')
+  })
+
+  it('não mostra badge sem sala atual', () => {
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Ao vivo', users: 2 }])
+    const { container } = render(<RoomList />)
+    expect(container.querySelector('.room-current-badge')).toBeNull()
+  })
+
+  it('aplica a classe de animação de entrada ao entrar na sala', () => {
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Ao vivo', users: 2 }])
+    useRoomStore.getState().setCurrentRoom('r1', 'Ao vivo')
+    const { container } = render(<RoomList />)
+    expect(container.querySelector('.room-item')?.className).toContain('room-item--entering')
+    expect(container.querySelector('.room-item')?.className).toContain('active')
+  })
+
+  it('remove a classe de animação depois do tempo de entrada', () => {
+    vi.useFakeTimers()
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Ao vivo', users: 2 }])
+    useRoomStore.getState().setCurrentRoom('r1', 'Ao vivo')
+    const { container } = render(<RoomList />)
+    expect(container.querySelector('.room-item')?.className).toContain('room-item--entering')
+
+    act(() => vi.advanceTimersByTime(800))
+    expect(container.querySelector('.room-item')?.className).not.toContain('room-item--entering')
+    vi.useRealTimers()
   })
 })

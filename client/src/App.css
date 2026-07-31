@@ -4,6 +4,7 @@
 :root {
   --bg: #0e0f13;
   --bg-elevated: #14151a;
+  --room-fixed-bg: #17181f;
   --panel: #1c1d24;
   --panel-2: #22232c;
   --surface: #262731;
@@ -54,6 +55,7 @@
 html[data-theme='light'] {
   --bg: #f2f2f5;
   --bg-elevated: #fafafa;
+  --room-fixed-bg: #e6e1f7;
   --panel: #ffffff;
   --panel-2: #f4f4f7;
   --surface: #ececf1;
@@ -79,6 +81,7 @@ html[data-theme='light'] {
   :root:not([data-theme]) {
     --bg: #f2f2f5;
     --bg-elevated: #fafafa;
+    --room-fixed-bg: #e6e1f7;
     --panel: #ffffff;
     --panel-2: #f4f4f7;
     --surface: #ececf1;
@@ -304,6 +307,51 @@ body {
 .status-pill--disconnected .status-pill-dot {
   background: var(--red);
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+/* Indicador da sala atual (aparece apenas na tela do próprio usuário) */
+.current-room-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  flex-shrink: 0;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  animation: current-room-indicator-in 0.4s ease;
+}
+
+.current-room-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  flex-shrink: 0;
+}
+
+.current-room-indicator-label {
+  color: var(--text-3);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.current-room-indicator-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes current-room-indicator-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .theme-toggle {
@@ -680,7 +728,7 @@ body {
 }
 
 .room-item--fixed {
-  background: var(--bg-elevated);
+  background: var(--room-fixed-bg);
   border: 1px solid var(--border);
 }
 
@@ -782,6 +830,38 @@ body {
 .room-item.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+/* Animação ao entrar na sala: aumenta o card e dá um brilho */
+.room-item--entering {
+  animation: room-enter 0.7s ease;
+}
+
+@keyframes room-enter {
+  0% { transform: scale(0.94); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  40% { transform: scale(1.03); box-shadow: 0 0 18px var(--accent-soft); border-color: var(--accent); }
+  100% { transform: scale(1); box-shadow: 0 0 0 1px var(--accent-soft); }
+}
+
+/* Badge "Você está aqui" no card da sala atual */
+.room-current-badge {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  animation: current-room-badge-pop 0.4s ease;
+}
+
+@keyframes current-room-badge-pop {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .room-info {
@@ -2513,6 +2593,12 @@ body {
     padding: 4px 10px;
   }
 
+  .current-room-indicator {
+    font-size: 11px;
+    padding: 4px 10px;
+    max-width: 120px;
+  }
+
   .sidebar {
     position: fixed;
     top: 50px;
@@ -2726,6 +2812,14 @@ body {
 
   .app-header h1 {
     font-size: 14px;
+  }
+
+  .current-room-indicator {
+    max-width: 90px;
+  }
+
+  .current-room-indicator-label {
+    display: none;
   }
 
   .main-content {

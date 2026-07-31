@@ -7,6 +7,7 @@ import { ChatPanel } from '../components/ChatPanel.tsx';
 import { PrivateChatPanel } from '../components/PrivateChatPanel.tsx';
 import { Toasts } from '../components/Toasts.tsx';
 import { useConnectionStore } from '../stores/connectionStore.ts';
+import { useRoomStore } from '../stores/roomStore.ts';
 import { usePrivateChatStore } from '../stores/privateChatStore.ts';
 import { useSettingsStore, applyTheme } from '../stores/settingsStore.ts';
 
@@ -16,6 +17,7 @@ export function MainPage() {
   const connected = useConnectionStore((s) => s.connected);
   const reconnecting = useConnectionStore((s) => s.reconnecting);
   const connectedName = useConnectionStore((s) => s.name);
+  const currentRoomName = useRoomStore((s) => s.currentRoomName);
   const unreadCount = usePrivateChatStore((s) => Object.keys(s.unread).length);
   const theme = useSettingsStore((s) => s.theme);
   const cycleTheme = useSettingsStore((s) => s.cycleTheme);
@@ -66,6 +68,18 @@ export function MainPage() {
           {sheetOpen ? '✕' : '☰'}
         </button>
         <h1>VoIP Client Rádio Pelotense 99.5FM</h1>
+        {currentRoomName && (
+          <div
+            className="current-room-indicator"
+            role="status"
+            aria-live="polite"
+            title={`Você está em: ${currentRoomName}`}
+          >
+            <span className="current-room-indicator-dot" />
+            <span className="current-room-indicator-label">Em</span>
+            <span className="current-room-indicator-name">{currentRoomName}</span>
+          </div>
+        )}
         <div
           className={`status-pill status-pill--${statusClass}`}
           title={statusTitle}

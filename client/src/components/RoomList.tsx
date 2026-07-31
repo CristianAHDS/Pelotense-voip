@@ -17,11 +17,23 @@ export function RoomList() {
   const loadingRooms = useRoomStore((s) => s.loadingRooms)
   const [newRoomName, setNewRoomName] = useState('')
   const [collapsed, setCollapsed] = useState(false)
+  const [enteringRoom, setEnteringRoom] = useState<string | null>(null)
   const createInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setCollapsed(false)
   }, [connected])
+
+  // Ao entrar numa sala, marca o card com a animação de entrada (escala).
+  useEffect(() => {
+    if (!currentRoom) {
+      setEnteringRoom(null)
+      return
+    }
+    setEnteringRoom(currentRoom)
+    const t = setTimeout(() => setEnteringRoom(null), 700)
+    return () => clearTimeout(t)
+  }, [currentRoom])
 
   if (!connected) return null
 
@@ -90,11 +102,16 @@ export function RoomList() {
             return (
               <div
                 key={room.id}
-                className={`room-item ${currentRoom === room.id ? 'active' : ''} ${room.fixed ? 'room-item--fixed' : ''} ${room.featured === 1 ? 'room-item--featured-1' : ''} ${room.featured === 2 ? 'room-item--featured-2' : ''} ${room.featured === 3 ? 'room-item--featured-3' : ''} ${isLive ? 'room-item--live' : ''} ${isSpeaking ? 'room-item--active-voice' : ''}`}
+                className={`room-item ${currentRoom === room.id ? 'active' : ''} ${enteringRoom === room.id ? 'room-item--entering' : ''} ${room.fixed ? 'room-item--fixed' : ''} ${room.featured === 1 ? 'room-item--featured-1' : ''} ${room.featured === 2 ? 'room-item--featured-2' : ''} ${room.featured === 3 ? 'room-item--featured-3' : ''} ${isLive ? 'room-item--live' : ''} ${isSpeaking ? 'room-item--active-voice' : ''}`}
               >
                 <div className="room-info">
                   <span className="room-name">
                     {room.name}
+                    {currentRoom === room.id && (
+                      <span className="room-current-badge" title="Você está nesta sala">
+                        Você está aqui
+                      </span>
+                    )}
                     {isLive && (
                       <span className="room-live-badge" title={`${room.live?.userName ?? ''} is live`}>
                         LIVE
