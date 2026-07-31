@@ -62,6 +62,8 @@ export enum WsMessageType {
   PrivateHistory = 'private_history',
   UpdateProfile = 'update_profile',
   ProfileUpdated = 'profile_updated',
+  EmailRequired = 'email_required',
+  ConfirmRequired = 'confirm_required',
 }
 
 export interface WsMessage {
@@ -71,7 +73,9 @@ export interface WsMessage {
 
 export interface LoginPayload {
   name: string
+  email?: string
   password: string
+  confirmCode?: string
   avatar?: string
 }
 
@@ -81,6 +85,7 @@ export interface WelcomePayload {
   udpPort: number
   admin?: boolean
   avatar?: string
+  email?: string
 }
 
 export interface ChatMsg {

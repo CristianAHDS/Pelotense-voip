@@ -16,25 +16,25 @@ afterEach(() => {
 
 describe('accountStore', () => {
   it('persiste avatar no localStorage', () => {
-    useAccountStore.getState().savePrefs({ name: 'Ana', password: 'seg', avatar: 'data:image/png;base64,abc' })
+    useAccountStore.getState().savePrefs({ name: 'Ana', email: 'ana@test.com', password: 'seg', avatar: 'data:image/png;base64,abc' })
     expect(localStorage.getItem(AVATAR_KEY)).toBe('data:image/png;base64,abc')
   })
 
   it('persiste credenciais no localStorage', () => {
-    useAccountStore.getState().savePrefs({ name: 'Ana', password: 'seg', avatar: '' })
+    useAccountStore.getState().savePrefs({ name: 'Ana', email: 'ana@test.com', password: 'seg', avatar: '' })
     const parsed = JSON.parse(localStorage.getItem(CREDENTIALS_KEY) ?? '{}')
     expect(parsed.name).toBe('Ana')
     expect(parsed.password).toBe('seg')
   })
 
   it('remove avatar do localStorage quando limpo', () => {
-    useAccountStore.getState().savePrefs({ name: 'Ana', password: 'seg', avatar: 'data:image/png;base64,abc' })
-    useAccountStore.getState().savePrefs({ name: 'Ana', password: 'seg', avatar: '' })
+    useAccountStore.getState().savePrefs({ name: 'Ana', email: 'ana@test.com', password: 'seg', avatar: 'data:image/png;base64,abc' })
+    useAccountStore.getState().savePrefs({ name: 'Ana', email: 'ana@test.com', password: 'seg', avatar: '' })
     expect(localStorage.getItem(AVATAR_KEY)).toBeNull()
   })
 
   it('recarrega nome/senha/avatar persistidos no armazenamento', () => {
-    useAccountStore.getState().savePrefs({ name: 'Persistida', password: '123', avatar: 'data:image/png;base64,p' })
+    useAccountStore.getState().savePrefs({ name: 'Persistida', email: 'p@test.com', password: '123', avatar: 'data:image/png;base64,p' })
     expect(useAccountStore.getState().name).toBe('Persistida')
     expect(useAccountStore.getState().password).toBe('123')
     expect(useAccountStore.getState().avatar).toBe('data:image/png;base64,p')
@@ -77,3 +77,4 @@ describe('Avatar', () => {
     expect(img.alt).toBe('Maria Silva')
   })
 })
+

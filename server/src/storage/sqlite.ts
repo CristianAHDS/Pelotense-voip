@@ -25,6 +25,41 @@ export interface StoredPrivateMessage {
   timestamp: number
 }
 
+export interface Account {
+  name: string
+  id?: string
+  email?: string
+  password: string
+  avatar?: string
+  emailConfirmed?: boolean
+  confirmCode?: string
+  createdAt?: number
+}
+
+interface AccountRow {
+  name: string
+  id: string | null
+  email: string | null
+  password: string
+  avatar: string | null
+  emailConfirmed: number | null
+  confirmCode: string | null
+  createdAt: number | null
+}
+
+function mapAccount(row: AccountRow): Account {
+  return {
+    name: row.name,
+    id: row.id ?? undefined,
+    email: row.email ?? undefined,
+    password: row.password,
+    avatar: row.avatar ?? undefined,
+    emailConfirmed: row.emailConfirmed === 1,
+    confirmCode: row.confirmCode ?? undefined,
+    createdAt: row.createdAt ?? undefined,
+  }
+}
+
 export class SqliteStore {
   private db: Database.Database
 
@@ -77,15 +112,32 @@ export class SqliteStore {
       CREATE TABLE IF NOT EXISTS accounts (
         name TEXT PRIMARY KEY,
         id TEXT,
+        email TEXT,
         password TEXT NOT NULL,
-        avatar TEXT
+        avatar TEXT,
+        emailConfirmed INTEGER NOT NULL DEFAULT 0,
+        confirmCode TEXT,
+        createdAt INTEGER
       );
     `)
-    // Migração: versões anteriores não tinham a coluna id em accounts.
+    // Migração: versões anteriores não tinham as colunas id/email/confirmação.
     const cols = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{ name: string }>
     if (!cols.some((c) => c.name === 'id')) {
       this.db.exec('ALTER TABLE accounts ADD COLUMN id TEXT')
     }
+    if (!cols.some((c) => c.name === 'email')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN email TEXT')
+    }
+    if (!cols.some((c) => c.name === 'emailConfirmed')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN emailConfirmed INTEGER NOT NULL DEFAULT 0')
+    }
+    if (!cols.some((c) => c.name === 'confirmCode')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN confirmCode TEXT')
+    }
+    if (!cols.some((c) => c.name === 'createdAt')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN createdAt INTEGER')
+    }
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email)')
   }
 
   close(): void {
@@ -265,31 +317,59 @@ export class SqliteStore {
     return rows.map((r) => r.peer)
   }
 
-  getAccount(name: string): { name: string; id?: string; password: string; avatar?: string } | undefined {
-    const row = this.db.prepare('SELECT * FROM accounts WHERE name = ?').get(name) as
-      | { name: string; id: string | null; password: string; avatar: string | null }
-      | undefined
+  getAccount(name: string): Account | undefined {
+    const row = this.db.prepare('SELECT * FROM accounts WHERE name = ?').get(name) as AccountRow | undefined
     if (!row) return undefined
-    return { name: row.name, id: row.id ?? undefined, password: row.password, avatar: row.avatar ?? undefined }
+    return mapAccount(row)
   }
 
-  saveAccount(account: { name: string; id?: string; password: string; avatar?: string }): void {
+  // Busca conta por nome OU e-mail (login aceita ambos).
+  getAccountByIdentifier(identifier: string): Account | undefined {
+    const row = this.db.prepare('SELECT * FROM accounts WHERE name = ? OR email = ? COLLATE NOCASE LIMIT 1').get(identifier, identifier) as AccountRow | undefined
+    if (!row) return undefined
+    return mapAccount(row)
+  }
+
+  // Busca conta por e-mail (para checar unicidade ao criar/atualizar).
+  getAccountByEmail(email: string): Account | undefined {
+    const row = this.db.prepare('SELECT * FROM accounts WHERE email = ? COLLATE NOCASE LIMIT 1').get(email) as AccountRow | undefined
+    if (!row) return undefined
+    return mapAccount(row)
+  }
+
+  saveAccount(account: Account): void {
     this.db.prepare(`
-      INSERT INTO accounts (name, id, password, avatar)
-      VALUES (@name, @id, @password, @avatar)
+      INSERT INTO accounts (name, id, email, password, avatar, emailConfirmed, confirmCode, createdAt)
+      VALUES (@name, @id, @email, @password, @avatar, COALESCE(@emailConfirmed, 0), @confirmCode, @createdAt)
       ON CONFLICT(name) DO UPDATE SET
         id = COALESCE(@id, id),
+        email = COALESCE(@email, email),
         password = @password,
-        avatar = @avatar
+        avatar = COALESCE(@avatar, avatar),
+        emailConfirmed = COALESCE(@emailConfirmed, emailConfirmed),
+        confirmCode = @confirmCode,
+        createdAt = COALESCE(@createdAt, createdAt)
     `).run({
       name: account.name,
       id: account.id ?? null,
+      email: account.email ?? null,
       password: account.password,
       avatar: account.avatar ?? null,
+      emailConfirmed: account.emailConfirmed === undefined ? null : account.emailConfirmed ? 1 : 0,
+      confirmCode: account.confirmCode ?? null,
+      createdAt: account.createdAt ?? Date.now(),
     })
   }
 
-  renameAccount(oldName: string, newAccount: { name: string; id?: string; password: string; avatar?: string }): void {
+  setAccountConfirmation(name: string, confirmed: boolean, confirmCode?: string): void {
+    this.db.prepare('UPDATE accounts SET emailConfirmed = ?, confirmCode = ? WHERE name = ?').run(
+      confirmed ? 1 : 0,
+      confirmCode ?? null,
+      name,
+    )
+  }
+
+  renameAccount(oldName: string, newAccount: Account): void {
     this.db.prepare('DELETE FROM accounts WHERE name = ?').run(oldName)
     this.saveAccount(newAccount)
   }

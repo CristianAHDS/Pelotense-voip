@@ -12,6 +12,13 @@ function getInt(key: string, fallback: number): number {
   return isNaN(val) ? fallback : val
 }
 
+function getBool(key: string, fallback: boolean): boolean {
+  const val = process.env[key]?.toLowerCase()
+  if (val === 'true' || val === '1') return true
+  if (val === 'false' || val === '0') return false
+  return fallback
+}
+
 function getLogLevel(key: string, fallback: LogLevel): LogLevel {
   const val = process.env[key]?.toUpperCase() as LogLevel | undefined
   if (val && Object.values(LogLevel).includes(val)) return val
@@ -38,6 +45,13 @@ export const config = {
   adminNames: getList('ADMIN_NAMES', []),
   adminIds: getList('ADMIN_IDS', []),
   dbPath: getEnv('DB_PATH', './data/voip.db'),
+  smtpHost: getEnv('SMTP_HOST', ''),
+  smtpPort: getInt('SMTP_PORT', 587),
+  smtpSecure: getBool('SMTP_SECURE', false),
+  smtpUser: getEnv('SMTP_USER', ''),
+  smtpPass: getEnv('SMTP_PASS', ''),
+  smtpFrom: getEnv('SMTP_FROM', 'no-reply@voip.local'),
+  appName: getEnv('APP_NAME', 'VoIP Rádio Pelotense'),
 }
 
 export const securityLimits: SecurityLimits = {

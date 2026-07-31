@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
 import { SqliteStore } from '../storage/index.js'
+import { Mailer } from '../utils/mailer.js'
 
 export class WsHandler {
   private wss: WebSocketServer
@@ -16,6 +17,8 @@ export class WsHandler {
   private adminNames: string[]
   private adminIds: string[]
   private storage?: SqliteStore
+  private mailer?: Mailer
+  private skipEmailConfirmation: boolean
   private pendingClients = new Map<WebSocket, { ip: string }>()
   private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
 
@@ -28,6 +31,8 @@ export class WsHandler {
     adminNames: string[] = [],
     storage?: SqliteStore,
     adminIds: string[] = [],
+    mailer?: Mailer,
+    skipEmailConfirmation = false,
   ) {
     this.wss = wss
     this.clients = clients
@@ -37,6 +42,8 @@ export class WsHandler {
     this.adminNames = adminNames
     this.adminIds = adminIds
     this.storage = storage
+    this.mailer = mailer
+    this.skipEmailConfirmation = skipEmailConfirmation
     this.setup()
     this.startDeadConnectionMonitor()
   }
@@ -46,11 +53,24 @@ export class WsHandler {
       const ip = req.socket.remoteAddress ?? 'unknown'
       this.pendingClients.set(ws, { ip })
 
+      let loginTimer: ReturnType<typeof setTimeout> | null = null
+
+      const armLoginTimer = () => {
+        if (loginTimer) clearTimeout(loginTimer)
+        loginTimer = setTimeout(() => {
+          if (this.pendingClients.has(ws)) {
+            this.send(ws, { type: WsMessageType.Error, payload: 'Login timeout' })
+            ws.close()
+          }
+        }, 120000)
+      }
+
       const onMessage = (data: Buffer) => {
         try {
           const msg: WsMessage = JSON.parse(data.toString())
           if (msg.type === WsMessageType.Login) {
-            this.handleLogin(ws, msg.payload as { name: string; password: string })
+            armLoginTimer()
+            this.handleLogin(ws, msg.payload as { name: string; email?: string; password: string; confirmCode?: string; avatar?: string })
           } else {
             this.send(ws, { type: WsMessageType.Error, payload: 'Login first' })
             ws.close()
@@ -61,20 +81,13 @@ export class WsHandler {
         }
       }
 
-      const timeout = setTimeout(() => {
-        if (this.pendingClients.has(ws)) {
-          this.send(ws, { type: WsMessageType.Error, payload: 'Login timeout' })
-          ws.close()
-          cleanup()
-        }
-      }, 10000)
-
       const cleanup = () => {
-        clearTimeout(timeout)
+        if (loginTimer) clearTimeout(loginTimer)
         ws.off('message', onMessage)
         this.pendingClients.delete(ws)
       }
 
+      armLoginTimer()
       ws.on('message', onMessage)
       ws.on('close', () => cleanup())
       ws.on('error', () => cleanup())
@@ -101,7 +114,7 @@ export class WsHandler {
     }
   }
 
-  private handleLogin(ws: WebSocket, payload: { name: string; password: string; avatar?: string }): void {
+  private handleLogin(ws: WebSocket, payload: { name: string; email?: string; password: string; confirmCode?: string; avatar?: string }): void {
     const pending = this.pendingClients.get(ws)
     if (!pending) return
 
@@ -127,7 +140,109 @@ export class WsHandler {
       return
     }
 
-    const existing = this.clients.findByName(name)
+    // `name` pode ser nick ou e-mail. `email` é usado na criação da conta.
+    const identifier = name.trim()
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : ''
+    const confirmCode = typeof payload.confirmCode === 'string' ? payload.confirmCode.trim() : ''
+    if (email && !this.isValidEmail(email)) {
+      this.send(ws, { type: WsMessageType.Error, payload: 'Invalid email' })
+      return
+    }
+
+    const isEmailIdentifier = identifier.includes('@')
+    let account = this.storage?.getAccountByIdentifier(identifier)
+
+    // 1) Conta não existe.
+    if (!account) {
+      if (isEmailIdentifier) {
+        // E-mail digitado como identificador sem conta cadastrada.
+        this.send(ws, { type: WsMessageType.Error, payload: 'Email not registered' })
+        return
+      }
+
+      // Criação de conta: exige e-mail (a menos que a confirmação esteja desligada).
+      if (this.skipEmailConfirmation) {
+        account = {
+          name: identifier,
+          id: this.generateId(),
+          email: email || undefined,
+          password,
+          avatar,
+          emailConfirmed: true,
+          createdAt: Date.now(),
+        }
+        this.storage?.saveAccount(account)
+      } else {
+        if (!email) {
+          this.send(ws, { type: WsMessageType.EmailRequired, payload: { name: identifier } })
+          return
+        }
+        const owner = this.storage?.getAccountByEmail(email)
+        if (owner) {
+          this.send(ws, { type: WsMessageType.Error, payload: 'Email in use' })
+          return
+        }
+        const code = this.generateConfirmCode()
+        account = {
+          name: identifier,
+          id: this.generateId(),
+          email,
+          password,
+          avatar,
+          emailConfirmed: false,
+          confirmCode: code,
+          createdAt: Date.now(),
+        }
+        this.storage?.saveAccount(account)
+        void this.mailer?.sendConfirmationEmail(email, identifier, code)
+        this.send(ws, { type: WsMessageType.ConfirmRequired, payload: { name: identifier, email } })
+        return
+      }
+    }
+
+    // 2) Conta pendente de confirmação de e-mail.
+    if (!account.emailConfirmed && account.email) {
+      if (this.skipEmailConfirmation) {
+        this.storage?.setAccountConfirmation(account.name, true)
+        account.emailConfirmed = true
+      } else if (confirmCode && account.confirmCode && confirmCode === account.confirmCode) {
+        this.storage?.setAccountConfirmation(account.name, true)
+        account.emailConfirmed = true
+        account.confirmCode = undefined
+      } else {
+        // Sem código válido: pede o código (reenvia o e-mail se vier sem código).
+        if (!confirmCode) {
+          const code = this.generateConfirmCode()
+          account.confirmCode = code
+          this.storage?.saveAccount(account)
+          void this.mailer?.sendConfirmationEmail(account.email, account.name, code)
+        }
+        this.send(ws, { type: WsMessageType.ConfirmRequired, payload: { name: account.name, email: account.email } })
+        return
+      }
+    }
+
+    if (account.password !== password) {
+      this.send(ws, { type: WsMessageType.Error, payload: 'Wrong password' })
+      ws.close()
+      return
+    }
+
+    // Associa e-mail à conta caso tenha sido informado e ainda não exista,
+    // desde que não pertença a outra conta.
+    if (email && this.storage && account && !account.email) {
+      const owner = this.storage.getAccountByEmail(email)
+      if (owner && owner.name !== account.name) {
+        this.send(ws, { type: WsMessageType.Error, payload: 'Email in use' })
+        ws.close()
+        return
+      }
+      account.email = email
+      this.storage.saveAccount(account)
+    }
+
+    const resolvedName = account.name
+    const existing = this.clients.findByName(resolvedName)
     if (existing) {
       if (existing.password !== password) {
         this.send(ws, { type: WsMessageType.Error, payload: 'Wrong password' })
@@ -135,37 +250,20 @@ export class WsHandler {
         return
       }
       this.removeExistingClient(existing)
-    } else if (this.storage) {
-      // Conta persistida: valida a senha mesmo sem ninguém online.
-      const account = this.storage.getAccount(name)
-      if (account && account.password !== password) {
-        this.send(ws, { type: WsMessageType.Error, payload: 'Wrong password' })
-        ws.close()
-        return
-      }
     }
 
-    let accountId: string | undefined
-    let accountAvatar: string | undefined
-    if (this.storage) {
-      const account = this.storage.getAccount(name)
-      if (account) {
-        accountId = account.id
-        accountAvatar = account.avatar
-      }
-    }
-
-    const id = accountId ?? this.generateId()
+    const id = account.id ?? this.generateId()
     const client: Client = {
       id,
-      name,
+      name: resolvedName,
       password,
       room: null,
       udpPort: 0,
       ip: pending.ip,
       lastPing: Date.now(),
-      admin: this.adminNames.includes(name) || this.adminIds.includes(id),
-      avatar: avatar ?? accountAvatar,
+      admin: this.adminNames.includes(resolvedName) || this.adminIds.includes(id),
+      avatar: avatar ?? account.avatar,
+      email: account.email,
       ws,
     }
 
@@ -196,11 +294,11 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar },
+      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email },
     })
 
     if (this.storage) {
-      this.storage.saveAccount({ name: client.name, id: client.id, password: client.password, avatar: client.avatar })
+      this.storage.saveAccount({ name: client.name, id: client.id, email: client.email, password: client.password, avatar: client.avatar })
     }
 
     this.broadcast({
@@ -326,7 +424,7 @@ export class WsHandler {
         break
 
       case WsMessageType.UpdateProfile:
-        this.handleUpdateProfile(client, msg.payload as { name?: string; password?: string; avatar?: string })
+        this.handleUpdateProfile(client, msg.payload as { name?: string; email?: string; password?: string; avatar?: string })
         break
 
       case WsMessageType.LiveForceStop:
@@ -669,7 +767,7 @@ export class WsHandler {
     })
   }
 
-  private handleUpdateProfile(client: Client, payload: { name?: string; password?: string; avatar?: string }): void {
+  private handleUpdateProfile(client: Client, payload: { name?: string; email?: string; password?: string; avatar?: string }): void {
     const name = typeof payload.name === 'string' ? payload.name.trim() : client.name
     if (!name) {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Name required' })
@@ -688,6 +786,18 @@ export class WsHandler {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Avatar too large' })
       return
     }
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : client.email
+    if (email && !this.isValidEmail(email)) {
+      this.send(client.ws, { type: WsMessageType.Error, payload: 'Invalid email' })
+      return
+    }
+    if (this.storage && email && email !== client.email) {
+      const owner = this.storage.getAccountByEmail(email)
+      if (owner && owner.name !== name) {
+        this.send(client.ws, { type: WsMessageType.Error, payload: 'Email in use' })
+        return
+      }
+    }
     if (name !== client.name) {
       const taken = this.clients.getAll().find((c) => c.id !== client.id && c.name === name)
       if (taken) {
@@ -703,6 +813,7 @@ export class WsHandler {
     const oldName = client.name
     client.name = name
     client.password = password
+    client.email = email || undefined
     if (payload.avatar !== undefined) {
       client.avatar = payload.avatar || undefined
     }
@@ -710,15 +821,15 @@ export class WsHandler {
     if (this.storage) {
       const id = client.id
       if (name !== oldName) {
-        this.storage.renameAccount(oldName, { name, id, password, avatar: client.avatar })
+        this.storage.renameAccount(oldName, { name, id, email: client.email, password, avatar: client.avatar })
       } else {
-        this.storage.saveAccount({ name, id, password, avatar: client.avatar })
+        this.storage.saveAccount({ name, id, email: client.email, password, avatar: client.avatar })
       }
     }
 
     this.send(client.ws, {
       type: WsMessageType.ProfileUpdated,
-      payload: { id: client.id, name, avatar: client.avatar },
+      payload: { id: client.id, name, email: client.email, avatar: client.avatar },
     })
     this.broadcast({
       type: WsMessageType.UserList,
@@ -1140,12 +1251,20 @@ export class WsHandler {
     return Math.random().toString(36).substring(2, 10)
   }
 
+  private generateConfirmCode(): string {
+    return String(Math.floor(100000 + Math.random() * 900000))
+  }
+
   private generateMessageId(): string {
     return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8)
   }
 
   private base64Exceeds(data: string, maxBytes: number): boolean {
     return data.length > Math.ceil((maxBytes * 4) / 3) + 4
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
   private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean; avatar?: string } {

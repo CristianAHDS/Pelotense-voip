@@ -15,11 +15,11 @@ export interface TestServer {
   close: () => Promise<void>
 }
 
-export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: SecurityLimits, adminNames: string[] = [], storage?: SqliteStore, adminIds: string[] = []): Promise<TestServer> {
+export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: SecurityLimits, adminNames: string[] = [], storage?: SqliteStore, adminIds: string[] = [], skipEmailConfirmation = true): Promise<TestServer> {
   const wss = new WebSocketServer({ port: 0 })
   const clients = new ClientManager(maxUsers)
   const rooms = new RoomManager(maxRooms, storage)
-  const handler = new WsHandler(wss, clients, rooms, 3002, limits, adminNames, storage, adminIds)
+  const handler = new WsHandler(wss, clients, rooms, 3002, limits, adminNames, storage, adminIds, undefined, skipEmailConfirmation)
   const port = (wss.address() as AddressInfo).port
   const close = (): Promise<void> =>
     new Promise((resolve) => {
@@ -117,15 +117,16 @@ export class TestClient {
   }
 }
 
-export async function connectClient(port: number, name: string, password: string, avatar?: string): Promise<TestClient> {
+export async function connectClient(port: number, name: string, password: string, avatar?: string, email?: string): Promise<TestClient> {
   const ws = new WebSocket(`ws://127.0.0.1:${port}`)
   await new Promise<void>((resolve, reject) => {
     ws.on('open', () => resolve())
     ws.on('error', (err) => reject(err))
   })
   const client = new TestClient(ws)
-  const loginPayload: { name: string; password: string; avatar?: string } = { name, password }
+  const loginPayload: { name: string; password: string; avatar?: string; email?: string } = { name, password }
   if (avatar !== undefined) loginPayload.avatar = avatar
+  if (email !== undefined) loginPayload.email = email
   client.send(WsMessageType.Login, loginPayload)
   const welcome = await client.waitFor(WsMessageType.Welcome)
   const payload = welcome.payload as { id: string }

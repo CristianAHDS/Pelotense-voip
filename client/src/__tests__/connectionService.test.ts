@@ -68,7 +68,7 @@ vi.mock('../services/notifications.ts', () => ({
 }))
 
 const { connectToServer, disconnectFromServer, getWsClient } = await import('../services/connectionService.ts')
-const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom, sendChatAudioMessage, sendChatVideoMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, generateClientMessageId, sendChatImageMessage, sendMessageReaction, sendForwardMessage, requestPrivateHistory } = await import('../services/connectionService.ts')
+const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom, sendChatAudioMessage, sendChatVideoMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, generateClientMessageId, sendChatImageMessage, sendMessageReaction, sendForwardMessage, requestPrivateHistory, resendLogin } = await import('../services/connectionService.ts')
 const voiceMock = await import('../voice/index.ts')
 const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number; startMicCalls: number; flushAudioCalls: number }
 
@@ -410,5 +410,60 @@ describe('connectionService', () => {
     sent.length = 0
     requestPrivateHistory('other')
     expect(sent).toContainEqual({ type: WsMessageType.ListPrivateMessages, payload: { withUserId: 'other' } })
+  })
+
+  it('EmailRequired define loginStep email_required sem desconectar', () => {
+    connectToServer('ws://x', 'Novo', 'p')
+    emit('connected')
+    useConnectionStore.getState().setReconnecting(false)
+    emit(WsMessageType.EmailRequired, { name: 'Novo' })
+    expect(useConnectionStore.getState().loginStep).toBe('email_required')
+    expect(useConnectionStore.getState().connected).toBe(false)
+  })
+
+  it('ConfirmRequired define loginStep confirm_required sem desconectar', () => {
+    connectToServer('ws://x', 'Novo', 'p')
+    emit('connected')
+    emit(WsMessageType.ConfirmRequired, { name: 'Novo', email: 'novo@test.com' })
+    expect(useConnectionStore.getState().loginStep).toBe('confirm_required')
+    expect(useConnectionStore.getState().connected).toBe(false)
+  })
+
+  it('resendLogin reenvia o login com e-mail no mesmo socket', () => {
+    connectToServer('ws://x', 'Novo', 'segredo')
+    emit('connected')
+    sent.length = 0
+    resendLogin({ email: 'novo@test.com' })
+    expect(sent).toContainEqual({
+      type: WsMessageType.Login,
+      payload: { name: 'Novo', password: 'segredo', email: 'novo@test.com', confirmCode: undefined, avatar: undefined },
+    })
+  })
+
+  it('resendLogin reenvia o login com o código de confirmação', () => {
+    connectToServer('ws://x', 'Novo', 'segredo', 'novo@test.com')
+    emit('connected')
+    sent.length = 0
+    resendLogin({ confirmCode: '123456' })
+    expect(sent).toContainEqual({
+      type: WsMessageType.Login,
+      payload: { name: 'Novo', password: 'segredo', email: 'novo@test.com', confirmCode: '123456', avatar: undefined },
+    })
+  })
+
+  it('erro de conta (Email in use) mantém a conexão e define loginStep error', () => {
+    connectToServer('ws://x', 'Novo', 'p')
+    emit('connected')
+    emit(WsMessageType.Error, 'Email in use')
+    expect(useConnectionStore.getState().loginStep).toBe('error')
+    expect(useConnectionStore.getState().loginError).toBe('Email in use')
+    expect(useConnectionStore.getState().connected).toBe(false)
+  })
+
+  it('erro fatal desconecta normalmente', () => {
+    connectToServer('ws://x', 'Novo', 'p')
+    emit('connected')
+    emit(WsMessageType.Error, 'Server full')
+    expect(useConnectionStore.getState().connected).toBe(false)
   })
 })

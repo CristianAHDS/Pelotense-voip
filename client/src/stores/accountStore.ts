@@ -5,19 +5,24 @@ const AVATAR_KEY = 'voip_avatar'
 
 export interface AccountPrefs {
   name: string
+  email: string
   password: string
   avatar: string
 }
 
-function loadCredentials(): { name: string; password: string } {
+function loadCredentials(): { name: string; email: string; password: string } {
   try {
     const raw = localStorage.getItem(CREDENTIALS_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      return { name: parsed.name ?? '', password: parsed.password ?? '' }
+      return {
+        name: parsed.name ?? '',
+        email: parsed.email ?? '',
+        password: parsed.password ?? '',
+      }
     }
   } catch { /* ignore */ }
-  return { name: '', password: '' }
+  return { name: '', email: '', password: '' }
 }
 
 function loadAvatar(): string {
@@ -40,16 +45,17 @@ export function clearAccountPrefs(): void {
   } catch { /* ignore */ }
 }
 
-export function persistCredentials(name: string, password: string): void {
+export function persistCredentials(name: string, email: string, password: string): void {
   try {
     const raw = localStorage.getItem(CREDENTIALS_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
-    localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ ...parsed, name, password }))
+    localStorage.setItem(CREDENTIALS_KEY, JSON.stringify({ ...parsed, name, email, password }))
   } catch { /* ignore */ }
 }
 
 interface AccountStore {
   name: string
+  email: string
   password: string
   avatar: string
   prefsOpen: boolean
@@ -65,6 +71,7 @@ const initial = loadCredentials()
 
 export const useAccountStore = create<AccountStore>((set) => ({
   name: initial.name,
+  email: initial.email,
   password: initial.password,
   avatar: loadAvatar(),
   prefsOpen: false,
@@ -72,13 +79,14 @@ export const useAccountStore = create<AccountStore>((set) => ({
   setPrefs: (prefs) =>
     set((s) => ({
       name: prefs.name ?? s.name,
+      email: prefs.email ?? s.email,
       password: prefs.password ?? s.password,
       avatar: prefs.avatar ?? s.avatar,
     })),
   savePrefs: (prefs) => {
     persistAvatar(prefs.avatar)
-    persistCredentials(prefs.name, prefs.password)
-    set({ name: prefs.name, password: prefs.password, avatar: prefs.avatar })
+    persistCredentials(prefs.name, prefs.email, prefs.password)
+    set({ name: prefs.name, email: prefs.email, password: prefs.password, avatar: prefs.avatar })
   },
   openPrefs: () => set({ prefsOpen: true }),
   closePrefs: () => set({ prefsOpen: false }),

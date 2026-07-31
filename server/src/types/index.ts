@@ -10,6 +10,7 @@ export interface Client {
   lastPing: number
   admin: boolean
   avatar?: string
+  email?: string
   ws: WsWebSocket
 }
 
@@ -117,6 +118,8 @@ export enum WsMessageType {
   PrivateHistory = 'private_history',
   UpdateProfile = 'update_profile',
   ProfileUpdated = 'profile_updated',
+  EmailRequired = 'email_required',
+  ConfirmRequired = 'confirm_required',
 }
 
 export interface WsMessage {

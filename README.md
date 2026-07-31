@@ -57,6 +57,7 @@ voip-project/
 - `ws` (WebSocket/WebSocket Secure)
 - `dgram` (UDP de voz)
 - `better-sqlite3` (persistência)
+- `nodemailer` (e-mail de confirmação de conta)
 - `selfsigned` (certificados SSL de desenvolvimento)
 - `dotenv` (variáveis de ambiente)
 
@@ -86,6 +87,13 @@ npm run dev
 | `ADMIN_NAMES`           | *(vazio)*          | Nomes de usuários com papel de admin (lista separada por vírgula) |
 | `ADMIN_IDS`             | *(vazio)*          | IDs de usuários com papel de admin (lista separada por vírgula) |
 | `LOG_LEVEL`             | `INFO`            | Nível de log: `DEBUG`/`INFO`/`WARN`/`ERROR`  |
+| `SMTP_HOST`             | *(vazio)*          | Host SMTP para envio de e-mail de confirmação de conta |
+| `SMTP_PORT`             | `587`             | Porta SMTP                                  |
+| `SMTP_SECURE`           | `false`           | Usa TLS/SSL no SMTP (`true`/`false`)        |
+| `SMTP_USER`             | *(vazio)*          | Usuário SMTP (se houver autenticação)       |
+| `SMTP_PASS`             | *(vazio)*          | Senha SMTP                                  |
+| `SMTP_FROM`             | `no-reply@voip.local` | Remetente dos e-mails                     |
+| `APP_NAME`              | `VoIP Rádio Pelotense` | Nome exibido nos e-mails                  |
 
 #### Limites de segurança
 
@@ -142,6 +150,7 @@ VITE_SERVER_HOST=192.168.8.94 npm run dev
 ### Funcionalidades principais
 
 - **Salas de voz**: salas fixas (canais da emissora) + salas temporárias criadas pelos usuários, com chat por sala.
+- **Conta com e-mail**: criação de conta exige e-mail, com envio de código de confirmação via SMTP (ver `SMTP_*`); o login aceita **nick ou e-mail** + senha.
 - **Rádio ao vivo**: bot de rádio (streaming online) disponível apenas na sala **"Retorno ao vivo"**; aparece no chat, na lista de pessoas e como ocupante da sala; o play é manual.
 - **Transmissão ao vivo (câmera)**: somente um usuário transmite por vez na sala "Ao vivo", com pedido de troca (takeover) e confirmação.
 - **DM com áudio/vídeo**: mensagens diretas por usuário com texto, áudio e vídeo gravados (`MediaRecorder`).
@@ -162,8 +171,10 @@ VITE_SERVER_HOST=192.168.8.94 npm run dev
 
 | Tipo                     | Direção          | Descrição                                        |
 | ------------------------ | ---------------- | ------------------------------------------------ |
-| `login`                  | cliente → servidor | Autentica (nome, senha, avatar)                |
-| `welcome`                | servidor → cliente | Confirma login (id, nome, admin, avatar)       |
+| `login`                  | cliente → servidor | Autentica (nick ou e-mail + senha; `email` e `confirmCode` opcionais) |
+| `welcome`                | servidor → cliente | Confirma login (id, nome, admin, avatar, email) |
+| `email_required`         | servidor → cliente | Conta nova exige e-mail (criação)              |
+| `confirm_required`       | servidor → cliente | Código de confirmação enviado; aguarda o código |
 | `join_room` / `leave_room` | cliente → servidor | Entra / sai de uma sala                        |
 | `create_room` / `delete_room` | cliente → servidor | Cria / exclui sala temporária                |
 | `list_rooms` / `list_users` | cliente → servidor | Pede lista de salas / usuários                |
@@ -176,7 +187,7 @@ VITE_SERVER_HOST=192.168.8.94 npm run dev
 | `private_message` / `private_audio_message` / `private_video_message` | ambos | DM de texto / áudio / vídeo |
 | `list_private_messages`  | cliente → servidor | Pede histórico de DM com um usuário            |
 | `private_history`        | servidor → cliente | Envia histórico de DM                          |
-| `update_profile`         | cliente → servidor | Atualiza nome, senha e/ou avatar               |
+| `update_profile`         | cliente → servidor | Atualiza nome, e-mail, senha e/ou avatar       |
 | `profile_updated`        | servidor → cliente | Confirma atualização de perfil                 |
 | `live_start` / `live_stop` / `live_chunk` / `live_request*` / `live_force_stop` | ambos | Controle da transmissão ao vivo |
 | `heartbeat`              | ambos            | Keep-alive / detecção de conexões mortas        |

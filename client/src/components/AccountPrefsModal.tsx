@@ -18,6 +18,7 @@ export function AccountPrefsModal() {
   const t = useT()
   const prefsOpen = useAccountStore((s) => s.prefsOpen)
   const savedName = useAccountStore((s) => s.name)
+  const savedEmail = useAccountStore((s) => s.email)
   const savedPassword = useAccountStore((s) => s.password)
   const savedAvatar = useAccountStore((s) => s.avatar)
   const savePrefs = useAccountStore((s) => s.savePrefs)
@@ -27,6 +28,7 @@ export function AccountPrefsModal() {
   const connected = useConnectionStore((s) => s.connected)
 
   const [name, setName] = useState(savedName)
+  const [email, setEmail] = useState(savedEmail)
   const [password, setPassword] = useState(savedPassword)
   const [avatar, setAvatar] = useState(savedAvatar)
   const [error, setError] = useState('')
@@ -35,11 +37,12 @@ export function AccountPrefsModal() {
   useEffect(() => {
     if (prefsOpen) {
       setName(savedName || connectedName || '')
+      setEmail(savedEmail)
       setPassword(savedPassword)
       setAvatar(savedAvatar)
       setError('')
     }
-  }, [prefsOpen, savedName, savedPassword, savedAvatar, connectedName])
+  }, [prefsOpen, savedName, savedEmail, savedPassword, savedAvatar, connectedName])
 
   if (!prefsOpen) return null
 
@@ -67,10 +70,14 @@ export function AccountPrefsModal() {
       setError(t('avatarNameRequired'))
       return
     }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t('invalidEmail'))
+      return
+    }
     const trimmed = name.trim()
-    savePrefs({ name: trimmed, password, avatar })
+    savePrefs({ name: trimmed, email, password, avatar })
     if (connected) {
-      sendUpdateProfile({ name: trimmed, password, avatar: avatar || undefined })
+      sendUpdateProfile({ name: trimmed, email: email || undefined, password, avatar: avatar || undefined })
     }
     closePrefs()
   }
@@ -128,6 +135,18 @@ export function AccountPrefsModal() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className="input"
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="acc-email">{t('email')}</label>
+            <input
+              id="acc-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t('emailPlaceholder')}
               className="input"
             />
           </div>

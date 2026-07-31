@@ -499,3 +499,135 @@ describe('Perfil de conta (UpdateProfile)', () => {
   })
 })
 
+describe('Confirmação de e-mail na criação de conta', () => {
+  let dir: string
+  let dbPath: string
+  let server: TestServer
+  const clients: TestClient[] = []
+
+  async function connectRaw(): Promise<TestClient> {
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}`)
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve())
+      ws.on('error', (err) => reject(err))
+    })
+    const client = new TestClient(ws)
+    clients.push(client)
+    return client
+  }
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'voip-confirm-'))
+    dbPath = join(dir, 'test.db')
+  })
+
+  afterEach(async () => {
+    for (const c of clients) {
+      try { c.ws.terminate() } catch { /* ignore */ }
+    }
+    clients.length = 0
+    if (server) await server.close()
+    removeDir(dir)
+  })
+
+  it('pede o e-mail ao tentar criar conta com nick novo sem e-mail', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'NovoUsuario', password: 'segredo' })
+    const emailRequired = await c.waitFor(WsMessageType.EmailRequired)
+    expect(emailRequired.payload).toMatchObject({ name: 'NovoUsuario' })
+    store.close()
+  })
+
+  it('cria conta pendente e envia código de confirmação', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'NovoComEmail', password: 'segredo', email: 'novo@test.com' })
+    const confirm = await c.waitFor(WsMessageType.ConfirmRequired)
+    expect((confirm.payload as { email: string }).email).toBe('novo@test.com')
+
+    const account = store.getAccount('NovoComEmail')
+    expect(account?.email).toBe('novo@test.com')
+    expect(account?.emailConfirmed).toBe(false)
+    expect(account?.confirmCode).toMatch(/^\d{6}$/)
+    store.close()
+  })
+
+  it('confirma a conta com o código e faz login', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'ConfirmaAqui', password: 'segredo', email: 'confirma@test.com' })
+    await c.waitFor(WsMessageType.ConfirmRequired)
+
+    const code = store.getAccount('ConfirmaAqui')!.confirmCode!
+    c.send(WsMessageType.Login, { name: 'ConfirmaAqui', password: 'segredo', email: 'confirma@test.com', confirmCode: code })
+    const welcome = await c.waitFor(WsMessageType.Welcome)
+    expect(welcome.payload).toMatchObject({ name: 'ConfirmaAqui' })
+    expect(store.getAccount('ConfirmaAqui')?.emailConfirmed).toBe(true)
+    store.close()
+  })
+
+  it('rejeita código inválido', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'CodigoErrado', password: 'segredo', email: 'errado@test.com' })
+    await c.waitFor(WsMessageType.ConfirmRequired)
+
+    c.send(WsMessageType.Login, { name: 'CodigoErrado', password: 'segredo', email: 'errado@test.com', confirmCode: '000000' })
+    const confirm = await c.waitFor(WsMessageType.ConfirmRequired)
+    expect(confirm.payload).toMatchObject({ name: 'CodigoErrado' })
+    expect(store.getAccount('CodigoErrado')?.emailConfirmed).toBe(false)
+    store.close()
+  })
+
+  it('rejeita e-mail já em uso por outra conta', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'DonoEmail', password: 'segredo', email: 'dono@test.com' })
+    await c.waitFor(WsMessageType.ConfirmRequired)
+
+    const d = await connectRaw()
+    d.send(WsMessageType.Login, { name: 'Outro', password: 'x', email: 'dono@test.com' })
+    const err = await d.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Email in use')
+    store.close()
+  })
+
+  it('login com e-mail de conta existente confirma a identidade', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    // Cria e confirma a conta
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'LoginPorEmail', password: 'segredo', email: 'login@test.com' })
+    await c.waitFor(WsMessageType.ConfirmRequired)
+    const code = store.getAccount('LoginPorEmail')!.confirmCode!
+    c.send(WsMessageType.Login, { name: 'LoginPorEmail', password: 'segredo', email: 'login@test.com', confirmCode: code })
+    await c.waitFor(WsMessageType.Welcome)
+
+    // Sessão anterior terminada; nova conexão pelo e-mail + senha
+    for (const cl of clients) { try { cl.ws.terminate() } catch { /* ignore */ } }
+    clients.length = 0
+
+    const d = await connectRaw()
+    d.send(WsMessageType.Login, { name: 'login@test.com', password: 'segredo' })
+    const welcome = await d.waitFor(WsMessageType.Welcome)
+    expect((welcome.payload as { name: string }).name).toBe('LoginPorEmail')
+    store.close()
+  })
+
+  it('e-mail inválido é rejeitado', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store, [], false)
+    const c = await connectRaw()
+    c.send(WsMessageType.Login, { name: 'EmailRuim', password: 'x', email: 'nao-e-email' })
+    const err = await c.waitFor(WsMessageType.Error)
+    expect(err.payload).toBe('Invalid email')
+    store.close()
+  })
+})
+

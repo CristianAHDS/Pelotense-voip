@@ -16,6 +16,7 @@ let reconnecting: boolean = false
 let intentionalDisconnect: boolean = false
 let voiceManager: VoiceManager | null = null
 let voiceCleanup: (() => void) | null = null
+let pendingLogin: { name: string; password: string; email?: string; confirmCode?: string } | null = null
 
 export function getWsClient(): WsClient | null {
   return wsClient
@@ -124,17 +125,18 @@ function maybeNotifyPrivate(payload: PrivateChatMsg, body: string): void {
   notifyNewMessage(payload.fromUserName, body)
 }
 
-export function connectToServer(address: string, name: string, password: string): void {
+export function connectToServer(address: string, name: string, password: string, email?: string): void {
   if (wsClient) disconnectFromServer()
+
+  pendingLogin = { name, password, email: email || undefined, confirmCode: undefined }
+  useConnectionStore.getState().setLoginStep('none')
 
   wsClient = new WsClient()
   reconnecting = false
   initVoice()
 
   wsClient.on('connected', () => {
-    const avatar = useAccountStore.getState().avatar
-    const payload: LoginPayload = { name, password, avatar: avatar || undefined }
-    wsClient?.send(WsMessageType.Login, payload)
+    resendLogin({})
   })
   wsClient.on('disconnected', () => {
     if (intentionalDisconnect) {
@@ -155,6 +157,9 @@ export function connectToServer(address: string, name: string, password: string)
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     if (payload.avatar) {
       useAccountStore.getState().setPrefs({ avatar: payload.avatar })
+    }
+    if (payload.email !== undefined) {
+      useAccountStore.getState().setPrefs({ email: payload.email })
     }
     requestRoomList()
     voiceOnLogin()
@@ -341,13 +346,58 @@ function dmKey(payload: PrivateChatMsg): string {
     useAccountStore.getState().setPrefs({ name: payload.name, avatar: payload.avatar ?? '' })
   })
 
+  wsClient.on(WsMessageType.EmailRequired, (msg) => {
+    const payload = msg.payload as { name: string }
+    if (pendingLogin) {
+      pendingLogin = { ...pendingLogin, name: payload.name }
+    }
+    useConnectionStore.getState().setLoginStep('email_required')
+  })
+
+  wsClient.on(WsMessageType.ConfirmRequired, (msg) => {
+    const payload = msg.payload as { name: string; email?: string }
+    if (pendingLogin) {
+      pendingLogin = { ...pendingLogin, name: payload.name, email: payload.email ?? pendingLogin.email }
+    }
+    useConnectionStore.getState().setLoginStep('confirm_required')
+  })
+
   wsClient.on(WsMessageType.Error, (msg) => {
     const error = String(msg.payload ?? 'Unknown error')
+    // Erros relacionados à criação/confirmação de conta não desconectam.
+    if (
+      error === 'Email required'
+      || error === 'Email in use'
+      || error === 'Invalid email'
+      || error === 'Email not registered'
+      || error === 'Wrong password'
+      || error === 'Name too long'
+      || error === 'Password too long'
+    ) {
+      useConnectionStore.getState().setLoginStep('error', error)
+      return
+    }
     useConnectionStore.getState().setDisconnected()
     useToastStore.getState().show('error', `Connection error: ${error}`)
   })
 
   wsClient.connect(address)
+}
+
+// Reenvia o login no mesmo socket (fluxo de confirmação de e-mail). O servidor
+// mantém a conexão aberta enquanto aguarda o e-mail/código.
+export function resendLogin(extra: { email?: string; confirmCode?: string }): void {
+  if (!wsClient || !pendingLogin) return
+  pendingLogin = { ...pendingLogin, ...extra }
+  const avatar = useAccountStore.getState().avatar
+  const payload: LoginPayload = {
+    name: pendingLogin.name,
+    password: pendingLogin.password,
+    email: pendingLogin.email || undefined,
+    confirmCode: pendingLogin.confirmCode || undefined,
+    avatar: avatar || undefined,
+  }
+  wsClient.send(WsMessageType.Login, payload)
 }
 
 export function joinRoom(roomName: string): void {
@@ -434,7 +484,7 @@ export function requestPrivateHistory(withUserId: string): void {
   wsClient.send(WsMessageType.ListPrivateMessages, { withUserId })
 }
 
-export function sendUpdateProfile(profile: { name?: string; password?: string; avatar?: string }): void {
+export function sendUpdateProfile(profile: { name?: string; email?: string; password?: string; avatar?: string }): void {
   if (!wsClient) { console.error('sendUpdateProfile: wsClient is null'); return }
   wsClient.send(WsMessageType.UpdateProfile, profile)
 }
@@ -448,6 +498,7 @@ export function disconnectFromServer(): void {
   cleanupVoice()
   intentionalDisconnect = true
   reconnecting = false
+  pendingLogin = null
   wsClient?.disconnect()
   wsClient = null
   useConnectionStore.getState().setDisconnected()

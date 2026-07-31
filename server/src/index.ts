@@ -13,6 +13,7 @@ import { UdpServer } from './network/udpServer.js'
 import { VoiceRouter } from './voice/router.js'
 import { getSSLCredentials } from './utils/cert.js'
 import { SqliteStore } from './storage/index.js'
+import { Mailer } from './utils/mailer.js'
 import { mkdirSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -25,6 +26,15 @@ async function main(): Promise<void> {
   } catch { /* diretório já existe */ }
 
   const storage = new SqliteStore(config.dbPath)
+  const mailer = new Mailer({
+    smtpHost: config.smtpHost,
+    smtpPort: config.smtpPort,
+    smtpSecure: config.smtpSecure,
+    smtpUser: config.smtpUser,
+    smtpPass: config.smtpPass,
+    fromEmail: config.smtpFrom,
+    appName: config.appName,
+  })
 
   const clientManager = new ClientManager(config.maxUsers)
   const roomManager = new RoomManager(config.maxRooms, storage)
@@ -74,7 +84,7 @@ async function main(): Promise<void> {
 
   const wss = new WebSocketServer({ port: config.wsPort, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WS) on port ${config.wsPort}`)
-  new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
+  new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds, mailer)
 
   const httpsServer = createHttpsServer({ key: ssl.key, cert: ssl.cert }, (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html' })
@@ -82,7 +92,7 @@ async function main(): Promise<void> {
   })
   const wssServer = new WebSocketServer({ server: httpsServer, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WSS) on port ${config.wssPort}`)
-  new WsHandler(wssServer, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
+  new WsHandler(wssServer, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds, mailer)
   httpsServer.listen(config.wssPort)
 
   try {

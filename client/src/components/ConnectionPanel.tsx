@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useConnection } from '../hooks/useConnection.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore, clearAccountPrefs } from '../stores/accountStore.ts'
-import { connectToServer } from '../services/connectionService.ts'
+import { connectToServer, resendLogin } from '../services/connectionService.ts'
 import { useT } from '../i18n/index.ts'
 
 const STORAGE_KEY = 'voip_credentials'
@@ -18,16 +18,17 @@ function loadStored() {
         wsPort: parsed.wsPort ?? '3001',
         wssPort: parsed.wssPort ?? '3003',
         name: parsed.name ?? '',
+        email: parsed.email ?? '',
         password: parsed.password ?? '',
       }
     }
   } catch { /* ignore */ }
-  return { host: '192.168.8.94', wsPort: '3001', wssPort: '3003', name: '', password: '' }
+  return { host: '192.168.8.94', wsPort: '3001', wssPort: '3003', name: '', email: '', password: '' }
 }
 
-function saveStored(host: string, wsPort: string, wssPort: string, name: string, password: string): void {
+function saveStored(host: string, wsPort: string, wssPort: string, name: string, email: string, password: string): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ host, wsPort, wssPort, name, password }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ host, wsPort, wssPort, name, email, password }))
   } catch (e) {
     console.error('Failed to save credentials:', e)
   }
@@ -41,6 +42,7 @@ function clearStoredCredentials(): void {
       parsed.host ?? '192.168.8.94',
       parsed.wsPort ?? '3001',
       parsed.wssPort ?? '3003',
+      '',
       '',
       '',
     )
@@ -57,9 +59,13 @@ export function ConnectionPanel() {
   const [wsPort, setWsPort] = useState(stored.wsPort)
   const [wssPort, setWssPort] = useState(stored.wssPort)
   const [nickname, setNickname] = useState(stored.name)
+  const [email, setEmail] = useState(stored.email)
+  const [confirmCode, setConfirmCode] = useState('')
   const [password, setPassword] = useState(stored.password)
   const [certAccepted, setCertAccepted] = useState(false)
   const [restoring, setRestoring] = useState(!!stored.name)
+  const loginStep = useConnectionStore((s) => s.loginStep)
+  const loginError = useConnectionStore((s) => s.loginError)
 
   const useWss = IS_HTTPS
   const activePort = useWss ? wssPort : wsPort
@@ -101,7 +107,7 @@ export function ConnectionPanel() {
     if (!connected && stored.name) {
       const protocol = IS_HTTPS ? 'wss' : 'ws'
       const port = IS_HTTPS ? stored.wssPort : stored.wsPort
-      connectToServer(`${protocol}://${stored.host}:${port}`, stored.name, stored.password)
+      connectToServer(`${protocol}://${stored.host}:${port}`, stored.name, stored.password, stored.email)
     }
   }, [])
 
@@ -131,9 +137,18 @@ export function ConnectionPanel() {
   }, [checkCert])
 
   function handleConnect() {
-    saveStored(host, wsPort, wssPort, nickname, password)
+    saveStored(host, wsPort, wssPort, nickname, email, password)
+    // Fluxo de confirmação: reenvia o login no mesmo socket com e-mail/código.
+    if (loginStep === 'email_required') {
+      resendLogin({ email })
+      return
+    }
+    if (loginStep === 'confirm_required') {
+      resendLogin({ confirmCode })
+      return
+    }
     const protocol = useWss ? 'wss' : 'ws'
-    connectToServer(`${protocol}://${host}:${activePort}`, nickname, password)
+    connectToServer(`${protocol}://${host}:${activePort}`, nickname, password, email)
   }
 
   function handleLogout() {
@@ -141,8 +156,10 @@ export function ConnectionPanel() {
     clearStoredCredentials()
     clearAccountPrefs()
     setNickname('')
+    setEmail('')
+    setConfirmCode('')
     setPassword('')
-    useAccountStore.getState().setPrefs({ name: '', password: '', avatar: '' })
+    useAccountStore.getState().setPrefs({ name: '', email: '', password: '', avatar: '' })
   }
 
   const statusText = reconnecting
@@ -162,7 +179,7 @@ export function ConnectionPanel() {
     setHost(v)
     setWsPort('3001')
     setWssPort('3003')
-    saveStored(v, '3001', '3003', nickname, password)
+    saveStored(v, '3001', '3003', nickname, email, password)
   }
 
   return (
@@ -190,7 +207,7 @@ export function ConnectionPanel() {
                     id="cp-host"
                     type="text"
                     value={host}
-                    onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, password) }}
+                    onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, email, password) }}
                     placeholder="Server IP"
                     className="input"
                   />
@@ -200,8 +217,8 @@ export function ConnectionPanel() {
                     value={activePort}
                     onChange={(e) => {
                       const v = e.target.value
-                      if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, password) }
-                      else { setWsPort(v); saveStored(host, v, wssPort, nickname, password) }
+                      if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, email, password) }
+                      else { setWsPort(v); saveStored(host, v, wssPort, nickname, email, password) }
                     }}
                     placeholder={useWss ? 'WSS Port' : 'Port'}
                     className="input"
@@ -209,26 +226,59 @@ export function ConnectionPanel() {
                 </div>
               </div>
               <div className="field">
-                <label className="field-label" htmlFor="cp-nickname">Identificação</label>
+                <label className="field-label" htmlFor="cp-nickname">{t('loginIdentifier')}</label>
                 <div className="auth-inputs">
                   <input
                     id="cp-nickname"
                     type="text"
                     value={nickname}
-                    onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, wsPort, wssPort, v, password) }}
-                    placeholder="Nickname"
+                    onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, wsPort, wssPort, v, email, password) }}
+                    placeholder={t('loginNamePlaceholder')}
                     className="input"
                   />
                   <input
                     id="cp-password"
                     type="password"
                     value={password}
-                    onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, wsPort, wssPort, nickname, v) }}
-                    placeholder="Password"
+                    onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, wsPort, wssPort, nickname, email, v) }}
+                    placeholder={t('loginPasswordPlaceholder')}
                     className="input"
                   />
                 </div>
               </div>
+              <div className="field">
+                <label className="field-label" htmlFor="cp-email">
+                  {t('email')}
+                  {loginStep === 'email_required' && <span className="field-required"> *</span>}
+                </label>
+                <input
+                  id="cp-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => { const v = e.target.value; setEmail(v); saveStored(host, wsPort, wssPort, nickname, v, password) }}
+                  placeholder={t('emailPlaceholder')}
+                  className="input"
+                />
+                {loginStep === 'email_required' && (
+                  <p className="form-hint">{t('emailRequiredHint')}</p>
+                )}
+              </div>
+              {loginStep === 'confirm_required' && (
+                <div className="field">
+                  <label className="field-label" htmlFor="cp-code">{t('confirmCode')}</label>
+                  <input
+                    id="cp-code"
+                    type="text"
+                    inputMode="numeric"
+                    value={confirmCode}
+                    onChange={(e) => setConfirmCode(e.target.value)}
+                    placeholder="000000"
+                    className="input"
+                  />
+                  <p className="form-hint">{t('confirmCodeHint')}</p>
+                </div>
+              )}
+              {loginError && <div className="form-error">{loginError}</div>}
               <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
                 Preencher padrão (192.168.8.94)
               </button>
@@ -257,7 +307,13 @@ export function ConnectionPanel() {
             </div>
           ) : (
             <button onClick={handleConnect} disabled={reconnecting} className="btn btn-connect">
-              {reconnecting ? 'Reconnecting...' : 'Connect'}
+              {reconnecting
+                ? 'Reconnecting...'
+                : loginStep === 'email_required'
+                  ? t('continue')
+                  : loginStep === 'confirm_required'
+                    ? t('confirm')
+                    : t('loginButton')}
             </button>
           )}
         </>
