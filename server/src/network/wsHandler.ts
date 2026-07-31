@@ -401,6 +401,12 @@ export class WsHandler {
         type: WsMessageType.LiveStarted,
         payload: { userId: liveBroadcast.userId, userName: liveBroadcast.userName },
       })
+      if (liveBroadcast.initChunk) {
+        this.send(client.ws, {
+          type: WsMessageType.LiveChunkReceived,
+          payload: { userId: liveBroadcast.userId, chunk: liveBroadcast.initChunk, duration: 0 },
+        })
+      }
     }
 
     this.broadcast({
@@ -621,7 +627,7 @@ export class WsHandler {
       return
     }
 
-    this.rooms.setLiveBroadcast(roomId, { userId: client.id, userName: client.name, timestamp: Date.now() })
+    this.rooms.setLiveBroadcast(roomId, { userId: client.id, userName: client.name, timestamp: Date.now(), initChunk: undefined })
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveStarted,
       payload: { userId: client.id, userName: client.name },
@@ -657,6 +663,10 @@ export class WsHandler {
     if (!roomId) return
     const live = this.rooms.getLiveBroadcast(roomId)
     if (!live || live.userId !== client.id) return
+
+    if (!live.initChunk) {
+      live.initChunk = payload.chunk
+    }
 
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveChunkReceived,

@@ -131,6 +131,7 @@ export interface LiveState {
   userName: string
   timestamp: number
   takeoverRequesterId?: string
+  initChunk?: string
 }
 
 export type EventListener<T = unknown> = (payload: T) => void
