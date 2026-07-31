@@ -14,6 +14,7 @@ export class VoiceManager {
   private smoothLevel: number = 0;
   private smoothRxLevel: number = 0;
   private micDeviceId: string | null = null;
+  private startPromise: Promise<boolean> | null = null;
 
   constructor() {
     this.microphone = new Microphone();
@@ -44,6 +45,20 @@ export class VoiceManager {
     if (this.active) {
       return true;
     }
+    // Serializa chamadas concorrentes: se já há um start em andamento (ex:
+    // login + entrar na sala na sequência), reutiliza a mesma promise em vez de
+    // abrir uma segunda stream de áudio. Duas streams simultâneas causam áudio
+    // duplicado/faseado (chiado) — problema comum com interfaces de áudio.
+    if (this.startPromise) {
+      return this.startPromise;
+    }
+    this.startPromise = this.doStartMicrophone().finally(() => {
+      this.startPromise = null;
+    });
+    return this.startPromise;
+  }
+
+  private async doStartMicrophone(): Promise<boolean> {
     const ok = await this.microphone.start();
     if (!ok) return false;
 

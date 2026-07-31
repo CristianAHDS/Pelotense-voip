@@ -36,6 +36,11 @@ export class Microphone {
 
   async start(): Promise<boolean> {
     try {
+      // Nunca deixe duas capturas ativas ao mesmo tempo: se algo ainda estiver
+      // rodando (start concorrente), derruba antes de abrir outra stream.
+      // Duas streams simultâneas geram áudio duplicado/faseado (chiado).
+      this.stop();
+
       const audioConstraints: MediaTrackConstraints = {
         echoCancellation: true,
         noiseSuppression: true,

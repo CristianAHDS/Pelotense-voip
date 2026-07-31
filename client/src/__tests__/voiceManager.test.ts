@@ -351,3 +351,56 @@ describe('VoiceManager (push-to-talk)', () => {
     vm.destroy()
   })
 })
+
+describe('VoiceManager (double-start / chiado)', () => {
+  it('startMicrophone concorrente não abre uma segunda stream', async () => {
+    installFakeWebCodecs()
+    const { getUserMedia } = installFakeMediaDevices([])
+    const vm = new VoiceManager()
+
+    const [a, b] = await Promise.all([vm.startMicrophone(), vm.startMicrophone()])
+    expect(a).toBe(true)
+    expect(b).toBe(true)
+    expect(getUserMedia).toHaveBeenCalledTimes(1)
+    vm.destroy()
+  })
+
+  it('startMicrophone em andamento reutiliza a promise (login + join)', async () => {
+    installFakeWebCodecs()
+    const { getUserMedia } = installFakeMediaDevices([])
+    const vm = new VoiceManager()
+
+    const first = vm.startMicrophone()
+    const second = vm.startMicrophone()
+    await Promise.all([first, second])
+
+    expect(getUserMedia).toHaveBeenCalledTimes(1)
+    expect(vm.activeMic).toBe(true)
+    vm.destroy()
+  })
+
+  it('start após um start concluído é no-op (não reinicia a stream)', async () => {
+    installFakeWebCodecs()
+    const { getUserMedia } = installFakeMediaDevices([])
+    const vm = new VoiceManager()
+
+    await vm.startMicrophone()
+    await vm.startMicrophone()
+
+    expect(getUserMedia).toHaveBeenCalledTimes(1)
+    vm.destroy()
+  })
+
+  it('novo start após um stop cria uma stream nova (comportamento de troca de mic)', async () => {
+    installFakeWebCodecs()
+    const { getUserMedia } = installFakeMediaDevices([])
+    const vm = new VoiceManager()
+
+    await vm.startMicrophone()
+    vm.stopMicrophone()
+    await vm.startMicrophone()
+
+    expect(getUserMedia).toHaveBeenCalledTimes(2)
+    vm.destroy()
+  })
+})
