@@ -31,6 +31,20 @@ function saveStored(host: string, wsPort: string, wssPort: string, name: string,
   }
 }
 
+function clearStoredCredentials(): void {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    saveStored(
+      parsed.host ?? '192.168.8.94',
+      parsed.wsPort ?? '3001',
+      parsed.wssPort ?? '3003',
+      '',
+      '',
+    )
+  } catch { /* ignore */ }
+}
+
 export function ConnectionPanel() {
   const { connected, id, name: connectedName, disconnect } = useConnection()
   const reconnecting = useConnectionStore((s) => s.reconnecting)
@@ -101,6 +115,13 @@ export function ConnectionPanel() {
     saveStored(host, wsPort, wssPort, nickname, password)
     const protocol = useWss ? 'wss' : 'ws'
     connectToServer(`${protocol}://${host}:${activePort}`, nickname, password)
+  }
+
+  function handleLogout() {
+    disconnect()
+    clearStoredCredentials()
+    setNickname('')
+    setPassword('')
   }
 
   const statusText = reconnecting
@@ -175,9 +196,14 @@ export function ConnectionPanel() {
         </>
       )}
       {connected ? (
-        <button onClick={disconnect} className="btn btn-disconnect">
-          Disconnect
-        </button>
+        <div className="connection-actions">
+          <button onClick={disconnect} className="btn btn-disconnect">
+            Disconnect
+          </button>
+          <button onClick={handleLogout} className="btn btn-logout">
+            Logout
+          </button>
+        </div>
       ) : (
         <button onClick={handleConnect} disabled={reconnecting} className="btn btn-connect">
           {reconnecting ? 'Reconnecting...' : 'Connect'}

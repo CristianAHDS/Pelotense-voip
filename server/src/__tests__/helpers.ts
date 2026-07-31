@@ -3,7 +3,7 @@ import type { AddressInfo } from 'net'
 import { WsHandler } from '../network/wsHandler.js'
 import { ClientManager } from '../clients/manager.js'
 import { RoomManager } from '../rooms/manager.js'
-import { WsMessage, WsMessageType } from '../types/index.js'
+import { WsMessage, WsMessageType, SecurityLimits } from '../types/index.js'
 
 export interface TestServer {
   wss: WebSocketServer
@@ -14,11 +14,11 @@ export interface TestServer {
   close: () => Promise<void>
 }
 
-export async function startTestServer(maxUsers = 100, maxRooms = 20): Promise<TestServer> {
+export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: SecurityLimits): Promise<TestServer> {
   const wss = new WebSocketServer({ port: 0 })
   const clients = new ClientManager(maxUsers)
   const rooms = new RoomManager(maxRooms)
-  const handler = new WsHandler(wss, clients, rooms, 3002)
+  const handler = new WsHandler(wss, clients, rooms, 3002, limits)
   const port = (wss.address() as AddressInfo).port
   const close = (): Promise<void> =>
     new Promise((resolve) => {

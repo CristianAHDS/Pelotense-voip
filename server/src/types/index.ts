@@ -137,3 +137,25 @@ export interface LiveState {
 }
 
 export type EventListener<T = unknown> = (payload: T) => void
+
+export interface SecurityLimits {
+  maxNameLength: number
+  maxPasswordLength: number
+  maxRoomNameLength: number
+  maxTextLength: number
+  maxAudioMessageBytes: number
+  maxVideoMessageBytes: number
+  maxLiveChunkBytes: number
+  maxVoiceFrameBytes: number
+}
+
+export const DEFAULT_SECURITY_LIMITS: SecurityLimits = {
+  maxNameLength: 32,
+  maxPasswordLength: 128,
+  maxRoomNameLength: 64,
+  maxTextLength: 4000,
+  maxAudioMessageBytes: 512 * 1024,
+  maxVideoMessageBytes: 2 * 1024 * 1024,
+  maxLiveChunkBytes: 512 * 1024,
+  maxVoiceFrameBytes: 64 * 1024,
+}

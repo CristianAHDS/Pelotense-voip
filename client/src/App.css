@@ -199,6 +199,27 @@ body {
   background: #c13539;
 }
 
+.connection-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.connection-actions .btn {
+  width: auto;
+  flex: 1;
+  margin-top: 0;
+}
+
+.btn-logout {
+  background: #6b7280;
+  color: #fff;
+}
+
+.btn-logout:hover {
+  background: #4b5563;
+}
+
 .btn-join {
   background: #3470cf;
   color: #fff;

@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws'
-import { Client, ChatMessage, WsMessage, WsMessageType, LiveState } from '../types/index.js'
+import { Client, ChatMessage, WsMessage, WsMessageType, LiveState, SecurityLimits, DEFAULT_SECURITY_LIMITS } from '../types/index.js'
 import { ClientManager } from '../clients/index.js'
 import { RoomManager } from '../rooms/index.js'
 import { logger } from '../utils/logger.js'
@@ -11,6 +11,7 @@ export class WsHandler {
   private clients: ClientManager
   private rooms: RoomManager
   private udpPort: number
+  private limits: SecurityLimits
   private pendingClients = new Map<WebSocket, { ip: string }>()
   private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
 
@@ -19,11 +20,13 @@ export class WsHandler {
     clients: ClientManager,
     rooms: RoomManager,
     udpPort: number,
+    limits: SecurityLimits = DEFAULT_SECURITY_LIMITS,
   ) {
     this.wss = wss
     this.clients = clients
     this.rooms = rooms
     this.udpPort = udpPort
+    this.limits = limits
     this.setup()
     this.startDeadConnectionMonitor()
   }
@@ -95,6 +98,16 @@ export class WsHandler {
     const { name, password } = payload
     if (!name || !password) {
       this.send(ws, { type: WsMessageType.Error, payload: 'Name and password required' })
+      ws.close()
+      return
+    }
+    if (name.length > this.limits.maxNameLength) {
+      this.send(ws, { type: WsMessageType.Error, payload: 'Name too long' })
+      ws.close()
+      return
+    }
+    if (password.length > this.limits.maxPasswordLength) {
+      this.send(ws, { type: WsMessageType.Error, payload: 'Password too long' })
       ws.close()
       return
     }
@@ -284,6 +297,10 @@ export class WsHandler {
 
   private handleChatMessage(client: Client, payload: { text: string }): void {
     if (!client.room || !payload.text?.trim()) return
+    if (payload.text.length > this.limits.maxTextLength) {
+      logger.warn('WsHandler', `Chat message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
+      return
+    }
 
     const room = this.rooms.get(client.room)
     if (!room) return
@@ -306,6 +323,10 @@ export class WsHandler {
 
   private handleChatAudioMessage(client: Client, payload: { audioData: string; duration: number }): void {
     if (!client.room || !payload.audioData) return
+    if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
+      logger.warn('WsHandler', `Audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
+      return
+    }
 
     const room = this.rooms.get(client.room)
     if (!room) return
@@ -329,6 +350,10 @@ export class WsHandler {
 
   private handleChatVideoMessage(client: Client, payload: { videoData: string; duration: number }): void {
     if (!client.room || !payload.videoData) return
+    if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
+      logger.warn('WsHandler', `Video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
+      return
+    }
 
     const room = this.rooms.get(client.room)
     if (!room) return
@@ -353,6 +378,10 @@ export class WsHandler {
   private handleBinaryMessage(client: Client, data: Buffer): void {
     const roomId = client.room
     if (!roomId || data.length < 1) return
+    if (data.length > this.limits.maxVoiceFrameBytes) {
+      logger.warn('WsHandler', `Voice frame from ${client.id} exceeds ${this.limits.maxVoiceFrameBytes} bytes, dropped`)
+      return
+    }
 
     const room = this.rooms.get(roomId)
     if (!room) return
@@ -375,6 +404,10 @@ export class WsHandler {
 
   private handlePrivateMessage(client: Client, payload: { toUserId: string; text: string }): void {
     if (!payload.toUserId || !payload.text?.trim()) return
+    if (payload.text.length > this.limits.maxTextLength) {
+      logger.warn('WsHandler', `Private message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
+      return
+    }
 
     const target = this.clients.get(payload.toUserId)
     if (!target) return
@@ -420,6 +453,10 @@ export class WsHandler {
         type: WsMessageType.Error,
         payload: 'Room name required',
       })
+      return
+    }
+    if (roomName.length > this.limits.maxRoomNameLength) {
+      logger.warn('WsHandler', `Join room name from ${client.id} exceeds ${this.limits.maxRoomNameLength} chars, dropped`)
       return
     }
 
@@ -499,6 +536,10 @@ export class WsHandler {
         type: WsMessageType.Error,
         payload: 'Room name required',
       })
+      return
+    }
+    if (roomName.length > this.limits.maxRoomNameLength) {
+      logger.warn('WsHandler', `Create room name from ${client.id} exceeds ${this.limits.maxRoomNameLength} chars, dropped`)
       return
     }
     const room = this.rooms.create(roomName)
@@ -693,6 +734,10 @@ export class WsHandler {
     if (!roomId) return
     const live = this.rooms.getLiveBroadcast(roomId)
     if (!live || live.userId !== client.id) return
+    if (this.base64Exceeds(payload.chunk, this.limits.maxLiveChunkBytes)) {
+      logger.warn('WsHandler', `Live chunk from ${client.id} exceeds ${this.limits.maxLiveChunkBytes} bytes, dropped`)
+      return
+    }
 
     if (!live.initChunk) {
       live.initChunk = payload.chunk
@@ -755,5 +800,9 @@ export class WsHandler {
 
   private generateMessageId(): string {
     return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8)
+  }
+
+  private base64Exceeds(data: string, maxBytes: number): boolean {
+    return data.length > Math.ceil((maxBytes * 4) / 3) + 4
   }
 }

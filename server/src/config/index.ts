@@ -1,5 +1,5 @@
 import dotenv from 'dotenv'
-import { LogLevel } from '../types/index.js'
+import { LogLevel, SecurityLimits, DEFAULT_SECURITY_LIMITS } from '../types/index.js'
 
 dotenv.config()
 
@@ -27,5 +27,17 @@ export const config = {
   httpsClientPort: getInt('HTTPS_CLIENT_PORT', 3443),
   maxUsers: getInt('MAX_USERS', 100),
   maxRooms: getInt('MAX_ROOMS', 20),
+  maxWsPayload: getInt('MAX_WS_PAYLOAD', 8 * 1024 * 1024),
   logLevel: getLogLevel('LOG_LEVEL', LogLevel.INFO),
+}
+
+export const securityLimits: SecurityLimits = {
+  maxNameLength: getInt('MAX_NAME_LENGTH', DEFAULT_SECURITY_LIMITS.maxNameLength),
+  maxPasswordLength: getInt('MAX_PASSWORD_LENGTH', DEFAULT_SECURITY_LIMITS.maxPasswordLength),
+  maxRoomNameLength: getInt('MAX_ROOM_NAME_LENGTH', DEFAULT_SECURITY_LIMITS.maxRoomNameLength),
+  maxTextLength: getInt('MAX_TEXT_LENGTH', DEFAULT_SECURITY_LIMITS.maxTextLength),
+  maxAudioMessageBytes: getInt('MAX_AUDIO_MESSAGE_BYTES', DEFAULT_SECURITY_LIMITS.maxAudioMessageBytes),
+  maxVideoMessageBytes: getInt('MAX_VIDEO_MESSAGE_BYTES', DEFAULT_SECURITY_LIMITS.maxVideoMessageBytes),
+  maxLiveChunkBytes: getInt('MAX_LIVE_CHUNK_BYTES', DEFAULT_SECURITY_LIMITS.maxLiveChunkBytes),
+  maxVoiceFrameBytes: getInt('MAX_VOICE_FRAME_BYTES', DEFAULT_SECURITY_LIMITS.maxVoiceFrameBytes),
 }

@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws'
 import { createServer as createHttpsServer } from 'https'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { config } from './config/index.js'
+import { config, securityLimits } from './config/index.js'
 import { logger } from './utils/logger.js'
 import { ClientManager } from './clients/index.js'
 import { RoomManager } from './rooms/index.js'
@@ -64,17 +64,17 @@ async function main(): Promise<void> {
     reply.sendFile('index.html')
   })
 
-  const wss = new WebSocketServer({ port: config.wsPort })
+  const wss = new WebSocketServer({ port: config.wsPort, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WS) on port ${config.wsPort}`)
-  new WsHandler(wss, clientManager, roomManager, config.udpPort)
+  new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits)
 
   const httpsServer = createHttpsServer({ key: ssl.key, cert: ssl.cert }, (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html' })
     res.end('<!DOCTYPE html><html><body><h1>WSS Server</h1><p>Cert accepted. You can close this tab and connect in the app.</p></body></html>')
   })
-  const wssServer = new WebSocketServer({ server: httpsServer })
+  const wssServer = new WebSocketServer({ server: httpsServer, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WSS) on port ${config.wssPort}`)
-  new WsHandler(wssServer, clientManager, roomManager, config.udpPort)
+  new WsHandler(wssServer, clientManager, roomManager, config.udpPort, securityLimits)
   httpsServer.listen(config.wssPort)
 
   try {

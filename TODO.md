@@ -15,9 +15,9 @@ Marque com `[x]` os itens já concluídos.
 
 ## 🟠 Segurança
 
-- [ ] **6. Sair do sistema = limpar credenciais** — Hoje F5 auto-conecta (bom), mas não há "logout". Adicionar botão que apaga `voip_credentials` e desconecta.
-- [ ] **7. `server.key` commitado no git** — A chave privada TLS está versionada. Adicionar certs/ ao `.gitignore` e rodar `git rm --cached`.
-- [ ] **8. Limite de tamanho de mensagens/chunks** — Payloads base64 ilimitados podem estourar memória. Adicionar caps no servidor (ex: 2MB por vídeo).
+- [x] **6. Sair do sistema = limpar credenciais** — Hoje F5 auto-conecta (bom), mas não há "logout". Adicionar botão que apaga `voip_credentials` e desconecta.
+- [x] **7. `server.key` commitado no git** — A chave privada TLS está versionada. Adicionar certs/ ao `.gitignore` e rodar `git rm --cached`.
+- [x] **8. Limite de tamanho de mensagens/chunks** — Payloads base64 ilimitados podem estourar memória. Adicionar caps no servidor (ex: 2MB por vídeo).
 
 ## 🟢 Features de alto valor
 
@@ -44,3 +44,4 @@ Marque com `[x]` os itens já concluídos.
 |------|------|--------|
 | 30/07/2026 | 1-5: correções críticas (room switch live, delete room live, sockets mortos, mojibake, spam de console) | ✅ Feito |
 | 30/07/2026 | Suite de testes (vitest): 99 testes (52 server + 47 client) | ✅ Feito |
+| 30/07/2026 | 6-8: segurança (logout limpa credenciais, certs fora do git, limites de payload no servidor). Testes: 116 (66 server + 50 client) | ✅ Feito |

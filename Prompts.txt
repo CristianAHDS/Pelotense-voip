@@ -35,3 +35,5 @@ Nesse canal, somente um usuario podera inicar a cemra e todos os outros que esti
 
 Realize as correções criticas, rode os testes para garantir que nenhuam funcionaldiade quebrou, e adicione novos testes as novas funcionalidades em caso de nada ter quebrado, após isso, marque os itens feitos no todo e adicione esse prompt ao arquivo prompts.txt e faça o commit + o push
 
+Realize as correções de segurança, rode os testes para garantir que nenhuam funcionaldiade quebrou, e adicione novos testes as novas funcionalidades em caso de nada ter quebrado, após isso, marque os itens feitos no todo e adicione esse prompt ao arquivo prompts.txt e faça o commit + o push
+
