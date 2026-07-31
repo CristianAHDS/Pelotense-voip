@@ -175,6 +175,130 @@ describe('Salas', () => {
   })
 })
 
+describe('Admin', () => {
+  let adminServer: TestServer
+  const adminClients: TestClient[] = []
+
+  async function adminClient(name: string, password = 'pass'): Promise<TestClient> {
+    const ws = await connectRaw(adminServer.port)
+    const client = new TestClient(ws)
+    adminClients.push(client)
+    client.send(WsMessageType.Login, { name, password })
+    const welcome = await client.waitFor(WsMessageType.Welcome)
+    const payload = welcome.payload as { id: string }
+    ;(ws as unknown as { _clientId: string })._clientId = payload.id
+    return client
+  }
+
+  beforeEach(async () => {
+    adminServer = await startTestServer(100, 20, undefined, ['ChefeAdmin'])
+  })
+
+  afterEach(async () => {
+    for (const c of adminClients) {
+      try {
+        c.ws.terminate()
+      } catch { /* ignore */ }
+    }
+    adminClients.length = 0
+    await adminServer.close()
+  })
+
+  it('marca admin=true no welcome do admin e false para usuário comum', async () => {
+    const ws1 = await connectRaw(adminServer.port)
+    const c1 = new TestClient(ws1)
+    adminClients.push(c1)
+    c1.send(WsMessageType.Login, { name: 'ChefeAdmin', password: 'pass' })
+    const w1 = await c1.waitFor(WsMessageType.Welcome)
+    expect((w1.payload as { admin?: boolean }).admin).toBe(true)
+
+    const ws2 = await connectRaw(adminServer.port)
+    const c2 = new TestClient(ws2)
+    adminClients.push(c2)
+    c2.send(WsMessageType.Login, { name: 'Comum', password: 'pass' })
+    const w2 = await c2.waitFor(WsMessageType.Welcome)
+    expect((w2.payload as { admin?: boolean }).admin).toBe(false)
+  })
+
+  it('inclui o flag admin na lista de usuários', async () => {
+    const admin = await adminClient('ChefeAdmin')
+    admin.send(WsMessageType.JoinRoom, 'Externas')
+    await admin.waitFor(WsMessageType.RoomJoined)
+
+    const comum = await adminClient('Comum')
+    comum.send(WsMessageType.JoinRoom, 'Externas')
+    await comum.waitFor(WsMessageType.RoomJoined)
+
+    let users: Array<{ name: string; admin?: boolean }> = []
+    for (let i = 0; i < 3; i++) {
+      const list = await admin.waitFor(WsMessageType.UserList)
+      users = list.payload as Array<{ name: string; admin?: boolean }>
+      if (users.some((u) => u.name === 'Comum')) break
+    }
+    expect(users.find((u) => u.name === 'ChefeAdmin')?.admin).toBe(true)
+    expect(users.find((u) => u.name === 'Comum')?.admin).toBe(false)
+  })
+
+  it('admin pode deletar sala criada por outro usuário', async () => {
+    const admin = await adminClient('ChefeAdmin')
+    const owner = await adminClient('DonoAdmin')
+    owner.send(WsMessageType.CreateRoom, 'SalaDoDono')
+    const created = await owner.waitFor(WsMessageType.RoomCreated)
+    const roomId = (created.payload as { roomId: string }).roomId
+
+    admin.send(WsMessageType.DeleteRoom, roomId)
+    const deleted = await admin.waitFor(WsMessageType.RoomDeleted)
+    expect(deleted.payload).toMatchObject({ roomId })
+    expect(adminServer.rooms.get(roomId)).toBeUndefined()
+  })
+
+  it('não-admin não pode deletar sala criada por outro usuário', async () => {
+    const owner = await adminClient('Dono3')
+    owner.send(WsMessageType.CreateRoom, 'SalaProtegida')
+    const created = await owner.waitFor(WsMessageType.RoomCreated)
+    const roomId = (created.payload as { roomId: string }).roomId
+
+    const intruder = await adminClient('Intruso')
+    intruder.send(WsMessageType.DeleteRoom, roomId)
+    await expect(intruder.waitFor(WsMessageType.RoomDeleted, 300)).rejects.toThrow()
+    expect(adminServer.rooms.get(roomId)).toBeDefined()
+  })
+
+  it('admin pode encerrar a live de outro usuário', async () => {
+    const admin = await adminClient('ChefeAdmin')
+    const b = await adminClient('ReporterAdmin')
+    b.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await b.waitFor(WsMessageType.RoomJoined)
+    b.send(WsMessageType.LiveStart)
+    await b.waitFor(WsMessageType.LiveStarted)
+
+    admin.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await admin.waitFor(WsMessageType.RoomJoined)
+
+    admin.send(WsMessageType.LiveForceStop, { targetUserId: b.id })
+    const stopped = await b.waitFor(WsMessageType.LiveStopped)
+    expect((stopped.payload as { userId: string }).userId).toBe(b.id)
+    expect(adminServer.rooms.getLiveBroadcast(adminServer.rooms.findByName('Ao vivo')!.id)).toBeUndefined()
+  })
+
+  it('não-admin não consegue encerrar a live alheia', async () => {
+    const a = await adminClient('Comum1')
+    const b = await adminClient('Comum2')
+    b.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await b.waitFor(WsMessageType.RoomJoined)
+    b.send(WsMessageType.LiveStart)
+    await b.waitFor(WsMessageType.LiveStarted)
+
+    a.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await a.waitFor(WsMessageType.RoomJoined)
+
+    a.send(WsMessageType.LiveForceStop, { targetUserId: b.id })
+    await expect(a.waitFor(WsMessageType.LiveStopped, 300)).rejects.toThrow()
+    const live = adminServer.rooms.getLiveBroadcast(adminServer.rooms.findByName('Ao vivo')!.id)
+    expect(live?.userId).toBe(b.id)
+  })
+})
+
 describe('Chat', () => {
   async function joinBoth(): Promise<{ a: TestClient; b: TestClient }> {
     const a = await freshClient('ChatA')
@@ -235,6 +359,29 @@ describe('Mensagens privadas', () => {
     const received = await b.waitFor(WsMessageType.PrivateMessage)
     expect((sent.payload as { text: string }).text).toBe('mensagem secreta')
     expect((sent.payload as { fromUserId: string }).fromUserId).toBe(a.id)
+    expect(received.payload).toEqual(sent.payload)
+  })
+
+  it('envia mensagem de áudio para o remetente e o destinatário', async () => {
+    const a = await freshClient('PvtAudA')
+    const b = await freshClient('PvtAudB')
+    a.send(WsMessageType.PrivateAudioMessage, { toUserId: b.id, audioData: 'b3B1cw==', duration: 2 })
+
+    const sent = await a.waitFor(WsMessageType.PrivateAudioMessage)
+    const received = await b.waitFor(WsMessageType.PrivateAudioMessage)
+    expect((sent.payload as { audioData: string }).audioData).toBe('b3B1cw==')
+    expect((sent.payload as { fromUserId: string }).fromUserId).toBe(a.id)
+    expect(received.payload).toEqual(sent.payload)
+  })
+
+  it('envia mensagem de vídeo para o remetente e o destinatário', async () => {
+    const a = await freshClient('PvtVidA')
+    const b = await freshClient('PvtVidB')
+    a.send(WsMessageType.PrivateVideoMessage, { toUserId: b.id, videoData: 'dmlkZW8=', duration: 4 })
+
+    const sent = await a.waitFor(WsMessageType.PrivateVideoMessage)
+    const received = await b.waitFor(WsMessageType.PrivateVideoMessage)
+    expect((sent.payload as { videoData: string }).videoData).toBe('dmlkZW8=')
     expect(received.payload).toEqual(sent.payload)
   })
 })
@@ -341,8 +488,7 @@ describe('Transmissão ao vivo', () => {
     broadcaster.send(WsMessageType.LiveStart)
     await broadcaster.waitFor(WsMessageType.LiveStarted)
 
-    const other = await freshClient('Deletador')
-    other.send(WsMessageType.DeleteRoom, roomId)
+    broadcaster.send(WsMessageType.DeleteRoom, roomId)
 
     const stopped = await broadcaster.waitFor(WsMessageType.LiveStopped)
     expect((stopped.payload as { userId: string }).userId).toBe(broadcaster.id)

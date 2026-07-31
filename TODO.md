@@ -22,12 +22,12 @@ Marque com `[x]` os itens já concluídos.
 ## 🟢 Features de alto valor
 
 - [ ] **9. Persistência em disco (SQLite)** — Tudo some no restart: salas, mensagens, DMs. Adicionar `better-sqlite3` para manter histórico entre reinícios.
-- [ ] **10. Perfis / papéis / admin** — Nome já identifica o usuário. Adicionar flag de admin (ex: nome na lista de admins no config) para controlar deleção de salas e tirar lives.
-- [ ] **11. Opus + WebRTC para voz** — PCM16 não comprimido gasta ~192kbps por falante. Opus corta isso em ~10x e melhora muito com latência.
+- [x] **10. Perfis / papéis / admin** — Nome já identifica o usuário. Adicionar flag de admin (ex: nome na lista de admins no config) para controlar deleção de salas e tirar lives. ✅ Feito: `ADMIN_NAMES` no `.env`, flag `admin` no welcome/userlist, apenas criador/admin deletam sala, admin pode forçar o fim de uma live (`live_force_stop`).
+- [x] **11. Opus + WebRTC para voz** — PCM16 não comprimido gasta ~192kbps por falante. Opus corta isso em ~10x e melhora muito com latência. ✅ Feito (parcial): codec Opus via WebCodecs (`AudioEncoder`/`AudioDecoder`) com fallback automático para PCM quando o navegador não suporta. Frames carregam byte de codec. Pendente: WebRTC/ice para reduzir latência de verdade.
 - [ ] **12. Push-to-talk** — O store (`pushToTalk`/`pushToTalkKey`) já existe mas não está conectado. Fácil de ativar (tecla + indicador visual).
-- [ ] **13. Indicador "quem está falando"** — O binário de voz já carrega o userId; basta destacar o usuário na UserList quando chega áudio dele.
+- [x] **13. Indicador "quem está falando"** — O binário de voz já carrega o userId; basta destacar o usuário na UserList quando chega áudio dele. ✅ Feito: destaque verde pulsante na UserList quando um frame binário chega, com expiração automática após ~400ms sem áudio.
 - [ ] **14. Histórico de chat no cliente (IndexedDB)** — Guardar mensagens localmente para ter histórico offline e badges de não-lidas por sala.
-- [ ] **15. DM com áudio/vídeo** — Hoje o privado é só texto. Reusar `useAudioRecorder`/`useVideoRecorder`.
+- [x] **15. DM com áudio/vídeo** — Hoje o privado é só texto. Reusar `useAudioRecorder`/`useVideoRecorder`. ✅ Feito: gravação de áudio/vídeo (`MediaRecorder`), envio/eco no servidor (`private_audio_message`/`private_video_message`) e player no painel de DM.
 
 ## 🟡 UX
 
@@ -38,6 +38,24 @@ Marque com `[x]` os itens já concluídos.
 
 ---
 
+## 🎨 Sugestões de interface — área de salas (rooms)
+
+Melhorias visuais/interativas para o painel de salas (aplicáveis depois das features acima):
+
+- [ ] **R1. Agrupar salas por tipo** — Separar as 6 salas fixas/emissora (canais) das temporárias criadas por usuários, com headers ("Canais" / "Salas criadas"). Reduz poluição visual quando há muitas temporárias.
+- [ ] **R2. Badge "LIVE" nas salas com transmissão** — Destacar em vermelho + pulsante a sala que está com broadcast ativo, e o nome do broadcaster logo abaixo.
+- [ ] **R3. Mostrar criador da sala** — Nas temporárias, exibir "criada por <nome>" (já vem `createdBy` no payload) com avatar colorido; usar isso também para indicar a quem pedir permissão de delete.
+- [ ] **R4. Confirmação antes de deletar** — Dialog de confirmação (e talvez exigir digitar o nome) antes de excluir, já que deleta a sala para todos.
+- [ ] **R5. Busca/filtro de salas** — Input de busca no topo que filtra por nome; útil com muitas salas.
+- [ ] **R6. Ordenação inteligente** — Ordenar por: fixas primeiro → com live → com mais usuários → mais recentes.
+- [ ] **R7. Copiar nome da sala** — Botão de copiar para colar no grupo/convite (feedback "copiado!").
+- [ ] **R8. Tooltip de ocupantes** — Hover sobre o nome mostra a lista completa de quem está na sala (hoje limita a 5 avatares).
+- [ ] **R9. Skeleton/estado vazio melhorado** — Skeleton enquanto carrega; estado vazio com CTA "crie a primeira sala".
+- [ ] **R10. Mobile-friendly** — Em telas pequenas, transformar a lista de salas em drawer/bottom-sheet; hoje o layout em grid trunca bastante.
+- [ ] **R11. Indicação de atividade** — Ponto verde/amarelo na sala quando há usuários falando (integra com o indicador de voz da F13).
+
+---
+
 ## Histórico de progresso
 
 | Data | Item | Status |
@@ -45,3 +63,4 @@ Marque com `[x]` os itens já concluídos.
 | 30/07/2026 | 1-5: correções críticas (room switch live, delete room live, sockets mortos, mojibake, spam de console) | ✅ Feito |
 | 30/07/2026 | Suite de testes (vitest): 99 testes (52 server + 47 client) | ✅ Feito |
 | 30/07/2026 | 6-8: segurança (logout limpa credenciais, certs fora do git, limites de payload no servidor). Testes: 116 (66 server + 50 client) | ✅ Feito |
+| 30/07/2026 | 10, 11 (parcial), 13, 15: admin (ADMIN_NAMES, delete por criador/admin, force-stop de live), codec Opus via WebCodecs com fallback PCM, indicador de quem fala, DM com áudio/vídeo. Testes: 137 (74 server + 63 client) | ✅ Feito |

@@ -4,12 +4,14 @@ export interface RoomInfo {
   users: number
   fixed?: boolean
   featured?: number
+  createdBy?: string
 }
 
 export interface UserInfo {
   id: string
   name: string
   room: string | null
+  admin?: boolean
 }
 
 export enum WsMessageType {
@@ -47,6 +49,9 @@ export enum WsMessageType {
   LiveRequestCancel = 'live_request_cancel',
   LiveRequestCancelled = 'live_request_cancelled',
   LiveChunkReceived = 'live_chunk_received',
+  LiveForceStop = 'live_force_stop',
+  PrivateAudioMessage = 'private_audio_message',
+  PrivateVideoMessage = 'private_video_message',
 }
 
 export interface WsMessage {
@@ -63,6 +68,7 @@ export interface WelcomePayload {
   id: string
   name: string
   udpPort: number
+  admin?: boolean
 }
 
 export interface ChatMsg {
@@ -84,7 +90,10 @@ export interface PrivateChatMsg {
   fromUserId: string
   fromUserName: string
   toUserId?: string
-  text: string
+  text?: string
+  audioData?: string
+  videoData?: string
+  duration?: number
   timestamp: number
 }
 
@@ -105,6 +114,7 @@ export interface VoiceState {
   muted: boolean
   volume: number
   level: number
+  speaking: Record<string, number>
 }
 
 export enum PacketType {

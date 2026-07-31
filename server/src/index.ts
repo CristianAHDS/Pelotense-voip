@@ -66,7 +66,7 @@ async function main(): Promise<void> {
 
   const wss = new WebSocketServer({ port: config.wsPort, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WS) on port ${config.wsPort}`)
-  new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits)
+  new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames)
 
   const httpsServer = createHttpsServer({ key: ssl.key, cert: ssl.cert }, (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html' })
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
   })
   const wssServer = new WebSocketServer({ server: httpsServer, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WSS) on port ${config.wssPort}`)
-  new WsHandler(wssServer, clientManager, roomManager, config.udpPort, securityLimits)
+  new WsHandler(wssServer, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames)
   httpsServer.listen(config.wssPort)
 
   try {

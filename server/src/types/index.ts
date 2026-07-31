@@ -8,6 +8,7 @@ export interface Client {
   udpPort: number
   ip: string
   lastPing: number
+  admin: boolean
   ws: WsWebSocket
 }
 
@@ -30,6 +31,7 @@ export interface Room {
   messages: ChatMessage[]
   fixed: boolean
   featured?: number
+  createdBy?: string
 }
 
 export enum PacketType {
@@ -83,6 +85,9 @@ export enum WsMessageType {
   LiveRequestCancel = 'live_request_cancel',
   LiveRequestCancelled = 'live_request_cancelled',
   LiveChunkReceived = 'live_chunk_received',
+  LiveForceStop = 'live_force_stop',
+  PrivateAudioMessage = 'private_audio_message',
+  PrivateVideoMessage = 'private_video_message',
 }
 
 export interface WsMessage {

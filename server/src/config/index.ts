@@ -18,6 +18,12 @@ function getLogLevel(key: string, fallback: LogLevel): LogLevel {
   return fallback
 }
 
+function getList(key: string, fallback: string[]): string[] {
+  const val = process.env[key]
+  if (!val) return fallback
+  return val.split(',').map((s) => s.trim()).filter(Boolean)
+}
+
 export const config = {
   serverHost: getEnv('HOST', '0.0.0.0'),
   serverPort: getInt('SERVER_PORT', 3000),
@@ -29,6 +35,7 @@ export const config = {
   maxRooms: getInt('MAX_ROOMS', 20),
   maxWsPayload: getInt('MAX_WS_PAYLOAD', 8 * 1024 * 1024),
   logLevel: getLogLevel('LOG_LEVEL', LogLevel.INFO),
+  adminNames: getList('ADMIN_NAMES', []),
 }
 
 export const securityLimits: SecurityLimits = {

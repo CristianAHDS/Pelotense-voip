@@ -16,6 +16,7 @@ function makeClient(id: string, name: string, manager: ClientManager): Client {
     udpPort: 0,
     ip: '127.0.0.1',
     lastPing: Date.now(),
+    admin: false,
     ws: fakeWs(),
   }
   manager.add(client)
@@ -142,6 +143,7 @@ describe('ClientManager', () => {
       udpPort: 0,
       ip: '127.0.0.1',
       lastPing: Date.now(),
+      admin: false,
       ws: fakeWs(),
     }
     expect(limited.add(extra)).toBe(false)

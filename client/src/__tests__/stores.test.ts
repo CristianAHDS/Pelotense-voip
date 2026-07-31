@@ -79,14 +79,21 @@ describe('connectionStore', () => {
     expect(useConnectionStore.getState().id).toBe('abc123')
     expect(useConnectionStore.getState().name).toBe('Reporter')
     expect(useConnectionStore.getState().reconnecting).toBe(false)
+    expect(useConnectionStore.getState().admin).toBe(false)
   })
 
-  it('setDisconnected limpa id e nome', () => {
-    useConnectionStore.getState().setConnected('abc', 'Nome')
+  it('setConnected registra admin quando informado', () => {
+    useConnectionStore.getState().setConnected('abc', 'Chefe', true)
+    expect(useConnectionStore.getState().admin).toBe(true)
+  })
+
+  it('setDisconnected limpa id, nome e admin', () => {
+    useConnectionStore.getState().setConnected('abc', 'Nome', true)
     useConnectionStore.getState().setDisconnected()
     expect(useConnectionStore.getState().connected).toBe(false)
     expect(useConnectionStore.getState().id).toBeNull()
     expect(useConnectionStore.getState().name).toBeNull()
+    expect(useConnectionStore.getState().admin).toBe(false)
   })
 })
 
@@ -184,7 +191,7 @@ describe('privateChatStore', () => {
 
 describe('voiceStore', () => {
   beforeEach(() => {
-    useVoiceStore.setState({ muted: true, volume: 0.8, level: 0 })
+    useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, speaking: {} })
   })
 
   it('alterna mute, ajusta volume e nível', () => {
@@ -197,6 +204,24 @@ describe('voiceStore', () => {
     expect(useVoiceStore.getState().muted).toBe(true)
     expect(useVoiceStore.getState().volume).toBe(0.5)
     expect(useVoiceStore.getState().level).toBe(0.9)
+  })
+
+  it('marca quem está falando e remove após expirar', async () => {
+    expect(useVoiceStore.getState().speaking).toEqual({})
+    useVoiceStore.getState().markSpeaking('u1')
+    useVoiceStore.getState().markSpeaking('u2')
+    expect(Object.keys(useVoiceStore.getState().speaking).sort()).toEqual(['u1', 'u2'])
+
+    const expired = { u1: Date.now() - 10000, u2: Date.now() }
+    useVoiceStore.setState({ speaking: expired })
+    useVoiceStore.getState().pruneSpeaking()
+    expect(useVoiceStore.getState().speaking).toEqual({ u2: expired.u2 })
+  })
+
+  it('clearSpeaking esvazia o indicador de fala', () => {
+    useVoiceStore.getState().markSpeaking('u1')
+    useVoiceStore.getState().clearSpeaking()
+    expect(useVoiceStore.getState().speaking).toEqual({})
   })
 })
 

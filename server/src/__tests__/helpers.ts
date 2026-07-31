@@ -14,11 +14,11 @@ export interface TestServer {
   close: () => Promise<void>
 }
 
-export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: SecurityLimits): Promise<TestServer> {
+export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: SecurityLimits, adminNames: string[] = []): Promise<TestServer> {
   const wss = new WebSocketServer({ port: 0 })
   const clients = new ClientManager(maxUsers)
   const rooms = new RoomManager(maxRooms)
-  const handler = new WsHandler(wss, clients, rooms, 3002, limits)
+  const handler = new WsHandler(wss, clients, rooms, 3002, limits, adminNames)
   const port = (wss.address() as AddressInfo).port
   const close = (): Promise<void> =>
     new Promise((resolve) => {

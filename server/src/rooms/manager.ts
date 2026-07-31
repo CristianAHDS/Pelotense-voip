@@ -46,7 +46,7 @@ export class RoomManager {
     return 'fixed_' + Math.abs(hash).toString(36)
   }
 
-  create(name: string): Room | null {
+  create(name: string, createdBy?: string): Room | null {
     if (this.rooms.size >= this.maxRooms) {
       logger.warn('RoomManager', 'Max rooms reached')
       return null
@@ -60,6 +60,7 @@ export class RoomManager {
       createdAt: Date.now(),
       messages: [],
       fixed: false,
+      createdBy,
     }
 
     this.rooms.set(id, room)
@@ -134,13 +135,14 @@ export class RoomManager {
     return this.getAll().find((r) => r.name === name) ?? null
   }
 
-  toRoomListPayload(room: Room): { id: string; name: string; users: number; fixed: boolean; featured?: number } {
+  toRoomListPayload(room: Room): { id: string; name: string; users: number; fixed: boolean; featured?: number; createdBy?: string } {
     return {
       id: room.id,
       name: room.name,
       users: room.clients.size,
       fixed: room.fixed,
       featured: room.featured,
+      createdBy: room.createdBy,
     }
   }
 

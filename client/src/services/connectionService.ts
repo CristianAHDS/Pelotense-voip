@@ -33,6 +33,9 @@ function initVoice(): void {
     const userIdBytes = data.slice(0, 8)
     const audioData = data.slice(8)
     const userId = new TextDecoder().decode(userIdBytes).replace(/\0+$/, '')
+    if (userId) {
+      useVoiceStore.getState().markSpeaking(userId)
+    }
     voiceManager?.playAudio(audioData)
   }) ?? null
 }
@@ -86,7 +89,7 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.on(WsMessageType.Welcome, (msg) => {
     reconnecting = false
     const payload = msg.payload as WelcomePayload
-    useConnectionStore.getState().setConnected(payload.id, payload.name)
+    useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     requestRoomList()
   })
 
@@ -186,6 +189,16 @@ export function connectToServer(address: string, name: string, password: string)
     usePrivateChatStore.getState().addMessage(payload)
   })
 
+  wsClient.on(WsMessageType.PrivateAudioMessage, (msg) => {
+    const payload = msg.payload as PrivateChatMsg
+    usePrivateChatStore.getState().addMessage(payload)
+  })
+
+  wsClient.on(WsMessageType.PrivateVideoMessage, (msg) => {
+    const payload = msg.payload as PrivateChatMsg
+    usePrivateChatStore.getState().addMessage(payload)
+  })
+
   wsClient.on(WsMessageType.Error, (msg) => {
     const error = String(msg.payload ?? 'Unknown error')
     useConnectionStore.getState().setDisconnected()
@@ -240,6 +253,21 @@ export function sendPrivateMessage(toUserId: string, text: string): void {
   wsClient.send(WsMessageType.PrivateMessage, { toUserId, text })
 }
 
+export function sendPrivateAudioMessage(toUserId: string, audioData: string, duration: number): void {
+  if (!wsClient) { console.error('sendPrivateAudioMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.PrivateAudioMessage, { toUserId, audioData, duration })
+}
+
+export function sendPrivateVideoMessage(toUserId: string, videoData: string, duration: number): void {
+  if (!wsClient) { console.error('sendPrivateVideoMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.PrivateVideoMessage, { toUserId, videoData, duration })
+}
+
+export function sendLiveForceStop(targetUserId: string): void {
+  if (!wsClient) { console.error('sendLiveForceStop: wsClient is null'); return }
+  wsClient.send(WsMessageType.LiveForceStop, { targetUserId })
+}
+
 export function disconnectFromServer(): void {
   cleanupVoice()
   intentionalDisconnect = true
@@ -253,6 +281,7 @@ export function disconnectFromServer(): void {
   useRoomStore.getState().setUsers([])
   useLiveStore.getState().setBroadcaster(null)
   useLiveStore.getState().clearChunks()
+  useVoiceStore.getState().clearSpeaking()
 }
 
 export function requestRoomList(): void {

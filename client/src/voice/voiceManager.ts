@@ -1,4 +1,4 @@
-import { Microphone, Speaker, Encoder, Decoder } from '../audio/index.ts';
+import { Microphone, Speaker, AudioCodec } from '../audio/index.ts';
 import { useVoiceStore } from '../stores/voiceStore.ts';
 
 const LEVEL_SMOOTHING = 0.3;
@@ -6,8 +6,7 @@ const LEVEL_SMOOTHING = 0.3;
 export class VoiceManager {
   private microphone: Microphone;
   private speaker: Speaker;
-  private encoder: Encoder;
-  private decoder: Decoder;
+  private audioCodec: AudioCodec;
   private active: boolean = false;
   private onSendAudio: ((data: ArrayBuffer) => void) | null = null;
   private smoothLevel: number = 0;
@@ -15,8 +14,7 @@ export class VoiceManager {
   constructor() {
     this.microphone = new Microphone();
     this.speaker = new Speaker();
-    this.encoder = new Encoder();
-    this.decoder = new Decoder();
+    this.audioCodec = AudioCodec.create();
   }
 
   setOnSend(cb: (data: ArrayBuffer) => void): void {
@@ -47,9 +45,9 @@ export class VoiceManager {
       const store = useVoiceStore.getState();
       store.setLevel(this.smoothLevel);
 
-      const encoded = this.encoder.encode(data);
-
-      this.onSendAudio?.(encoded);
+      void this.audioCodec.encode(data).then((frame) => {
+        this.onSendAudio?.(frame);
+      });
     });
 
     this.active = true;
@@ -65,8 +63,9 @@ export class VoiceManager {
   }
 
   playAudio(data: ArrayBuffer): void {
-    const decoded = this.decoder.decode(data);
-    this.speaker.play(decoded);
+    void this.audioCodec.decode(data)
+      .then((pcm) => this.speaker.play(pcm))
+      .catch(() => { /* unsupported codec, skip */ });
   }
 
   setVolume(volume: number): void {
@@ -77,8 +76,13 @@ export class VoiceManager {
     return this.active;
   }
 
+  get codecName(): string {
+    return this.audioCodec.name;
+  }
+
   destroy(): void {
     this.stopMicrophone();
     this.speaker.destroy();
+    this.audioCodec.destroy();
   }
 }

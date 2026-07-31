@@ -12,6 +12,7 @@ export class WsHandler {
   private rooms: RoomManager
   private udpPort: number
   private limits: SecurityLimits
+  private adminNames: string[]
   private pendingClients = new Map<WebSocket, { ip: string }>()
   private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
 
@@ -21,12 +22,14 @@ export class WsHandler {
     rooms: RoomManager,
     udpPort: number,
     limits: SecurityLimits = DEFAULT_SECURITY_LIMITS,
+    adminNames: string[] = [],
   ) {
     this.wss = wss
     this.clients = clients
     this.rooms = rooms
     this.udpPort = udpPort
     this.limits = limits
+    this.adminNames = adminNames
     this.setup()
     this.startDeadConnectionMonitor()
   }
@@ -131,6 +134,7 @@ export class WsHandler {
       udpPort: 0,
       ip: pending.ip,
       lastPing: Date.now(),
+      admin: this.adminNames.includes(name),
       ws,
     }
 
@@ -161,14 +165,12 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort },
+      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin },
     })
 
     this.broadcast({
       type: WsMessageType.UserList,
-      payload: this.clients.getAll().map((c) => ({
-        id: c.id, name: c.name, room: c.room,
-      })),
+      payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
     })
     this.broadcast({
       type: WsMessageType.RoomList,
@@ -194,9 +196,7 @@ export class WsHandler {
     this.clients.remove(client.id)
     this.broadcast({
       type: WsMessageType.UserList,
-      payload: this.clients.getAll().map((c) => ({
-        id: c.id, name: c.name, room: c.room,
-      })),
+      payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
     })
     this.broadcast({
       type: WsMessageType.RoomList,
@@ -242,11 +242,7 @@ export class WsHandler {
       case WsMessageType.ListUsers:
         this.send(client.ws, {
           type: WsMessageType.UserList,
-          payload: this.clients.getAll().map((c) => ({
-            id: c.id,
-            name: c.name,
-            room: c.room,
-          })),
+          payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
         })
         break
 
@@ -268,6 +264,18 @@ export class WsHandler {
 
       case WsMessageType.PrivateMessage:
         this.handlePrivateMessage(client, msg.payload as { toUserId: string; text: string })
+        break
+
+      case WsMessageType.PrivateAudioMessage:
+        this.handlePrivateAudioMessage(client, msg.payload as { toUserId: string; audioData: string; duration: number })
+        break
+
+      case WsMessageType.PrivateVideoMessage:
+        this.handlePrivateVideoMessage(client, msg.payload as { toUserId: string; videoData: string; duration: number })
+        break
+
+      case WsMessageType.LiveForceStop:
+        this.handleLiveForceStop(client, msg.payload as { targetUserId: string })
         break
 
       case WsMessageType.LiveStart:
@@ -427,6 +435,58 @@ export class WsHandler {
     this.send(client.ws, msg)
   }
 
+  private handlePrivateAudioMessage(client: Client, payload: { toUserId: string; audioData: string; duration: number }): void {
+    if (!payload.toUserId || !payload.audioData) return
+    if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
+      logger.warn('WsHandler', `Private audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
+      return
+    }
+
+    const target = this.clients.get(payload.toUserId)
+    if (!target) return
+
+    const msg = {
+      type: WsMessageType.PrivateAudioMessage,
+      payload: {
+        fromUserId: client.id,
+        fromUserName: client.name,
+        toUserId: payload.toUserId,
+        audioData: payload.audioData,
+        duration: payload.duration,
+        timestamp: Date.now(),
+      },
+    }
+
+    this.send(target.ws, msg)
+    this.send(client.ws, msg)
+  }
+
+  private handlePrivateVideoMessage(client: Client, payload: { toUserId: string; videoData: string; duration: number }): void {
+    if (!payload.toUserId || !payload.videoData) return
+    if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
+      logger.warn('WsHandler', `Private video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
+      return
+    }
+
+    const target = this.clients.get(payload.toUserId)
+    if (!target) return
+
+    const msg = {
+      type: WsMessageType.PrivateVideoMessage,
+      payload: {
+        fromUserId: client.id,
+        fromUserName: client.name,
+        toUserId: payload.toUserId,
+        videoData: payload.videoData,
+        duration: payload.duration,
+        timestamp: Date.now(),
+      },
+    }
+
+    this.send(target.ws, msg)
+    this.send(client.ws, msg)
+  }
+
   private stopBroadcastForLeaving(client: Client, roomId: string): void {
     const live = this.rooms.getLiveBroadcast(roomId)
     if (!live || live.userId !== client.id) return
@@ -462,7 +522,7 @@ export class WsHandler {
 
     let room = this.rooms.findByName(roomName)
     if (!room) {
-      room = this.rooms.create(roomName)
+      room = this.rooms.create(roomName, client.id)
       if (!room) {
         this.send(client.ws, {
           type: WsMessageType.Error,
@@ -502,9 +562,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.UserList,
-      payload: this.clients.getAll().map((c) => ({
-        id: c.id, name: c.name, room: c.room,
-      })),
+      payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
     })
   }
 
@@ -524,9 +582,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.UserList,
-      payload: this.clients.getAll().map((c) => ({
-        id: c.id, name: c.name, room: c.room,
-      })),
+      payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
     })
   }
 
@@ -542,7 +598,7 @@ export class WsHandler {
       logger.warn('WsHandler', `Create room name from ${client.id} exceeds ${this.limits.maxRoomNameLength} chars, dropped`)
       return
     }
-    const room = this.rooms.create(roomName)
+    const room = this.rooms.create(roomName, client.id)
     if (!room) {
       this.send(client.ws, {
         type: WsMessageType.Error,
@@ -571,6 +627,11 @@ export class WsHandler {
 
     const room = this.rooms.get(roomId)
     if (!room) return
+
+    if (room.createdBy && room.createdBy !== client.id && !client.admin) {
+      logger.warn('WsHandler', `${client.name} (${client.id}) tried to delete room ${room.name} without permission`)
+      return
+    }
 
     const live = this.rooms.getLiveBroadcast(roomId)
     if (live) {
@@ -605,9 +666,7 @@ export class WsHandler {
     })
     this.broadcast({
       type: WsMessageType.UserList,
-      payload: this.clients.getAll().map((c) => ({
-        id: c.id, name: c.name, room: c.room,
-      })),
+      payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
     })
   }
 
@@ -623,9 +682,7 @@ export class WsHandler {
     this.clients.remove(client.id)
     this.broadcast({
       type: WsMessageType.UserList,
-      payload: this.clients.getAll().map((c) => ({
-        id: c.id, name: c.name, room: c.room,
-      })),
+      payload: this.clients.getAll().map((c) => this.toUserPayload(c)),
     })
     this.broadcast({
       type: WsMessageType.RoomList,
@@ -729,6 +786,34 @@ export class WsHandler {
     }
   }
 
+  private handleLiveForceStop(client: Client, payload: { targetUserId: string }): void {
+    const roomId = client.room
+    if (!roomId || !payload.targetUserId) return
+    if (!client.admin) {
+      logger.warn('WsHandler', `${client.name} (${client.id}) tried to force-stop a live without admin`)
+      return
+    }
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (!live || live.userId !== payload.targetUserId) return
+
+    this.rooms.clearLiveBroadcast(roomId)
+    this.broadcastToRoom(roomId, {
+      type: WsMessageType.LiveStopped,
+      payload: { userId: live.userId },
+    }, '')
+
+    if (live.takeoverRequesterId) {
+      const requester = this.clients.get(live.takeoverRequesterId)
+      if (requester) {
+        this.send(requester.ws, {
+          type: WsMessageType.LiveRequestResponse,
+          payload: { allow: true, fromUserId: live.userId },
+        })
+      }
+    }
+    logger.info('WsHandler', `Admin ${client.name} force-stopped live of ${live.userName}`)
+  }
+
   private handleLiveChunk(client: Client, payload: { chunk: string; duration: number }): void {
     const roomId = client.room
     if (!roomId) return
@@ -804,5 +889,14 @@ export class WsHandler {
 
   private base64Exceeds(data: string, maxBytes: number): boolean {
     return data.length > Math.ceil((maxBytes * 4) / 3) + 4
+  }
+
+  private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean } {
+    return {
+      id: client.id,
+      name: client.name,
+      room: client.room,
+      admin: client.admin,
+    }
   }
 }

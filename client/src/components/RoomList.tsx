@@ -19,6 +19,8 @@ function userColor(userId: string): string {
 
 export function RoomList() {
   const connected = useConnectionStore((s) => s.connected)
+  const myId = useConnectionStore((s) => s.id)
+  const myAdmin = useConnectionStore((s) => s.admin)
   const { rooms, currentRoom, join, leave, create, delete: del } = useRooms()
   const users = useRoomStore((s) => s.users)
   const [newRoomName, setNewRoomName] = useState('')
@@ -68,7 +70,9 @@ export function RoomList() {
                   Join
                 </button>
               )}
-              {!room.fixed && <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">Delete</button>}
+              {!room.fixed && (myAdmin || room.createdBy === myId) && (
+                <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">Delete</button>
+              )}
             </div>
           </div>
         ))}
