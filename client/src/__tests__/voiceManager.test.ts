@@ -27,6 +27,10 @@ class FakeAudioContext {
     }
   }
 
+  createDynamicsCompressor(): any {
+    return { connect: vi.fn(), disconnect: vi.fn() }
+  }
+
   createBuffer(_channels: number, length: number): any {
     return { getChannelData: () => new Float32Array(length) }
   }

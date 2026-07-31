@@ -37,7 +37,7 @@ function initVoice(): void {
     if (userId) {
       useVoiceStore.getState().markSpeaking(userId)
     }
-    voiceManager?.playAudio(audioData)
+    voiceManager?.playAudio(audioData, userId)
   }) ?? null
 }
 

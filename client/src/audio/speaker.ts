@@ -1,23 +1,29 @@
 export class Speaker {
   private context: AudioContext | null = null;
   private gainNode: GainNode | null = null;
+  private compressor: DynamicsCompressorNode | null = null;
   private pendingVolume = 0.8;
 
-  // Próximo instante em que um buffer será reproduzido
-  private nextPlayTime = 0;
+  // Relógio de reprodução por falante: cada usuário tem a própria fila
+  // contínua. Quando dois falantes reproduzem ao mesmo tempo, o Web Audio
+  // SOMA os sinais no nó de ganho (mix real). Antes, todos compartilhavam um
+  // único relógio e os quadros intercalados se revezavam em fatias de ~3ms,
+  // gerando o chiado com mais de um falante na sala.
+  private nextPlayTimeByUser = new Map<string, number>();
 
   // Fontes agendadas, para poder pará-las num flush
   private activeSources = new Set<AudioBufferSourceNode>();
 
-  // Teto de quanto áudio pode ficar agendado à frente; acima disso o buffer
-  // é descartado para manter a reprodução quase em tempo real (jitter buffer).
+  // Teto de quanto áudio pode ficar agendado à frente por falante; acima disso
+  // o excesso é descartado para manter a reprodução quase em tempo real
+  // (jitter buffer). O corte afeta apenas o falante atrasado, não os demais.
   private static readonly MAX_LOOKAHEAD_SECONDS = 0.15;
 
   private ensureContext(): AudioContext | null {
     if (!this.context) {
       try {
         this.context = new AudioContext({ sampleRate: 48000 });
-        this.nextPlayTime = this.context.currentTime;
+        this.nextPlayTimeByUser.clear();
 
         if (this.context.state === 'suspended') {
           void this.context.resume();
@@ -32,7 +38,12 @@ export class Speaker {
       try {
         this.gainNode = this.context.createGain();
         this.gainNode.gain.value = this.pendingVolume;
-        this.gainNode.connect(this.context.destination);
+
+        // Compressor no caminho master: quando vários falantes são somados no
+        // mesmo instante, evita que o pico estoure (clipping/distorção).
+        this.compressor = this.context.createDynamicsCompressor();
+        this.compressor.connect(this.context.destination);
+        this.gainNode.connect(this.compressor);
       } catch {
         return null;
       }
@@ -52,7 +63,7 @@ export class Speaker {
     }
   }
 
-  play(audioData: Float32Array): void {
+  play(userId: string, audioData: Float32Array): void {
     const ctx = this.ensureContext();
     if (!ctx || !this.gainNode) return;
 
@@ -65,16 +76,20 @@ export class Speaker {
     const now = ctx.currentTime;
     const duration = audioData.length / 48000;
 
-    // Se o áudio atrasou (perda de pacotes/jitter), reinicia a fila para
-    // não acumular latência.
-    if (this.nextPlayTime < now) {
-      this.nextPlayTime = now;
+    // Cada falante tem o próprio relógio: o próximo quadro de um usuário toca
+    // logo após o anterior dele (fluxo contínuo), independente dos demais.
+    let nextPlayTime = this.nextPlayTimeByUser.get(userId) ?? now;
+
+    // Se o áudio desse usuário atrasou (perda de pacotes/jitter), reinicia a
+    // fila dele para não acumular latência.
+    if (nextPlayTime < now) {
+      nextPlayTime = now;
     }
 
-    // Se já há muito áudio agendado à frente, descarta o excesso (mantém no
-    // máximo ~150ms de buffer) para a reprodução ficar em tempo real.
-    if (this.nextPlayTime - now > Speaker.MAX_LOOKAHEAD_SECONDS) {
-      this.nextPlayTime = now;
+    // Excesso de áudio agendado à frente: descarta e ressincroniza (mantém no
+    // máximo ~150ms de buffer), mas apenas para este falante.
+    if (nextPlayTime - now > Speaker.MAX_LOOKAHEAD_SECONDS) {
+      nextPlayTime = now;
     }
 
     const buffer = ctx.createBuffer(1, audioData.length, 48000);
@@ -88,11 +103,13 @@ export class Speaker {
       this.activeSources.delete(source);
     };
 
-    // Agenda a reprodução exatamente após o buffer anterior
-    source.start(this.nextPlayTime);
+    // Agenda a reprodução exatamente após o buffer anterior deste usuário.
+    // Fontes de usuários diferentes tocam sobrepostas e são somadas pelo
+    // nó de ganho (mix) em vez de se revezarem.
+    source.start(nextPlayTime);
 
-    // Atualiza o próximo horário
-    this.nextPlayTime += duration;
+    // Atualiza o próximo horário deste usuário
+    this.nextPlayTimeByUser.set(userId, nextPlayTime + duration);
   }
 
   // Para imediatamente todo o áudio agendado/em reprodução (ao sair da sala,
@@ -107,7 +124,7 @@ export class Speaker {
       }
     }
     this.activeSources.clear();
-    this.nextPlayTime = 0;
+    this.nextPlayTimeByUser.clear();
 
     if (this.gainNode) {
       try {
@@ -116,6 +133,14 @@ export class Speaker {
         /* ignore */
       }
       this.gainNode = null;
+    }
+    if (this.compressor) {
+      try {
+        this.compressor.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this.compressor = null;
     }
   }
 
@@ -131,7 +156,6 @@ export class Speaker {
     if (this.context) {
       void this.context.close().catch(() => {});
       this.context = null;
-      this.nextPlayTime = 0;
     }
   }
 }

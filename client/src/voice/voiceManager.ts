@@ -116,7 +116,7 @@ export class VoiceManager {
     useVoiceStore.getState().setRxLevel(0);
   }
 
-  playAudio(data: ArrayBuffer): void {
+  playAudio(data: ArrayBuffer, userId: string = ''): void {
     void this.audioCodec
       .decode(data)
       .then((pcm) => {
@@ -132,7 +132,7 @@ export class VoiceManager {
         useVoiceStore.getState().setRxLevel(this.smoothRxLevel);
 
         void this.speaker.resume();
-        this.speaker.play(pcm);
+        this.speaker.play(userId, pcm);
       })
       .catch(() => { /* codec indisponível para este frame; pula */ });
   }
