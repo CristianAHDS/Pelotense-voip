@@ -10,15 +10,14 @@ export function PrivateChatPanel() {
   const messages = usePrivateChatStore((s) => activeUserId ? (s.messages[activeUserId] ?? []) : [])
   const closeChat = usePrivateChatStore((s) => s.closeChat)
   const myId = useConnectionStore((s) => s.id)
-
-  if (!connected) return null
-
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  if (!connected) return null
 
   function handleSend() {
     if (!text.trim() || !activeUserId) return
