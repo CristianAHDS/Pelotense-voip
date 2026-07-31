@@ -74,7 +74,7 @@ export function VoiceControls({ compact }: Props) {
         <h2>Voice</h2>
         <div className="voice-controls-row">
           <button disabled className="btn btn-mic muted">
-            Mic indispon?vel
+            Mic indisponível
           </button>
         </div>
         <div className="wss-hint" style={{ marginTop: 8 }}>

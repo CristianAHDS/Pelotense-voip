@@ -315,6 +315,40 @@ describe('Transmissão ao vivo', () => {
     expect((stopped.payload as { userId: string }).userId).toBe(broadcaster.id)
     expect(server.rooms.getLiveBroadcast(server.rooms.findByName('Ao vivo')!.id)).toBeUndefined()
   })
+
+  it('trocar de sala encerra a transmissão e avisa quem ficou na sala antiga', async () => {
+    const broadcaster = await startLive()
+    const viewer = await freshClient('ViewerSwap')
+    viewer.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await viewer.waitFor(WsMessageType.RoomJoined)
+
+    broadcaster.send(WsMessageType.JoinRoom, 'Externas')
+    await broadcaster.waitFor(WsMessageType.RoomJoined)
+
+    const stopped = await viewer.waitFor(WsMessageType.LiveStopped)
+    expect((stopped.payload as { userId: string }).userId).toBe(broadcaster.id)
+    expect(server.rooms.getLiveBroadcast(server.rooms.findByName('Ao vivo')!.id)).toBeUndefined()
+  })
+
+  it('deletar a sala da transmissão encerra a live do broadcaster', async () => {
+    const broadcaster = await freshClient('DonoTemp')
+    broadcaster.send(WsMessageType.CreateRoom, 'TransmissaoTemp')
+    const created = await broadcaster.waitFor(WsMessageType.RoomCreated)
+    const roomId = (created.payload as { roomId: string }).roomId
+
+    broadcaster.send(WsMessageType.JoinRoom, 'TransmissaoTemp')
+    await broadcaster.waitFor(WsMessageType.RoomJoined)
+    broadcaster.send(WsMessageType.LiveStart)
+    await broadcaster.waitFor(WsMessageType.LiveStarted)
+
+    const other = await freshClient('Deletador')
+    other.send(WsMessageType.DeleteRoom, roomId)
+
+    const stopped = await broadcaster.waitFor(WsMessageType.LiveStopped)
+    expect((stopped.payload as { userId: string }).userId).toBe(broadcaster.id)
+    expect(server.rooms.getLiveBroadcast(roomId)).toBeUndefined()
+    expect(server.rooms.get(roomId)).toBeUndefined()
+  })
 })
 
 describe('Takeover', () => {
@@ -416,6 +450,26 @@ describe('Takeover', () => {
     broadcaster.send(WsMessageType.LeaveRoom)
     const resp = await requester.waitFor(WsMessageType.LiveRequestResponse)
     expect((resp.payload as { allow: boolean }).allow).toBe(true)
+  })
+})
+
+describe('Conexões mortas', () => {
+  it('expira clientes sem heartbeat dentro do timeout', async () => {
+    const c = await freshClient('Adormecido')
+    const stored = server.clients.get(c.id)!
+    stored.lastPing = Date.now() - 60000
+
+    server.handler.checkDeadConnections(30000)
+    await c.waitForClose()
+
+    expect(server.clients.get(c.id)).toBeUndefined()
+  })
+
+  it('mantém clientes com heartbeat recente', async () => {
+    const c = await freshClient('Ativo')
+    server.handler.checkDeadConnections(30000)
+    expect(server.clients.get(c.id)).toBeDefined()
+    await expect(c.waitForClose(700)).rejects.toThrow()
   })
 })
 

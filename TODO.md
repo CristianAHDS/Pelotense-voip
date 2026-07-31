@@ -7,11 +7,11 @@ Marque com `[x]` os itens já concluídos.
 
 ## 🔴 Correções críticas (bugs atuais)
 
-- [ ] **1. Room switch quebra o live** — Quando um broadcaster troca de sala, `RoomManager.join()` sai da sala antiga internamente sem limpar `liveBroadcasts`. Quem está na sala velha vê "LIVE" congelado. Fix: limpar broadcast no switch e notificar.
-- [ ] **2. Deletar sala não para o live** — `handleDeleteRoom` não envia `LiveStopped` nem limpa `liveBroadcasts`; o broadcaster fica "LIVE" sem ninguém recebendo.
-- [ ] **3. Sockets mortos acumulam** — `lastPing` nunca é checado; conexões meio-abertas ficam até lotar `maxUsers`. Fix: rodar o ping do `ws` e expirar clientes sem heartbeat.
-- [ ] **4. Mojibake no VoiceControls** — `"Mic indispon?vel"` (í quebrado). Bug de encoding.
-- [ ] **5. Spam de console por frame de áudio** — `[SEND]`, `[RECV]`, `[PLAY]` a cada buffer (48x/seg). Diminui performance no mobile.
+- [x] **1. Room switch quebra o live** — Quando um broadcaster troca de sala, `RoomManager.join()` sai da sala antiga internamente sem limpar `liveBroadcasts`. Quem está na sala velha vê "LIVE" congelado. Fix: limpar broadcast no switch e notificar.
+- [x] **2. Deletar sala não para o live** — `handleDeleteRoom` não envia `LiveStopped` nem limpa `liveBroadcasts`; o broadcaster fica "LIVE" sem ninguém recebendo.
+- [x] **3. Sockets mortos acumulam** — `lastPing` nunca é checado; conexões meio-abertas ficam até lotar `maxUsers`. Fix: rodar o ping do `ws` e expirar clientes sem heartbeat.
+- [x] **4. Mojibake no VoiceControls** — `"Mic indispon?vel"` (í quebrado). Bug de encoding.
+- [x] **5. Spam de console por frame de áudio** — `[SEND]`, `[RECV]`, `[PLAY]` a cada buffer (48x/seg). Diminui performance no mobile.
 
 ## 🟠 Segurança
 
@@ -42,4 +42,5 @@ Marque com `[x]` os itens já concluídos.
 
 | Data | Item | Status |
 |------|------|--------|
-|      |      |        |
+| 30/07/2026 | 1-5: correções críticas (room switch live, delete room live, sockets mortos, mojibake, spam de console) | ✅ Feito |
+| 30/07/2026 | Suite de testes (vitest): 99 testes (52 server + 47 client) | ✅ Feito |

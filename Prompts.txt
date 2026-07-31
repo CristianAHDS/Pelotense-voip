@@ -33,4 +33,5 @@ ao conectar via bomile, o menu lateral continua ativo, ele deve fechar logo apos
 
 Nesse canal, somente um usuario podera inicar a cemra e todos os outros que estiverem na sala, verão o preview da camera desse usuario, caso ja esteja em uso a camera, deve aparecer para o suario com a camera ativa, um alerta perguntando se ele deseja a outra pessoa inicar a live, clicando em permitir, a live dessa pessoa acaba e einca a live da proxima pessoa, caso seja negado, a live da pessao continua normalmente sem alterações
 
-Realize as correções criticas, rode os testes para garantir que nenhuam funcionaldiade quebrou, e adicione novos testes as novas funcionalidades em caso de nada ter quebrado, após isso, marque os itens feitos no todo
+Realize as correções criticas, rode os testes para garantir que nenhuam funcionaldiade quebrou, e adicione novos testes as novas funcionalidades em caso de nada ter quebrado, após isso, marque os itens feitos no todo e adicione esse prompt ao arquivo prompts.txt e faça o commit + o push
+

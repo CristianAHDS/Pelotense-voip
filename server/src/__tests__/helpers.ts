@@ -9,6 +9,7 @@ export interface TestServer {
   wss: WebSocketServer
   clients: ClientManager
   rooms: RoomManager
+  handler: WsHandler
   port: number
   close: () => Promise<void>
 }
@@ -17,7 +18,7 @@ export async function startTestServer(maxUsers = 100, maxRooms = 20): Promise<Te
   const wss = new WebSocketServer({ port: 0 })
   const clients = new ClientManager(maxUsers)
   const rooms = new RoomManager(maxRooms)
-  new WsHandler(wss, clients, rooms, 3002)
+  const handler = new WsHandler(wss, clients, rooms, 3002)
   const port = (wss.address() as AddressInfo).port
   const close = (): Promise<void> =>
     new Promise((resolve) => {
@@ -28,7 +29,7 @@ export async function startTestServer(maxUsers = 100, maxRooms = 20): Promise<Te
       }
       wss.close(() => resolve())
     })
-  return { wss, clients, rooms, port, close }
+  return { wss, clients, rooms, handler, port, close }
 }
 
 export class TestClient {

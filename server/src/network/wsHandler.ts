@@ -12,6 +12,7 @@ export class WsHandler {
   private rooms: RoomManager
   private udpPort: number
   private pendingClients = new Map<WebSocket, { ip: string }>()
+  private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(
     wss: WebSocketServer,
@@ -24,6 +25,7 @@ export class WsHandler {
     this.rooms = rooms
     this.udpPort = udpPort
     this.setup()
+    this.startDeadConnectionMonitor()
   }
 
   private setup(): void {
@@ -64,6 +66,26 @@ export class WsHandler {
       ws.on('close', () => cleanup())
       ws.on('error', () => cleanup())
     })
+  }
+
+  private startDeadConnectionMonitor(): void {
+    this.deadConnectionTimer = setInterval(() => {
+      this.checkDeadConnections(30000)
+    }, 15000)
+    this.deadConnectionTimer.unref?.()
+  }
+
+  checkDeadConnections(timeoutMs: number): void {
+    const now = Date.now()
+    for (const client of this.clients.getAll()) {
+      if (now - client.lastPing > timeoutMs) {
+        logger.warn('WsHandler', `Terminating dead connection ${client.id} (${client.name})`)
+        this.handleDisconnect(client)
+        try {
+          client.ws.terminate()
+        } catch { /* ignore */ }
+      }
+    }
   }
 
   private handleLogin(ws: WebSocket, payload: { name: string; password: string }): void {
@@ -372,6 +394,26 @@ export class WsHandler {
     this.send(client.ws, msg)
   }
 
+  private stopBroadcastForLeaving(client: Client, roomId: string): void {
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (!live || live.userId !== client.id) return
+
+    this.rooms.clearLiveBroadcast(roomId)
+    this.broadcastToRoom(roomId, {
+      type: WsMessageType.LiveStopped,
+      payload: { userId: client.id },
+    }, '')
+    if (live.takeoverRequesterId) {
+      const requester = this.clients.get(live.takeoverRequesterId)
+      if (requester) {
+        this.send(requester.ws, {
+          type: WsMessageType.LiveRequestResponse,
+          payload: { allow: true, fromUserId: client.id },
+        })
+      }
+    }
+  }
+
   private handleJoinRoom(client: Client, roomName: string): void {
     if (!roomName) {
       this.send(client.ws, {
@@ -391,6 +433,10 @@ export class WsHandler {
         })
         return
       }
+    }
+
+    if (client.room) {
+      this.stopBroadcastForLeaving(client, client.room)
     }
 
     this.rooms.join(room.id, client)
@@ -428,24 +474,8 @@ export class WsHandler {
   private handleLeaveRoom(client: Client): void {
     if (!client.room) return
     const roomId = client.room
-    const live = this.rooms.getLiveBroadcast(roomId)
-    if (live && live.userId === client.id) {
-      this.rooms.clearLiveBroadcast(roomId)
-      this.broadcastToRoom(roomId, {
-        type: WsMessageType.LiveStopped,
-        payload: { userId: client.id },
-      }, '')
-      if (live.takeoverRequesterId) {
-        const requester = this.clients.get(live.takeoverRequesterId)
-        if (requester) {
-          this.send(requester.ws, {
-            type: WsMessageType.LiveRequestResponse,
-            payload: { allow: true, fromUserId: client.id },
-          })
-        }
-      }
-    }
-    const userName = client.name
+    this.stopBroadcastForLeaving(client, roomId)
+
     this.send(client.ws, {
       type: WsMessageType.RoomLeft,
       payload: { roomId },
@@ -501,9 +531,20 @@ export class WsHandler {
     const room = this.rooms.get(roomId)
     if (!room) return
 
+    const live = this.rooms.getLiveBroadcast(roomId)
+    if (live) {
+      this.rooms.clearLiveBroadcast(roomId)
+    }
+
     // Notify all occupants they've been removed
     room.clients.forEach((c) => {
       if (c.ws.readyState === WebSocket.OPEN) {
+        if (live && c.id === live.userId) {
+          c.ws.send(JSON.stringify({
+            type: WsMessageType.LiveStopped,
+            payload: { userId: c.id },
+          }))
+        }
         c.ws.send(JSON.stringify({
           type: WsMessageType.RoomLeft,
           payload: { roomId },
@@ -530,27 +571,12 @@ export class WsHandler {
   }
 
   private handleDisconnect(client: Client): void {
+    if (!this.clients.has(client.id)) return
     const roomId = client.room
     const userName = client.name
 
     if (roomId) {
-      const live = this.rooms.getLiveBroadcast(roomId)
-      if (live && live.userId === client.id) {
-        this.rooms.clearLiveBroadcast(roomId)
-        this.broadcastToRoom(roomId, {
-          type: WsMessageType.LiveStopped,
-          payload: { userId: client.id },
-        }, '')
-        if (live.takeoverRequesterId) {
-          const requester = this.clients.get(live.takeoverRequesterId)
-          if (requester) {
-            this.send(requester.ws, {
-              type: WsMessageType.LiveRequestResponse,
-              payload: { allow: true, fromUserId: client.id },
-            })
-          }
-        }
-      }
+      this.stopBroadcastForLeaving(client, roomId)
       this.rooms.leave(roomId, client)
     }
     this.clients.remove(client.id)

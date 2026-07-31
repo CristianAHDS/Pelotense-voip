@@ -77,6 +77,7 @@ export class RoomManager {
       client.room = null
     })
 
+    this.liveBroadcasts.delete(roomId)
     this.rooms.delete(roomId)
     logger.info('RoomManager', `Room deleted: ${room.name}`, { id: roomId })
     eventBus.emit(EventType.RoomDeleted, { roomId, roomName: room.name })

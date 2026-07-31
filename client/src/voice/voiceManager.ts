@@ -25,17 +25,13 @@ export class VoiceManager {
 
   async startMicrophone(): Promise<boolean> {
     if (this.active) {
-      console.log('[VM] already active');
       return true;
     }
-    console.log('[VM] startMicrophone');
     const ok = await this.microphone.start();
-    console.log('[VM] mic.start() returned', ok);
     if (!ok) return false;
 
     this.microphone.setOnData((data: Float32Array) => {
       if (useVoiceStore.getState().muted) {
-        console.log('[VM] muted, skipping');
         return;
       }
 
@@ -53,13 +49,6 @@ export class VoiceManager {
 
       const encoded = this.encoder.encode(data);
 
-      console.log(
-        '[SEND]',
-        'samples:',
-        data.length,
-        'bytes:',
-        encoded.byteLength,
-      );
       this.onSendAudio?.(encoded);
     });
 
@@ -76,12 +65,7 @@ export class VoiceManager {
   }
 
   playAudio(data: ArrayBuffer): void {
-    console.log('[RECV]', data.byteLength);
-
     const decoded = this.decoder.decode(data);
-
-    console.log('[PLAY]', decoded.length);
-
     this.speaker.play(decoded);
   }
 
