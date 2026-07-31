@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
 
-const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados']
+const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados']
 
 export class RoomManager {
   private rooms = new Map<string, Room>()
@@ -18,6 +18,7 @@ export class RoomManager {
     const featured: Record<string, number> = {
       'Retorno ao vivo': 1,
       'Boletins gravados': 2,
+      'Ao vivo': 3,
     }
     for (const name of DEFAULT_ROOM_NAMES) {
       const id = this.fixedId(name)

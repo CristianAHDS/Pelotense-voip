@@ -401,6 +401,27 @@ body {
   color: #5b8def;
 }
 
+.room-item--featured-3 {
+  background: linear-gradient(135deg, #2a1515, #221010) !important;
+  border: 1px solid #ef4444 !important;
+}
+
+.room-item--featured-3:hover {
+  background: linear-gradient(135deg, #3a1a1a, #2a1515) !important;
+}
+
+.room-item--featured-3 .room-name {
+  color: #f87171 !important;
+  font-weight: 700;
+}
+
+.room-item--featured-3 .room-name::before {
+  content: '\25CF';
+  margin-right: 6px;
+  font-size: 14px;
+  color: #ef4444;
+}
+
 .room-actions {
   display: flex;
   gap: 6px;
