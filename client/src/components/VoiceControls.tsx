@@ -3,6 +3,7 @@ import { useVoice } from '../hooks/useVoice.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
+import { useSettingsStore } from '../stores/settingsStore.ts'
 import { getVoiceManager } from '../services/connectionService.ts'
 import type { MicrophoneInfo } from '../audio/index.ts'
 
@@ -33,6 +34,10 @@ export function VoiceControls({ compact }: Props) {
   const connected = useConnectionStore((s) => s.connected)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const micDisabled = currentRoomName === 'Boletins gravados'
+  const pushToTalk = useSettingsStore((s) => s.pushToTalk)
+  const pushToTalkKey = useSettingsStore((s) => s.pushToTalkKey)
+  const setPushToTalk = useSettingsStore((s) => s.setPushToTalk)
+  const setPushToTalkKey = useSettingsStore((s) => s.setPushToTalkKey)
   const [micDevices, setMicDevices] = useState<MicrophoneInfo[]>([])
   const [micDevice, setMicDevice] = useState(loadSavedMic)
 
@@ -67,6 +72,15 @@ export function VoiceControls({ compact }: Props) {
     saveMicDevice(deviceId)
     const vm = getVoiceManager()
     void vm?.setMicrophone(deviceId)
+  }
+
+  function handleTogglePtt(): void {
+    const next = !pushToTalk
+    setPushToTalk(next)
+    if (next) {
+      const vm = getVoiceManager()
+      void vm?.startMicrophone()
+    }
   }
 
   const pct = Math.round((Number.isFinite(level) ? level : 0) * 100)
@@ -168,6 +182,15 @@ export function VoiceControls({ compact }: Props) {
             ))}
           </select>
         )}
+        <button
+          onClick={handleTogglePtt}
+          disabled={!connected || micDisabled}
+          className={`voice-bar-ptt ${pushToTalk ? 'ptt-on' : ''}`}
+          title={pushToTalk ? 'Push-to-talk ativado' : 'Ativar push-to-talk'}
+          aria-pressed={pushToTalk}
+        >
+          PTT
+        </button>
         <div className="voice-bar-vu">
           <div className="voice-bar-vu-track">
             {Array.from({ length: bars }, (_, i) => (
@@ -239,6 +262,33 @@ export function VoiceControls({ compact }: Props) {
           </select>
         </div>
       )}
+      <div className="ptt-toggle">
+        <label className="ptt-toggle-row">
+          <input
+            type="checkbox"
+            checked={pushToTalk}
+            onChange={handleTogglePtt}
+            disabled={!connected || micDisabled}
+          />
+          <span>Push-to-talk (segure para falar)</span>
+        </label>
+        {pushToTalk && (
+          <label className="ptt-key-row">
+            <span className="mic-select-label">Tecla</span>
+            <select
+              className="mic-select"
+              value={pushToTalkKey}
+              onChange={(e) => setPushToTalkKey(e.target.value)}
+            >
+              <option value="Space">Espaço</option>
+              <option value="v">V</option>
+              <option value="c">C</option>
+              <option value="t">T</option>
+              <option value="Control">Ctrl</option>
+            </select>
+          </label>
+        )}
+      </div>
       <div className="volume-control">
         <label>Volume: {Math.round(volume * 100)}%</label>
         <input

@@ -3,6 +3,7 @@ import { ConnectionPanel } from '../components/ConnectionPanel.tsx';
 import { RoomList } from '../components/RoomList.tsx';
 import { UserList } from '../components/UserList.tsx';
 import { VoiceControls } from '../components/VoiceControls.tsx';
+import { PushToTalkButton } from '../components/PushToTalkButton.tsx';
 import { ChatPanel } from '../components/ChatPanel.tsx';
 import { PrivateChatPanel } from '../components/PrivateChatPanel.tsx';
 import { useConnectionStore } from '../stores/connectionStore.ts';
@@ -79,6 +80,7 @@ export function MainPage() {
       <div className="voice-mobile-bar">
         <VoiceControls compact />
       </div>
+      <PushToTalkButton />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Microphone, Speaker, AudioCodec } from '../audio/index.ts';
 import type { MicrophoneInfo } from '../audio/index.ts';
 import { useVoiceStore } from '../stores/voiceStore.ts';
+import { useSettingsStore } from '../stores/settingsStore.ts';
 
 const LEVEL_SMOOTHING = 0.3;
 
@@ -51,7 +52,12 @@ export class VoiceManager {
     void this.speaker.resume();
 
     this.microphone.setOnData((data: Float32Array) => {
-      if (useVoiceStore.getState().muted) {
+      const { muted, transmitting } = useVoiceStore.getState()
+      const pushToTalk = useSettingsStore.getState().pushToTalk
+
+      // Em modo PTT o envio é controlado pelo "transmitting" (tecla/botão
+      // pressionado); fora dele, pelo mudo. O nível (VU) continua sendo medido.
+      if (pushToTalk ? !transmitting : muted) {
         return;
       }
 

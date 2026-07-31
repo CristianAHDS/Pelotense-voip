@@ -231,6 +231,14 @@ describe('voiceStore', () => {
     useVoiceStore.getState().clearSpeaking()
     expect(useVoiceStore.getState().speaking).toEqual({})
   })
+
+  it('controla o estado de transmissão (transmitting) do push-to-talk', () => {
+    expect(useVoiceStore.getState().transmitting).toBe(false)
+    useVoiceStore.getState().setTransmitting(true)
+    expect(useVoiceStore.getState().transmitting).toBe(true)
+    useVoiceStore.getState().setTransmitting(false)
+    expect(useVoiceStore.getState().transmitting).toBe(false)
+  })
 })
 
 describe('settingsStore', () => {

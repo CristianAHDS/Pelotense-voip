@@ -7,16 +7,25 @@ vi.hoisted(() => {
   })
 })
 
-import { render, cleanup } from '@testing-library/react'
+vi.mock('../services/connectionService.ts', () => ({
+  getVoiceManager: () => ({
+    listMicrophones: vi.fn().mockResolvedValue([]),
+    startMicrophone: vi.fn().mockResolvedValue(true),
+  }),
+}))
+
+import { render, cleanup, fireEvent } from '@testing-library/react'
 import { VoiceControls } from '../components/VoiceControls.tsx'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
+import { useSettingsStore } from '../stores/settingsStore.ts'
 
 function resetStores(): void {
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu', admin: false, reconnecting: false })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: 'r1', currentRoomName: 'Sala', messages: [] })
-  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {} })
+  useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {}, transmitting: false })
+  useSettingsStore.setState({ pushToTalk: false, pushToTalkKey: 'Space', serverHost: 'x', serverWsPort: 3001 })
 }
 
 beforeEach(() => {
@@ -50,5 +59,27 @@ describe('VoiceControls (medidor RX)', () => {
     const value = container.querySelector('.vu-meter-value')
     expect(value?.textContent).toBe('0%')
     expect(container.querySelectorAll('.vu-meter .vu-bar--active').length).toBe(0)
+  })
+})
+
+describe('VoiceControls (push-to-talk)', () => {
+  it('alterna o PTT pelo checkbox do painel', () => {
+    const { getByRole } = render(<VoiceControls />)
+    const checkbox = getByRole('checkbox') as HTMLInputElement
+    expect(checkbox.checked).toBe(false)
+
+    fireEvent.click(checkbox)
+    expect(useSettingsStore.getState().pushToTalk).toBe(true)
+    expect(getByRole('combobox')).not.toBeNull()
+  })
+
+  it('mostra o seletor de tecla do PTT quando ativado', () => {
+    useSettingsStore.getState().setPushToTalk(true)
+    const { getByRole } = render(<VoiceControls />)
+    const select = getByRole('combobox') as HTMLSelectElement
+    expect(select.value).toBe('Space')
+
+    fireEvent.change(select, { target: { value: 'v' } })
+    expect(useSettingsStore.getState().pushToTalkKey).toBe('v')
   })
 })

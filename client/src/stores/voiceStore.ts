@@ -12,6 +12,8 @@ interface VoiceStore extends VoiceState {
   markSpeaking: (userId: string) => void
   pruneSpeaking: () => void
   clearSpeaking: () => void
+  transmitting: boolean
+  setTransmitting: (transmitting: boolean) => void
 }
 
 export const useVoiceStore = create<VoiceStore>((set) => ({
@@ -20,6 +22,7 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
   level: 0,
   rxLevel: 0,
   speaking: {},
+  transmitting: false,
   setMuted: (muted) => set({ muted }),
   setVolume: (volume) => set({ volume }),
   setLevel: (level) => set({ level }),
@@ -41,6 +44,7 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
       return changed ? { speaking } : s
     }),
   clearSpeaking: () => set({ speaking: {} }),
+  setTransmitting: (transmitting) => set({ transmitting }),
 }))
 
 export { SPEAKING_TIMEOUT_MS }
