@@ -861,12 +861,12 @@ body {
 }
 
 .ptt-overlay {
+  display: none;
   position: fixed;
   left: 50%;
   bottom: 76px;
   transform: translateX(-50%);
   z-index: 45;
-  display: flex;
   justify-content: center;
   pointer-events: none;
 }
@@ -2049,6 +2049,10 @@ body {
     left: 0;
     right: 0;
     z-index: 40;
+  }
+
+  .ptt-overlay {
+    display: flex;
   }
 
   .voice-mobile-bar .voice-bar {

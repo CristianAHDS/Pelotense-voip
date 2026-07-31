@@ -63,23 +63,19 @@ describe('VoiceControls (medidor RX)', () => {
 })
 
 describe('VoiceControls (push-to-talk)', () => {
-  it('alterna o PTT pelo checkbox do painel', () => {
-    const { getByRole } = render(<VoiceControls />)
-    const checkbox = getByRole('checkbox') as HTMLInputElement
-    expect(checkbox.checked).toBe(false)
-
-    fireEvent.click(checkbox)
-    expect(useSettingsStore.getState().pushToTalk).toBe(true)
-    expect(getByRole('combobox')).not.toBeNull()
+  it('não mostra controles de PTT no painel (desktop)', () => {
+    const { container } = render(<VoiceControls />)
+    expect(container.querySelector('.ptt-toggle')).toBeNull()
+    expect(container.querySelector('.ptt-key-row')).toBeNull()
   })
 
-  it('mostra o seletor de tecla do PTT quando ativado', () => {
+  it('mostra o botão PTT na barra compacta (mobile) e alterna', () => {
     useSettingsStore.getState().setPushToTalk(true)
-    const { getByRole } = render(<VoiceControls />)
-    const select = getByRole('combobox') as HTMLSelectElement
-    expect(select.value).toBe('Space')
+    const { getByRole } = render(<VoiceControls compact />)
+    const ptt = getByRole('button', { name: 'PTT' })
+    expect(ptt.getAttribute('aria-pressed')).toBe('true')
 
-    fireEvent.change(select, { target: { value: 'v' } })
-    expect(useSettingsStore.getState().pushToTalkKey).toBe('v')
+    fireEvent.click(ptt)
+    expect(useSettingsStore.getState().pushToTalk).toBe(false)
   })
 })

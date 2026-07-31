@@ -35,9 +35,7 @@ export function VoiceControls({ compact }: Props) {
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const micDisabled = currentRoomName === 'Boletins gravados'
   const pushToTalk = useSettingsStore((s) => s.pushToTalk)
-  const pushToTalkKey = useSettingsStore((s) => s.pushToTalkKey)
   const setPushToTalk = useSettingsStore((s) => s.setPushToTalk)
-  const setPushToTalkKey = useSettingsStore((s) => s.setPushToTalkKey)
   const [micDevices, setMicDevices] = useState<MicrophoneInfo[]>([])
   const [micDevice, setMicDevice] = useState(loadSavedMic)
 
@@ -262,33 +260,6 @@ export function VoiceControls({ compact }: Props) {
           </select>
         </div>
       )}
-      <div className="ptt-toggle">
-        <label className="ptt-toggle-row">
-          <input
-            type="checkbox"
-            checked={pushToTalk}
-            onChange={handleTogglePtt}
-            disabled={!connected || micDisabled}
-          />
-          <span>Push-to-talk (segure para falar)</span>
-        </label>
-        {pushToTalk && (
-          <label className="ptt-key-row">
-            <span className="mic-select-label">Tecla</span>
-            <select
-              className="mic-select"
-              value={pushToTalkKey}
-              onChange={(e) => setPushToTalkKey(e.target.value)}
-            >
-              <option value="Space">Espaço</option>
-              <option value="v">V</option>
-              <option value="c">C</option>
-              <option value="t">T</option>
-              <option value="Control">Ctrl</option>
-            </select>
-          </label>
-        )}
-      </div>
       <div className="volume-control">
         <label>Volume: {Math.round(volume * 100)}%</label>
         <input
