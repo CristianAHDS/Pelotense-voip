@@ -9,6 +9,7 @@ import { useVoiceStore } from '../stores/voiceStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
 import { notifyNewMessage, requestNotificationPermission } from './notifications.ts'
+import { chatHistory } from './historyStore.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
@@ -96,6 +97,10 @@ function messageBody(payload: ChatMsg): string {
 
 function onRoomChatMessage(payload: ChatMsg): void {
   useRoomStore.getState().addMessage(payload)
+  const roomId = useRoomStore.getState().currentRoom
+  if (roomId) {
+    void chatHistory.saveRoomMessages(roomId, useRoomStore.getState().messages)
+  }
   markRoomUnread()
   if (typeof document !== 'undefined' && document.hidden) {
     notifyNewMessage(
@@ -174,13 +179,24 @@ export function connectToServer(address: string, name: string, password: string)
     useRoomStore.getState().setUsers(msg.payload as any)
   })
 
-  wsClient.on(WsMessageType.RoomJoined, (msg) => {
+  wsClient.on(WsMessageType.RoomJoined, async (msg) => {
     const payload = msg.payload as any
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
-    useRoomStore.getState().setMessages(payload.messages ?? [])
+    const serverMsgs: ChatMsg[] = payload.messages ?? []
+    useRoomStore.getState().setMessages(serverMsgs)
     useRoomStore.getState().markRoomRead(payload.roomId)
     useRoomStore.getState().setLoadingMessages(false)
     voiceOnRoomJoined()
+    if (payload.roomId) {
+      if (serverMsgs.length > 0) {
+        void chatHistory.saveRoomMessages(payload.roomId, serverMsgs)
+      } else {
+        const local = await chatHistory.loadRoomMessages(payload.roomId)
+        if (local && local.length > 0) {
+          useRoomStore.getState().setMessages(local)
+        }
+      }
+    }
   })
 
   wsClient.on(WsMessageType.RoomLeft, () => {
@@ -233,6 +249,10 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.on(WsMessageType.MessageDeleted, (msg) => {
     const payload = msg.payload as { messageId: string }
     useRoomStore.getState().removeMessage(payload.messageId)
+    const roomId = useRoomStore.getState().currentRoom
+    if (roomId) {
+      void chatHistory.saveRoomMessages(roomId, useRoomStore.getState().messages)
+    }
   })
 
   wsClient.on(WsMessageType.LiveStarted, (msg) => {
@@ -268,27 +288,51 @@ export function connectToServer(address: string, name: string, password: string)
     }
   })
 
+function persistDm(peerUserId: string): void {
+  const msgs = usePrivateChatStore.getState().messages[peerUserId] ?? []
+  void chatHistory.saveDmMessages(peerUserId, msgs)
+}
+
+function dmKey(payload: PrivateChatMsg): string {
+  const myId = useConnectionStore.getState().id
+  return payload.toUserId && payload.fromUserId === myId
+    ? payload.toUserId
+    : payload.fromUserId
+}
+
   wsClient.on(WsMessageType.PrivateMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    persistDm(dmKey(payload))
     maybeNotifyPrivate(payload, payload.text ?? 'Nova mensagem')
   })
 
   wsClient.on(WsMessageType.PrivateAudioMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    persistDm(dmKey(payload))
     maybeNotifyPrivate(payload, '🎤 Mensagem de voz')
   })
 
   wsClient.on(WsMessageType.PrivateVideoMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    persistDm(dmKey(payload))
     maybeNotifyPrivate(payload, '🎬 Mensagem de vídeo')
   })
 
-  wsClient.on(WsMessageType.PrivateHistory, (msg) => {
+  wsClient.on(WsMessageType.PrivateHistory, async (msg) => {
     const payload = msg.payload as { withUserId: string; messages: PrivateChatMsg[] }
-    usePrivateChatStore.getState().setMessages(payload.withUserId, payload.messages)
+    const serverMsgs = payload.messages ?? []
+    if (serverMsgs.length > 0) {
+      usePrivateChatStore.getState().setMessages(payload.withUserId, serverMsgs)
+      void chatHistory.saveDmMessages(payload.withUserId, serverMsgs)
+    } else {
+      const local = await chatHistory.loadDmMessages(payload.withUserId)
+      if (local && local.length > 0) {
+        usePrivateChatStore.getState().setMessages(payload.withUserId, local)
+      }
+    }
   })
 
   wsClient.on(WsMessageType.ProfileUpdated, (msg) => {

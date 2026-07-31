@@ -5,7 +5,6 @@ import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
-
 function resetStores(): void {
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu', admin: false, reconnecting: false })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: 'r1', currentRoomName: 'Sala', messages: [], unread: {}, loadingRooms: false, loadingMessages: false })
@@ -75,5 +74,13 @@ describe('Player de áudio (timeline estilo WhatsApp)', () => {
 
     expect(timeline.getAttribute('aria-valuenow')).toBe('5')
     expect(container.querySelector('.chat-audio-time')!.textContent).toBe('0:05')
+  })
+
+  it('oferece botão de download para mensagens de áudio', () => {
+    useRoomStore.getState().setMessages([audioMsg()])
+    const { container } = render(<ChatPanel />)
+    const btn = container.querySelector('.chat-audio-download-btn')
+    expect(btn).not.toBeNull()
+    expect(btn!.getAttribute('aria-label')).toBe('Baixar')
   })
 })

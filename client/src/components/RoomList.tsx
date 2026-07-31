@@ -4,7 +4,7 @@ import { useRooms } from '../hooks/useRooms.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useVoiceStore, SPEAKING_TIMEOUT_MS } from '../stores/voiceStore.ts'
-import { userColor, initials } from '../ui/avatar.ts'
+import { Avatar } from '../ui/Avatar.tsx'
 import { useT } from '../i18n/index.ts'
 import { RADIO_ROOM_NAME, RADIO_BOT } from '../ui/radioBot.ts'
 
@@ -140,9 +140,7 @@ export function RoomList() {
                         data-tooltip={withBot.map((u) => u.name).join('\n')}
                       >
                         {withBot.slice(0, 5).map((u) => (
-                          <span key={u.id} className="room-user-avatar" style={{ background: userColor(u.id) }} title={u.name}>
-                            {initials(u.name, 1)}
-                          </span>
+                          <Avatar key={u.id} id={u.id} name={u.name} avatar={u.avatar} maxInitials={1} className="room-user-avatar" />
                         ))}
                         {occupantCount > 5 && (
                           <span className="room-user-more" title={withBot.slice(5).map((u) => u.name).join(', ')}>
@@ -154,9 +152,7 @@ export function RoomList() {
                   </div>
                   {!room.fixed && creator && (
                     <div className="room-creator">
-                      <span className="room-creator-avatar" style={{ background: userColor(room.createdBy ?? '') }}>
-                        {initials(creator, 1)}
-                      </span>
+                      <Avatar id={room.createdBy ?? ''} name={creator} maxInitials={1} className="room-creator-avatar" />
                       <span className="room-creator-name">{t('createdBy', { name: creator })}</span>
                     </div>
                   )}

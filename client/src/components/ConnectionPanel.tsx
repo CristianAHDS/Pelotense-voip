@@ -3,6 +3,7 @@ import { useConnection } from '../hooks/useConnection.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore, clearAccountPrefs } from '../stores/accountStore.ts'
 import { connectToServer } from '../services/connectionService.ts'
+import { useT } from '../i18n/index.ts'
 
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:'
@@ -49,6 +50,7 @@ function clearStoredCredentials(): void {
 export function ConnectionPanel() {
   const { connected, id, name: connectedName, disconnect } = useConnection()
   const reconnecting = useConnectionStore((s) => s.reconnecting)
+  const t = useT()
 
   const [stored] = useState(() => loadStored())
   const [host, setHost] = useState(stored.host)
@@ -57,6 +59,7 @@ export function ConnectionPanel() {
   const [nickname, setNickname] = useState(stored.name)
   const [password, setPassword] = useState(stored.password)
   const [certAccepted, setCertAccepted] = useState(false)
+  const [restoring, setRestoring] = useState(!!stored.name)
 
   const useWss = IS_HTTPS
   const activePort = useWss ? wssPort : wsPort
@@ -101,6 +104,21 @@ export function ConnectionPanel() {
       connectToServer(`${protocol}://${stored.host}:${port}`, stored.name, stored.password)
     }
   }, [])
+
+  // Enquanto há credenciais salvas e a conexão ainda não estabilizou (nem
+  // conectada nem falhou), mostra um skeleton em vez do formulário/status.
+  useEffect(() => {
+    if (!stored.name) {
+      setRestoring(false)
+      return
+    }
+    if (connected) {
+      setRestoring(false)
+      return
+    }
+    const timer = setTimeout(() => setRestoring(false), 2500)
+    return () => clearTimeout(timer)
+  }, [connected, stored.name, reconnecting])
 
   useEffect(() => {
     const onVisibility = () => {
@@ -149,89 +167,100 @@ export function ConnectionPanel() {
 
   return (
     <div className="panel connection-panel">
-      <div className="connection-status">
-        <span className={`status-indicator ${statusClass}`} />
-        <span>{statusText}</span>
-      </div>
-      {id && !reconnecting && <div className="client-id">ID: {id}</div>}
-      {!connected && (
-        <>
-          <div className="field">
-            <label className="field-label" htmlFor="cp-host">Servidor</label>
-            <div className="server-inputs">
-              <input
-                id="cp-host"
-                type="text"
-                value={host}
-                onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, password) }}
-                placeholder="Server IP"
-                className="input"
-              />
-              <input
-                id="cp-port"
-                type="number"
-                value={activePort}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, password) }
-                  else { setWsPort(v); saveStored(host, v, wssPort, nickname, password) }
-                }}
-                placeholder={useWss ? 'WSS Port' : 'Port'}
-                className="input"
-              />
-            </div>
-          </div>
-          <div className="field">
-            <label className="field-label" htmlFor="cp-nickname">Identificação</label>
-            <div className="auth-inputs">
-              <input
-                id="cp-nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, wsPort, wssPort, v, password) }}
-                placeholder="Nickname"
-                className="input"
-              />
-              <input
-                id="cp-password"
-                type="password"
-                value={password}
-                onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, wsPort, wssPort, nickname, v) }}
-                placeholder="Password"
-                className="input"
-              />
-            </div>
-          </div>
-          <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
-            Preencher padrão (192.168.8.94)
-          </button>
-          {useWss && !certAccepted && (
-            <div className="wss-hint">
-              Antes de conectar, acesse <a href={`https://${host}:${wssPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{wssPort}/</a> no navegador e aceite o certificado SSL.
-              <button className="btn btn-verify-cert" onClick={checkCert}>Verificar</button>
-            </div>
-          )}
-          {!useWss && (
-            <div className="wss-hint">
-              Para usar o microfone, acesse <a href={`https://${host}:${httpsClientPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{httpsClientPort}/</a> e aceite o certificado SSL.
-              <button className="btn btn-verify-cert" onClick={checkHttpsClient}>Verificar</button>
-            </div>
-          )}
-        </>
-      )}
-      {connected ? (
-        <div className="connection-actions">
-          <button onClick={disconnect} className="btn btn-disconnect">
-            Disconnect
-          </button>
-          <button onClick={handleLogout} className="btn btn-logout">
-            Logout
-          </button>
+      {restoring ? (
+        <div className="connection-skeleton" aria-busy="true" aria-label={t('restoringSession')}>
+          <div className="skeleton skeleton-pill" style={{ width: '70%' }} />
+          <div className="skeleton skeleton-line" />
+          <div className="skeleton skeleton-line" />
+          <div className="skeleton skeleton-line" />
         </div>
       ) : (
-        <button onClick={handleConnect} disabled={reconnecting} className="btn btn-connect">
-          {reconnecting ? 'Reconnecting...' : 'Connect'}
-        </button>
+        <>
+          <div className="connection-status">
+            <span className={`status-indicator ${statusClass}`} />
+            <span>{statusText}</span>
+          </div>
+          {id && !reconnecting && <div className="client-id">ID: {id}</div>}
+          {!connected && (
+            <>
+              <div className="field">
+                <label className="field-label" htmlFor="cp-host">Servidor</label>
+                <div className="server-inputs">
+                  <input
+                    id="cp-host"
+                    type="text"
+                    value={host}
+                    onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, password) }}
+                    placeholder="Server IP"
+                    className="input"
+                  />
+                  <input
+                    id="cp-port"
+                    type="number"
+                    value={activePort}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, password) }
+                      else { setWsPort(v); saveStored(host, v, wssPort, nickname, password) }
+                    }}
+                    placeholder={useWss ? 'WSS Port' : 'Port'}
+                    className="input"
+                  />
+                </div>
+              </div>
+              <div className="field">
+                <label className="field-label" htmlFor="cp-nickname">Identificação</label>
+                <div className="auth-inputs">
+                  <input
+                    id="cp-nickname"
+                    type="text"
+                    value={nickname}
+                    onChange={(e) => { const v = e.target.value; setNickname(v); saveStored(host, wsPort, wssPort, v, password) }}
+                    placeholder="Nickname"
+                    className="input"
+                  />
+                  <input
+                    id="cp-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => { const v = e.target.value; setPassword(v); saveStored(host, wsPort, wssPort, nickname, v) }}
+                    placeholder="Password"
+                    className="input"
+                  />
+                </div>
+              </div>
+              <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
+                Preencher padrão (192.168.8.94)
+              </button>
+              {useWss && !certAccepted && (
+                <div className="wss-hint">
+                  Antes de conectar, acesse <a href={`https://${host}:${wssPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{wssPort}/</a> no navegador e aceite o certificado SSL.
+                  <button className="btn btn-verify-cert" onClick={checkCert}>Verificar</button>
+                </div>
+              )}
+              {!useWss && (
+                <div className="wss-hint">
+                  Para usar o microfone, acesse <a href={`https://${host}:${httpsClientPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{httpsClientPort}/</a> e aceite o certificado SSL.
+                  <button className="btn btn-verify-cert" onClick={checkHttpsClient}>Verificar</button>
+                </div>
+              )}
+            </>
+          )}
+          {connected ? (
+            <div className="connection-actions">
+              <button onClick={disconnect} className="btn btn-disconnect">
+                Disconnect
+              </button>
+              <button onClick={handleLogout} className="btn btn-logout">
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleConnect} disabled={reconnecting} className="btn btn-connect">
+              {reconnecting ? 'Reconnecting...' : 'Connect'}
+            </button>
+          )}
+        </>
       )}
     </div>
   )

@@ -1963,6 +1963,48 @@ body {
   border-color: var(--accent);
 }
 
+.chat-audio-download-btn,
+.dm-download-btn {
+  height: 24px;
+  width: 26px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+
+.chat-audio-download-btn:hover,
+.dm-download-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Botões de velocidade/baixar na bolha da própria mensagem (fundo roxo) */
+.chat-bubble--self .chat-audio-rate-btn,
+.chat-bubble--self .chat-audio-download-btn {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--chat-self-text);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.chat-bubble--self .chat-audio-rate-btn:hover,
+.chat-bubble--self .chat-audio-download-btn:hover {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+}
+
+.dm-download-btn {
+  margin-top: 6px;
+}
+
 .chat-audio-progress {
   flex: 1;
   display: flex;
@@ -3599,6 +3641,12 @@ body {
   flex: 1;
   min-height: 0;
   height: 100%;
+  margin-top: 0;
+}
+
+.fullscreen-chat-body .chat-messages {
+  flex: 1;
+  max-height: none;
 }
 
 .chat-fullscreen-btn {

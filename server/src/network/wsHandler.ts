@@ -142,7 +142,17 @@ export class WsHandler {
       }
     }
 
-    const id = this.generateId()
+    let accountId: string | undefined
+    let accountAvatar: string | undefined
+    if (this.storage) {
+      const account = this.storage.getAccount(name)
+      if (account) {
+        accountId = account.id
+        accountAvatar = account.avatar
+      }
+    }
+
+    const id = accountId ?? this.generateId()
     const client: Client = {
       id,
       name,
@@ -152,7 +162,7 @@ export class WsHandler {
       ip: pending.ip,
       lastPing: Date.now(),
       admin: this.adminNames.includes(name),
-      avatar: avatar ?? this.storage?.getAccount(name)?.avatar,
+      avatar: avatar ?? accountAvatar,
       ws,
     }
 
@@ -187,7 +197,7 @@ export class WsHandler {
     })
 
     if (this.storage) {
-      this.storage.saveAccount({ name: client.name, password: client.password, avatar: client.avatar })
+      this.storage.saveAccount({ name: client.name, id: client.id, password: client.password, avatar: client.avatar })
     }
 
     this.broadcast({
@@ -695,10 +705,11 @@ export class WsHandler {
     }
 
     if (this.storage) {
+      const id = client.id
       if (name !== oldName) {
-        this.storage.renameAccount(oldName, { name, password, avatar: client.avatar })
+        this.storage.renameAccount(oldName, { name, id, password, avatar: client.avatar })
       } else {
-        this.storage.saveAccount({ name, password, avatar: client.avatar })
+        this.storage.saveAccount({ name, id, password, avatar: client.avatar })
       }
     }
 

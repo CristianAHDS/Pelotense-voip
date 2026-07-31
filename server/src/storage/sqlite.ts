@@ -76,10 +76,16 @@ export class SqliteStore {
       CREATE INDEX IF NOT EXISTS idx_private_pair ON private_messages(fromUserName, toUserName);
       CREATE TABLE IF NOT EXISTS accounts (
         name TEXT PRIMARY KEY,
+        id TEXT,
         password TEXT NOT NULL,
         avatar TEXT
       );
     `)
+    // Migração: versões anteriores não tinham a coluna id em accounts.
+    const cols = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{ name: string }>
+    if (!cols.some((c) => c.name === 'id')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN id TEXT')
+    }
   }
 
   close(): void {
@@ -259,29 +265,31 @@ export class SqliteStore {
     return rows.map((r) => r.peer)
   }
 
-  getAccount(name: string): { name: string; password: string; avatar?: string } | undefined {
+  getAccount(name: string): { name: string; id?: string; password: string; avatar?: string } | undefined {
     const row = this.db.prepare('SELECT * FROM accounts WHERE name = ?').get(name) as
-      | { name: string; password: string; avatar: string | null }
+      | { name: string; id: string | null; password: string; avatar: string | null }
       | undefined
     if (!row) return undefined
-    return { name: row.name, password: row.password, avatar: row.avatar ?? undefined }
+    return { name: row.name, id: row.id ?? undefined, password: row.password, avatar: row.avatar ?? undefined }
   }
 
-  saveAccount(account: { name: string; password: string; avatar?: string }): void {
+  saveAccount(account: { name: string; id?: string; password: string; avatar?: string }): void {
     this.db.prepare(`
-      INSERT INTO accounts (name, password, avatar)
-      VALUES (@name, @password, @avatar)
+      INSERT INTO accounts (name, id, password, avatar)
+      VALUES (@name, @id, @password, @avatar)
       ON CONFLICT(name) DO UPDATE SET
+        id = COALESCE(@id, id),
         password = @password,
         avatar = @avatar
     `).run({
       name: account.name,
+      id: account.id ?? null,
       password: account.password,
       avatar: account.avatar ?? null,
     })
   }
 
-  renameAccount(oldName: string, newAccount: { name: string; password: string; avatar?: string }): void {
+  renameAccount(oldName: string, newAccount: { name: string; id?: string; password: string; avatar?: string }): void {
     this.db.prepare('DELETE FROM accounts WHERE name = ?').run(oldName)
     this.saveAccount(newAccount)
   }

@@ -466,5 +466,36 @@ describe('Perfil de conta (UpdateProfile)', () => {
     expect(err.payload).toBe('Avatar too large')
     store.close()
   })
+
+  it('mantém o mesmo id da conta entre logins', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const first = await freshClient('IdFixo')
+    const firstId = first.id!
+    store.close()
+
+    const store2 = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store2)
+    const second = await freshClient('IdFixo')
+    expect(second.id).toBe(firstId)
+    store2.close()
+  })
+
+  it('mantém o mesmo id após renomear a conta', async () => {
+    const store = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store)
+    const a = await freshClient('IdRenome')
+    const beforeId = a.id!
+    a.send(WsMessageType.UpdateProfile, { name: 'IdRenomeNovo' })
+    await a.waitFor(WsMessageType.ProfileUpdated)
+    expect(a.id).toBe(beforeId)
+    store.close()
+
+    const store2 = new SqliteStore(dbPath)
+    server = await startTestServer(100, 20, undefined, [], store2)
+    const renamed = await freshClient('IdRenomeNovo')
+    expect(renamed.id).toBe(beforeId)
+    store2.close()
+  })
 })
 
