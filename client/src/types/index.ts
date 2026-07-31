@@ -35,6 +35,9 @@ export enum WsMessageType {
   ChatMessage = 'chat_message',
   ChatAudioMessage = 'chat_audio_message',
   ChatVideoMessage = 'chat_video_message',
+  ChatImageMessage = 'chat_image_message',
+  MessageReaction = 'message_reaction',
+  ForwardMessage = 'forward_message',
   PrivateMessage = 'private_message',
   DeleteMessage = 'delete_message',
   MessageDeleted = 'message_deleted',
@@ -54,6 +57,8 @@ export enum WsMessageType {
   LiveForceStop = 'live_force_stop',
   PrivateAudioMessage = 'private_audio_message',
   PrivateVideoMessage = 'private_video_message',
+  ListPrivateMessages = 'list_private_messages',
+  PrivateHistory = 'private_history',
 }
 
 export interface WsMessage {
@@ -80,8 +85,18 @@ export interface ChatMsg {
   text?: string
   audioData?: string
   videoData?: string
+  imageData?: string
   duration?: number
   timestamp: number
+  forwarded?: boolean
+  reactions?: MessageReaction[]
+  // apenas no cliente: marca mensagem otimista ainda não confirmada pelo servidor
+  sending?: boolean
+}
+
+export interface MessageReaction {
+  emoji: string
+  userIds: string[]
 }
 
 export interface DeleteMessagePayload {
@@ -89,6 +104,7 @@ export interface DeleteMessagePayload {
 }
 
 export interface PrivateChatMsg {
+  id?: string
   fromUserId: string
   fromUserName: string
   toUserId?: string
@@ -97,6 +113,8 @@ export interface PrivateChatMsg {
   videoData?: string
   duration?: number
   timestamp: number
+  // apenas no cliente: marca mensagem otimista ainda não confirmada pelo servidor
+  sending?: boolean
 }
 
 export interface RoomJoinedPayload {

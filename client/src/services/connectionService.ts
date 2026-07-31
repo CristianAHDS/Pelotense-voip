@@ -7,6 +7,7 @@ import { VoiceManager } from '../voice/index.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
+import { notifyNewMessage, requestNotificationPermission } from './notifications.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
@@ -84,6 +85,39 @@ function markRoomUnread(): void {
   }
 }
 
+function messageBody(payload: ChatMsg): string {
+  if (payload.text) return payload.text
+  if (payload.audioData) return '🎤 Mensagem de voz'
+  if (payload.videoData) return '🎬 Mensagem de vídeo'
+  if (payload.imageData) return '🖼️ Imagem'
+  return 'Nova mensagem'
+}
+
+function onRoomChatMessage(payload: ChatMsg): void {
+  useRoomStore.getState().addMessage(payload)
+  markRoomUnread()
+  if (typeof document !== 'undefined' && document.hidden) {
+    notifyNewMessage(
+      `#${useRoomStore.getState().currentRoomName ?? 'sala'}`,
+      `${payload.userName}: ${messageBody(payload)}`
+    )
+  }
+}
+
+function maybeNotifyPrivate(payload: PrivateChatMsg, body: string): void {
+  const store = usePrivateChatStore.getState()
+  const myId = useConnectionStore.getState().id
+  const isIncoming = payload.fromUserId !== myId
+  if (!isIncoming) return
+  const key = payload.toUserId && payload.fromUserId === myId
+    ? payload.toUserId
+    : payload.fromUserId
+  const isActive = store.activeUserId === key
+  const isFocused = typeof document !== 'undefined' && !document.hidden && document.hasFocus()
+  if (isActive && isFocused) return
+  notifyNewMessage(payload.fromUserName, body)
+}
+
 export function connectToServer(address: string, name: string, password: string): void {
   if (wsClient) disconnectFromServer()
 
@@ -115,6 +149,16 @@ export function connectToServer(address: string, name: string, password: string)
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     requestRoomList()
     voiceOnLogin()
+    requestNotificationPermission()
+
+    // Após uma reconexão o servidor recria o client sem sala (client.room=null);
+    // nesse estado o servidor descarta em silêncio texto/áudio/vídeo ("envia mas
+    // não aparece", comum no mobile). Re-entra na sala atual para restaurar a
+    // participação. No primeiro login currentRoomName é null e nada é feito.
+    const currentRoomName = useRoomStore.getState().currentRoomName
+    if (currentRoomName) {
+      joinRoom(currentRoomName)
+    }
   })
 
   wsClient.on(WsMessageType.RoomList, (msg) => {
@@ -162,18 +206,24 @@ export function connectToServer(address: string, name: string, password: string)
   })
 
   wsClient.on(WsMessageType.ChatMessage, (msg) => {
-    useRoomStore.getState().addMessage(msg.payload as ChatMsg)
-    markRoomUnread()
+    onRoomChatMessage(msg.payload as ChatMsg)
   })
 
   wsClient.on(WsMessageType.ChatAudioMessage, (msg) => {
-    useRoomStore.getState().addMessage(msg.payload as ChatMsg)
-    markRoomUnread()
+    onRoomChatMessage(msg.payload as ChatMsg)
   })
 
   wsClient.on(WsMessageType.ChatVideoMessage, (msg) => {
+    onRoomChatMessage(msg.payload as ChatMsg)
+  })
+
+  wsClient.on(WsMessageType.ChatImageMessage, (msg) => {
+    onRoomChatMessage(msg.payload as ChatMsg)
+  })
+
+  wsClient.on(WsMessageType.MessageReaction, (msg) => {
+    // O payload é a própria mensagem atualizada (id igual) — addMessage promove.
     useRoomStore.getState().addMessage(msg.payload as ChatMsg)
-    markRoomUnread()
   })
 
   wsClient.on(WsMessageType.MessageDeleted, (msg) => {
@@ -217,16 +267,24 @@ export function connectToServer(address: string, name: string, password: string)
   wsClient.on(WsMessageType.PrivateMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    maybeNotifyPrivate(payload, payload.text ?? 'Nova mensagem')
   })
 
   wsClient.on(WsMessageType.PrivateAudioMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    maybeNotifyPrivate(payload, '🎤 Mensagem de voz')
   })
 
   wsClient.on(WsMessageType.PrivateVideoMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    maybeNotifyPrivate(payload, '🎬 Mensagem de vídeo')
+  })
+
+  wsClient.on(WsMessageType.PrivateHistory, (msg) => {
+    const payload = msg.payload as { withUserId: string; messages: PrivateChatMsg[] }
+    usePrivateChatStore.getState().setMessages(payload.withUserId, payload.messages)
   })
 
   wsClient.on(WsMessageType.Error, (msg) => {
@@ -265,14 +323,36 @@ export function sendChatMessage(text: string): void {
   wsClient.send(WsMessageType.ChatMessage, { text })
 }
 
-export function sendChatAudioMessage(audioData: string, duration: number): void {
-  if (!wsClient) { console.error('sendChatAudioMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.ChatAudioMessage, { audioData, duration })
+export function generateClientMessageId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8)
 }
 
-export function sendChatVideoMessage(videoData: string, duration: number): void {
+export function sendChatAudioMessage(id: string, audioData: string, duration: number): void {
+  if (!wsClient) { console.error('sendChatAudioMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.ChatAudioMessage, { id, audioData, duration })
+}
+
+export function sendChatVideoMessage(id: string, videoData: string, duration: number): void {
   if (!wsClient) { console.error('sendChatVideoMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.ChatVideoMessage, { videoData, duration })
+  wsClient.send(WsMessageType.ChatVideoMessage, { id, videoData, duration })
+}
+
+export function sendChatImageMessage(id: string, imageData: string): void {
+  if (!wsClient) { console.error('sendChatImageMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.ChatImageMessage, { id, imageData })
+}
+
+export function sendMessageReaction(messageId: string, emoji: string): void {
+  if (!wsClient) { console.error('sendMessageReaction: wsClient is null'); return }
+  wsClient.send(WsMessageType.MessageReaction, { messageId, emoji })
+}
+
+export function sendForwardMessage(messageId: string, roomName: string): void {
+  if (!wsClient) { console.error('sendForwardMessage: wsClient is null'); return }
+  wsClient.send(WsMessageType.ForwardMessage, { messageId, roomName })
 }
 
 export function deleteMessage(messageId: string): void {
@@ -285,14 +365,19 @@ export function sendPrivateMessage(toUserId: string, text: string): void {
   wsClient.send(WsMessageType.PrivateMessage, { toUserId, text })
 }
 
-export function sendPrivateAudioMessage(toUserId: string, audioData: string, duration: number): void {
+export function sendPrivateAudioMessage(toUserId: string, id: string, audioData: string, duration: number): void {
   if (!wsClient) { console.error('sendPrivateAudioMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.PrivateAudioMessage, { toUserId, audioData, duration })
+  wsClient.send(WsMessageType.PrivateAudioMessage, { toUserId, id, audioData, duration })
 }
 
-export function sendPrivateVideoMessage(toUserId: string, videoData: string, duration: number): void {
+export function sendPrivateVideoMessage(toUserId: string, id: string, videoData: string, duration: number): void {
   if (!wsClient) { console.error('sendPrivateVideoMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.PrivateVideoMessage, { toUserId, videoData, duration })
+  wsClient.send(WsMessageType.PrivateVideoMessage, { toUserId, id, videoData, duration })
+}
+
+export function requestPrivateHistory(withUserId: string): void {
+  if (!wsClient) { console.error('requestPrivateHistory: wsClient is null'); return }
+  wsClient.send(WsMessageType.ListPrivateMessages, { withUserId })
 }
 
 export function sendLiveForceStop(targetUserId: string): void {

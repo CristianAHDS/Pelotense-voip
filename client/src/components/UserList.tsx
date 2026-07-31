@@ -1,15 +1,20 @@
 import React, { useEffect } from 'react'
 import { useRooms } from '../hooks/useRooms.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
+import { useRoomStore } from '../stores/roomStore.ts'
 import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { useVoiceStore, SPEAKING_TIMEOUT_MS } from '../stores/voiceStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
-import { sendLiveForceStop } from '../services/connectionService.ts'
+import { sendLiveForceStop, requestPrivateHistory } from '../services/connectionService.ts'
 import { userColor, initials } from '../ui/avatar.ts'
+import { useT } from '../i18n/index.ts'
+import { RadioBot } from './RadioBot.tsx'
+import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
 
 export function UserList() {
   const connected = useConnectionStore((s) => s.connected)
   const { users } = useRooms()
+  const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const myId = useConnectionStore((s) => s.id)
   const myAdmin = useConnectionStore((s) => s.admin)
   const openChat = usePrivateChatStore((s) => s.openChat)
@@ -17,6 +22,7 @@ export function UserList() {
   const unread = usePrivateChatStore((s) => s.unread)
   const speaking = useVoiceStore((s) => s.speaking)
   const broadcaster = useLiveStore((s) => s.broadcaster)
+  const t = useT()
 
   useEffect(() => {
     const timer = setInterval(() => useVoiceStore.getState().pruneSpeaking(), 200)
@@ -28,11 +34,13 @@ export function UserList() {
   function handleClick(userId: string, userName: string) {
     if (userId === myId) return
     openChat(userId, userName)
+    requestPrivateHistory(userId)
   }
 
   return (
     <div className="panel user-list">
-      <h2>Users ({users.length})</h2>
+      <h2>{t('usersWithCount', { count: users.length })}</h2>
+      {currentRoomName === RADIO_ROOM_NAME && <RadioBot compact />}
       <div className="user-list-items">
         {users.map((user) => {
           const isMe = user.id === myId
@@ -74,13 +82,13 @@ export function UserList() {
           )
         })}
       </div>
-      {users.length === 0 && (
-        <div className="empty-state">
-          <span className="empty-state-icon">👥</span>
-          <span className="empty-state-title">Ninguém conectado</span>
-          <span className="empty-state-hint">Quando alguém entrar, aparece aqui para chamar no privado.</span>
-        </div>
-      )}
+        {users.length === 0 && (
+          <div className="empty-state">
+            <span className="empty-state-icon">👥</span>
+            <span className="empty-state-title">{t('noUsers')}</span>
+            <span className="empty-state-hint">{t('noUsersHint')}</span>
+          </div>
+        )}
     </div>
   )
 }

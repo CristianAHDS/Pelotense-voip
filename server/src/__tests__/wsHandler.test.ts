@@ -412,16 +412,22 @@ describe('Chat', () => {
 
   it('relata mensagem de áudio para todos da sala', async () => {
     const { a, b } = await joinBoth()
-    a.send(WsMessageType.ChatAudioMessage, { audioData: 'aGVsbG8=', duration: 3 })
+    a.send(WsMessageType.ChatAudioMessage, { id: 'cli-123', audioData: 'aGVsbG8=', duration: 3 })
+    const echo = await a.waitFor(WsMessageType.ChatAudioMessage)
     const received = await b.waitFor(WsMessageType.ChatAudioMessage)
+    expect((received.payload as ChatMessage).id).toBe('cli-123')
+    expect((echo.payload as ChatMessage).id).toBe('cli-123')
     expect((received.payload as ChatMessage).audioData).toBe('aGVsbG8=')
     expect((received.payload as ChatMessage).duration).toBe(3)
   })
 
   it('relata mensagem de vídeo para todos da sala', async () => {
     const { a, b } = await joinBoth()
-    a.send(WsMessageType.ChatVideoMessage, { videoData: 'dmlkZW8=', duration: 5 })
+    a.send(WsMessageType.ChatVideoMessage, { id: 'cli-456', videoData: 'dmlkZW8=', duration: 5 })
+    const echo = await a.waitFor(WsMessageType.ChatVideoMessage)
     const received = await b.waitFor(WsMessageType.ChatVideoMessage)
+    expect((received.payload as ChatMessage).id).toBe('cli-456')
+    expect((echo.payload as ChatMessage).id).toBe('cli-456')
     expect((received.payload as ChatMessage).videoData).toBe('dmlkZW8=')
     expect((received.payload as ChatMessage).duration).toBe(5)
   })
@@ -438,6 +444,114 @@ describe('Chat', () => {
     a.send(WsMessageType.DeleteMessage, { messageId: msg.id })
     const deleted = await b.waitFor(WsMessageType.MessageDeleted)
     expect(deleted.payload).toMatchObject({ messageId: msg.id })
+  })
+
+  it('relata mensagem de imagem para todos da sala', async () => {
+    const { a, b } = await joinBoth()
+    a.send(WsMessageType.ChatImageMessage, { id: 'cli-img-1', imageData: 'aW1hZ2U=' })
+    const echo = await a.waitFor(WsMessageType.ChatImageMessage)
+    const received = await b.waitFor(WsMessageType.ChatImageMessage)
+    expect((received.payload as ChatMessage).id).toBe('cli-img-1')
+    expect((echo.payload as ChatMessage).id).toBe('cli-img-1')
+    expect((received.payload as ChatMessage).imageData).toBe('aW1hZ2U=')
+    expect((received.payload as ChatMessage).userId).toBe(a.id)
+  })
+
+  it('descarta imagem acima do limite de bytes', async () => {
+    const { a, b } = await joinBoth()
+    const huge = 'A'.repeat(7 * 1024 * 1024)
+    a.send(WsMessageType.ChatImageMessage, { id: 'cli-img-big', imageData: huge })
+    await expect(b.waitFor(WsMessageType.ChatImageMessage, 700)).rejects.toThrow()
+    await expect(a.waitFor(WsMessageType.ChatImageMessage, 700)).rejects.toThrow()
+  })
+
+  it('alterna reação por usuário (toggle on/off)', async () => {
+    const { a, b } = await joinBoth()
+    const c = await freshClient('ChatC')
+    c.send(WsMessageType.JoinRoom, 'Externas')
+    await c.waitFor(WsMessageType.RoomJoined)
+
+    c.send(WsMessageType.ChatMessage, { text: 'reage aqui' })
+    const received = await a.waitFor(WsMessageType.ChatMessage)
+    const msg = received.payload as ChatMessage
+
+    a.send(WsMessageType.MessageReaction, { messageId: msg.id, emoji: '👍' })
+    const first = await a.waitFor(WsMessageType.MessageReaction)
+    expect((first.payload as ChatMessage).reactions).toContainEqual({ emoji: '👍', userIds: [a.id] })
+
+    // o b também recebe o eco da reação do a; drena para ler só a própria a seguir
+    await b.waitFor(WsMessageType.MessageReaction)
+
+    b.send(WsMessageType.MessageReaction, { messageId: msg.id, emoji: '👍' })
+    const second = await b.waitFor(WsMessageType.MessageReaction)
+    expect((second.payload as ChatMessage).reactions).toContainEqual({ emoji: '👍', userIds: [a.id, b.id] })
+
+    // o a também recebe o eco da reação do b; drena antes de reagir de novo
+    await a.waitFor(WsMessageType.MessageReaction)
+
+    a.send(WsMessageType.MessageReaction, { messageId: msg.id, emoji: '👍' })
+    const third = await a.waitFor(WsMessageType.MessageReaction)
+    expect((third.payload as ChatMessage).reactions).toContainEqual({ emoji: '👍', userIds: [b.id] })
+  })
+
+  it('remove a reação quando o último usuário desfaz', async () => {
+    const { a, b } = await joinBoth()
+    a.send(WsMessageType.ChatMessage, { text: 'só eu reajo' })
+    const received = await b.waitFor(WsMessageType.ChatMessage)
+    const msg = received.payload as ChatMessage
+
+    b.send(WsMessageType.MessageReaction, { messageId: msg.id, emoji: '❤️' })
+    await b.waitFor(WsMessageType.MessageReaction)
+    b.send(WsMessageType.MessageReaction, { messageId: msg.id, emoji: '❤️' })
+    const removed = await b.waitFor(WsMessageType.MessageReaction)
+    expect((removed.payload as ChatMessage).reactions ?? []).toHaveLength(0)
+  })
+
+  it('ignora reação na própria mensagem', async () => {
+    const { a, b } = await joinBoth()
+    a.send(WsMessageType.ChatMessage, { text: 'minha própria mensagem' })
+    const received = await b.waitFor(WsMessageType.ChatMessage)
+    const msg = received.payload as ChatMessage
+
+    a.send(WsMessageType.MessageReaction, { messageId: msg.id, emoji: '👍' })
+    await expect(a.waitFor(WsMessageType.MessageReaction, 700)).rejects.toThrow()
+    await expect(b.waitFor(WsMessageType.MessageReaction, 700)).rejects.toThrow()
+  })
+
+  it('encaminha mensagem de texto para outra sala com forwarded=true', async () => {
+    const { a, b } = await joinBoth()
+    a.send(WsMessageType.ChatMessage, { text: 'encaminhar texto' })
+    const received = await b.waitFor(WsMessageType.ChatMessage)
+    const msg = received.payload as ChatMessage
+
+    const c = await freshClient('ChatC')
+    c.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await c.waitFor(WsMessageType.RoomJoined)
+
+    a.send(WsMessageType.ForwardMessage, { messageId: msg.id, roomName: 'Ao vivo' })
+    const forwarded = await c.waitFor(WsMessageType.ChatMessage)
+    const fp = forwarded.payload as ChatMessage
+    expect(fp.forwarded).toBe(true)
+    expect(fp.text).toBe('encaminhar texto')
+    expect(fp.id).not.toBe(msg.id)
+  })
+
+  it('encaminha mensagem de imagem preservando o imageData', async () => {
+    const { a, b } = await joinBoth()
+    a.send(WsMessageType.ChatImageMessage, { id: 'cli-img-2', imageData: 'aW1n' })
+    const received = await b.waitFor(WsMessageType.ChatImageMessage)
+    const msg = received.payload as ChatMessage
+
+    const c = await freshClient('ChatD')
+    c.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await c.waitFor(WsMessageType.RoomJoined)
+
+    a.send(WsMessageType.ForwardMessage, { messageId: msg.id, roomName: 'Ao vivo' })
+    const forwarded = await c.waitFor(WsMessageType.ChatImageMessage)
+    const fp = forwarded.payload as ChatMessage
+    expect(fp.forwarded).toBe(true)
+    expect(fp.imageData).toBe('aW1n')
+    expect(fp.id).not.toBe(msg.id)
   })
 })
 
@@ -457,10 +571,12 @@ describe('Mensagens privadas', () => {
   it('envia mensagem de áudio para o remetente e o destinatário', async () => {
     const a = await freshClient('PvtAudA')
     const b = await freshClient('PvtAudB')
-    a.send(WsMessageType.PrivateAudioMessage, { toUserId: b.id, audioData: 'b3B1cw==', duration: 2 })
+    a.send(WsMessageType.PrivateAudioMessage, { toUserId: b.id, id: 'cli-789', audioData: 'b3B1cw==', duration: 2 })
 
     const sent = await a.waitFor(WsMessageType.PrivateAudioMessage)
     const received = await b.waitFor(WsMessageType.PrivateAudioMessage)
+    expect((sent.payload as { id: string }).id).toBe('cli-789')
+    expect((received.payload as { id: string }).id).toBe('cli-789')
     expect((sent.payload as { audioData: string }).audioData).toBe('b3B1cw==')
     expect((sent.payload as { fromUserId: string }).fromUserId).toBe(a.id)
     expect(received.payload).toEqual(sent.payload)
@@ -469,10 +585,12 @@ describe('Mensagens privadas', () => {
   it('envia mensagem de vídeo para o remetente e o destinatário', async () => {
     const a = await freshClient('PvtVidA')
     const b = await freshClient('PvtVidB')
-    a.send(WsMessageType.PrivateVideoMessage, { toUserId: b.id, videoData: 'dmlkZW8=', duration: 4 })
+    a.send(WsMessageType.PrivateVideoMessage, { toUserId: b.id, id: 'cli-abc', videoData: 'dmlkZW8=', duration: 4 })
 
     const sent = await a.waitFor(WsMessageType.PrivateVideoMessage)
     const received = await b.waitFor(WsMessageType.PrivateVideoMessage)
+    expect((sent.payload as { id: string }).id).toBe('cli-abc')
+    expect((received.payload as { id: string }).id).toBe('cli-abc')
     expect((sent.payload as { videoData: string }).videoData).toBe('dmlkZW8=')
     expect(received.payload).toEqual(sent.payload)
   })

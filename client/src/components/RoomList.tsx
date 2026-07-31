@@ -5,6 +5,8 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useVoiceStore, SPEAKING_TIMEOUT_MS } from '../stores/voiceStore.ts'
 import { userColor, initials } from '../ui/avatar.ts'
+import { useT } from '../i18n/index.ts'
+import { RADIO_ROOM_NAME, RADIO_BOT } from '../ui/radioBot.ts'
 
 export function RoomList() {
   const connected = useConnectionStore((s) => s.connected)
@@ -19,6 +21,7 @@ export function RoomList() {
   const [collapsed, setCollapsed] = useState(false)
   const [enteringRoom, setEnteringRoom] = useState<string | null>(null)
   const createInputRef = useRef<HTMLInputElement>(null)
+  const t = useT()
 
   useEffect(() => {
     setCollapsed(false)
@@ -67,26 +70,26 @@ export function RoomList() {
   return (
     <div className="panel room-list">
       <h2>
-        Rooms ({rooms.length})
+        {t('roomsWithCount', { count: rooms.length })}
         <button
           className="room-list-toggle"
           onClick={() => setCollapsed(!collapsed)}
           aria-expanded={!collapsed}
-          aria-label="Toggle rooms"
+          aria-label={t('toggleRooms')}
         >
-          {collapsed ? '▸ Show' : '▾ Hide'}
+          {collapsed ? `▸ ${t('show')}` : `▾ ${t('hide')}`}
         </button>
       </h2>
 
       {collapsed && (
         <p className="room-list-summary">
-          {totalUsers} users across {rooms.length} rooms
+          {t('usersAcrossRooms', { users: totalUsers, rooms: rooms.length })}
         </p>
       )}
 
       <div className={`room-list-body ${collapsed ? 'room-list-body--collapsed' : ''}`}>
         {loadingRooms ? (
-          <div className="skeleton-list" aria-busy="true" aria-label="Carregando salas">
+          <div className="skeleton-list" aria-busy="true" aria-label={t('loadingRooms')}>
             <div className="skeleton skeleton-pill" />
             <div className="skeleton skeleton-pill" />
             <div className="skeleton skeleton-pill" />
@@ -96,6 +99,10 @@ export function RoomList() {
             <div className="room-list-items">
           {rooms.map((room) => {
             const roomUsers = users.filter((u) => u.room === room.id)
+            const withBot = room.name === RADIO_ROOM_NAME
+              ? [{ id: RADIO_BOT.id, name: RADIO_BOT.name, room: room.id }, ...roomUsers]
+              : roomUsers
+            const occupantCount = withBot.length
             const isLive = !!room.live
             const isSpeaking = roomSpeaking(room)
             const creator = creatorName(room)
@@ -103,13 +110,14 @@ export function RoomList() {
               <div
                 key={room.id}
                 className={`room-item ${currentRoom === room.id ? 'active' : ''} ${enteringRoom === room.id ? 'room-item--entering' : ''} ${room.fixed ? 'room-item--fixed' : ''} ${room.featured === 1 ? 'room-item--featured-1' : ''} ${room.featured === 2 ? 'room-item--featured-2' : ''} ${room.featured === 3 ? 'room-item--featured-3' : ''} ${isLive ? 'room-item--live' : ''} ${isSpeaking ? 'room-item--active-voice' : ''}`}
+                onDoubleClick={() => { if (currentRoom !== room.id) join(room.name) }}
               >
                 <div className="room-info">
                   <span className="room-name">
                     {room.name}
                     {currentRoom === room.id && (
-                      <span className="room-current-badge" title="Você está nesta sala">
-                        Você está aqui
+                      <span className="room-current-badge" title={t('youAreHere')}>
+                        {t('youAreHere')}
                       </span>
                     )}
                     {isLive && (
@@ -120,55 +128,55 @@ export function RoomList() {
                   </span>
                   <div className="room-meta">
                     <span className="room-users">
-                      {room.users} users
+                      {t('usersCount', { n: room.users })}
                       {isLive && room.live?.userName && (
                         <span className="room-live-user">• {room.live.userName}</span>
                       )}
                     </span>
-                    {room.users > 0 && (
+                    {room.users > 0 || withBot.length > 0 ? (
                       <div
                         className="room-users-list"
-                        title={roomUsers.map((u) => u.name).join(', ')}
-                        data-tooltip={roomUsers.map((u) => u.name).join('\n')}
+                        title={withBot.map((u) => u.name).join(', ')}
+                        data-tooltip={withBot.map((u) => u.name).join('\n')}
                       >
-                        {roomUsers.slice(0, 5).map((u) => (
+                        {withBot.slice(0, 5).map((u) => (
                           <span key={u.id} className="room-user-avatar" style={{ background: userColor(u.id) }} title={u.name}>
                             {initials(u.name, 1)}
                           </span>
                         ))}
-                        {room.users > 5 && (
-                          <span className="room-user-more" title={roomUsers.slice(5).map((u) => u.name).join(', ')}>
-                            +{room.users - 5}
+                        {occupantCount > 5 && (
+                          <span className="room-user-more" title={withBot.slice(5).map((u) => u.name).join(', ')}>
+                            +{occupantCount - 5}
                           </span>
                         )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                   {!room.fixed && creator && (
                     <div className="room-creator">
                       <span className="room-creator-avatar" style={{ background: userColor(room.createdBy ?? '') }}>
                         {initials(creator, 1)}
                       </span>
-                      <span className="room-creator-name">criada por {creator}</span>
+                      <span className="room-creator-name">{t('createdBy', { name: creator })}</span>
                     </div>
                   )}
                 </div>
                 <div className="room-actions">
                   {currentRoom === room.id ? (
                     <button onClick={leave} className="btn btn-leave">
-                      Leave
+                      {t('leave')}
                     </button>
                   ) : (
                     <button onClick={() => join(room.name)} className="btn btn-join">
-                      Join
+                      {t('join')}
                     </button>
                   )}
                   {!room.fixed && (myAdmin || room.createdBy === myId) && (
-                    <button onClick={() => del(room.id)} className="btn btn-delete-room" title="Delete room">Delete</button>
+                    <button onClick={() => del(room.id)} className="btn btn-delete-room" title={t('deleteRoom')}>{t('deleteRoom')}</button>
                   )}
                 </div>
                 {unread[room.id] > 0 && (
-                  <span className="room-unread-badge" title={`${unread[room.id]} novas mensagens`}>
+                  <span className="room-unread-badge" title={t('newUnread', { count: unread[room.id] })}>
                     {unread[room.id] > 99 ? '99+' : unread[room.id]}
                   </span>
                 )}
@@ -181,13 +189,13 @@ export function RoomList() {
         {!loadingRooms && rooms.length === 0 && (
           <div className="empty-state">
             <span className="empty-state-icon">📻</span>
-            <span className="empty-state-title">Nenhuma sala ainda</span>
-            <span className="empty-state-hint">Crie a primeira sala para começar a conversar.</span>
+            <span className="empty-state-title">{t('noRoomsYet')}</span>
+            <span className="empty-state-hint">{t('noRoomsHint')}</span>
             <button
               className="empty-state-cta"
               onClick={() => createInputRef.current?.focus()}
             >
-              Criar sala
+              {t('createRoomCta')}
             </button>
           </div>
         )}
@@ -198,12 +206,12 @@ export function RoomList() {
             type="text"
             value={newRoomName}
             onChange={(e) => setNewRoomName(e.target.value)}
-            placeholder="Room name"
+            placeholder={t('roomNamePlaceholder')}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             className="input"
           />
           <button onClick={handleCreate} className="btn btn-create">
-            Create
+            {t('create')}
           </button>
         </div>
       </div>

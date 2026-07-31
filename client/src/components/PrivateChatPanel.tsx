@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { PrivateChatMsg } from '../types/index.ts'
 import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
-import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage } from '../services/connectionService.ts'
+import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, generateClientMessageId } from '../services/connectionService.ts'
 import { useMediaRecorder } from '../hooks/useMediaRecorder.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 
@@ -44,6 +44,7 @@ export function PrivateChatPanel() {
   const messages = usePrivateChatStore((s) => activeUserId ? (s.messages[activeUserId] ?? []) : [])
   const closeChat = usePrivateChatStore((s) => s.closeChat)
   const myId = useConnectionStore((s) => s.id)
+  const myName = useConnectionStore((s) => s.name)
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -82,7 +83,18 @@ export function PrivateChatPanel() {
       if (blob) {
         const data = await blobToBase64(blob)
         const duration = Math.max(1, Math.round(blob.size / 16000))
-        sendPrivateAudioMessage(activeUserId, data, duration)
+        const id = generateClientMessageId()
+        usePrivateChatStore.getState().addMessage({
+          id,
+          fromUserId: myId ?? '',
+          fromUserName: myName ?? '',
+          toUserId: activeUserId,
+          audioData: data,
+          duration,
+          timestamp: Date.now(),
+          sending: true,
+        })
+        sendPrivateAudioMessage(activeUserId, id, data, duration)
       }
     } else {
       audioRecorder.start()
@@ -96,7 +108,18 @@ export function PrivateChatPanel() {
       if (blob) {
         const data = await blobToBase64(blob)
         const duration = Math.max(1, Math.round(blob.size / 64000))
-        sendPrivateVideoMessage(activeUserId, data, duration)
+        const id = generateClientMessageId()
+        usePrivateChatStore.getState().addMessage({
+          id,
+          fromUserId: myId ?? '',
+          fromUserName: myName ?? '',
+          toUserId: activeUserId,
+          videoData: data,
+          duration,
+          timestamp: Date.now(),
+          sending: true,
+        })
+        sendPrivateVideoMessage(activeUserId, id, data, duration)
       }
     } else {
       videoRecorder.start()
@@ -125,6 +148,9 @@ export function PrivateChatPanel() {
               )}
               <div className={`chat-bubble chat-bubble--dm ${isSelf ? 'chat-bubble--self' : ''}`}>
                 <DmMediaBubble msg={msg} />
+                {msg.sending && (
+                  <div className="chat-bubble-sending">enviando…</div>
+                )}
               </div>
             </div>
           )

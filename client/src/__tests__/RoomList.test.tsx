@@ -4,6 +4,18 @@ import { RoomList } from '../components/RoomList.tsx'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
+import { joinRoom } from '../services/connectionService.ts'
+
+vi.mock('../services/connectionService.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/connectionService.ts')>()
+  return {
+    ...actual,
+    joinRoom: vi.fn(),
+    leaveRoom: vi.fn(),
+    createRoom: vi.fn(),
+    deleteRoom: vi.fn(),
+  }
+})
 
 function resetStores(): void {
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu', admin: false, reconnecting: false })
@@ -13,6 +25,7 @@ function resetStores(): void {
 
 beforeEach(() => {
   resetStores()
+  ;(joinRoom as unknown as ReturnType<typeof vi.fn>).mockClear()
 })
 
 afterEach(() => {
@@ -61,7 +74,7 @@ describe('RoomList design (D5/D16)', () => {
   it('foco no input de criar ao clicar no CTA', () => {
     render(<RoomList />)
     fireEvent.click(screen.getByRole('button', { name: 'Criar sala' }))
-    const input = screen.getByPlaceholderText('Room name') as HTMLInputElement
+    const input = screen.getByPlaceholderText('Nome da sala') as HTMLInputElement
     expect(document.activeElement).toBe(input)
   })
 })
@@ -99,5 +112,20 @@ describe('RoomList (indicador da sala atual)', () => {
     act(() => vi.advanceTimersByTime(800))
     expect(container.querySelector('.room-item')?.className).not.toContain('room-item--entering')
     vi.useRealTimers()
+  })
+
+  it('entra na sala ao dar duplo clique no item', () => {
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Ao vivo', users: 2 }])
+    const { container } = render(<RoomList />)
+    fireEvent.doubleClick(container.querySelector('.room-item')!)
+    expect(joinRoom).toHaveBeenCalledWith('Ao vivo')
+  })
+
+  it('não tenta entrar ao dar duplo clique na sala atual', () => {
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Ao vivo', users: 2 }])
+    useRoomStore.getState().setCurrentRoom('r1', 'Ao vivo')
+    const { container } = render(<RoomList />)
+    fireEvent.doubleClick(container.querySelector('.room-item')!)
+    expect(joinRoom).not.toHaveBeenCalled()
   })
 })

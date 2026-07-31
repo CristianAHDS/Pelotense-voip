@@ -10,6 +10,7 @@ const LIMITS: SecurityLimits = {
   maxTextLength: 50,
   maxAudioMessageBytes: 100,
   maxVideoMessageBytes: 100,
+  maxImageMessageBytes: 100,
   maxLiveChunkBytes: 100,
   maxVoiceFrameBytes: 100,
 }

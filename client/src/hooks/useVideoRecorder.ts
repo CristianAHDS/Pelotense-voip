@@ -5,6 +5,43 @@ interface VideoDevice {
   label: string
 }
 
+// Espelha DEFAULT_SECURITY_LIMITS.maxVideoMessageBytes (5MB) do servidor, que é
+// o limite real de descarte (o servidor continua sendo a autoridade). O guarda
+// aqui evita que um vídeo grande demais seja enviado e descartado em silêncio.
+const MAX_VIDEO_MESSAGE_BYTES = 5 * 1024 * 1024
+const MAX_VIDEO_BASE64_LENGTH = Math.ceil((MAX_VIDEO_MESSAGE_BYTES * 4) / 3) + 4
+const VIDEO_BITS_PER_SECOND = 500_000
+
+function createRecorder(stream: MediaStream, mimeType: string): MediaRecorder {
+  try {
+    return new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITS_PER_SECOND })
+  } catch {
+    return new MediaRecorder(stream, { mimeType })
+  }
+}
+
+function readBlobResult(
+  blob: Blob,
+  finalDuration: number,
+  resolve: (value: VideoRecordingResult) => void,
+): void {
+  const reader = new FileReader()
+  reader.onloadend = () => {
+    const base64 = (reader.result as string).split(',')[1]
+    if (base64.length > MAX_VIDEO_BASE64_LENGTH) {
+      resolve({ error: 'too-large' })
+      return
+    }
+    resolve({ data: base64, duration: finalDuration })
+  }
+  reader.readAsDataURL(blob)
+}
+
+export type VideoRecordingResult =
+  | { data: string; duration: number }
+  | { error: 'too-large' }
+  | null
+
 export function useVideoRecorder() {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
@@ -16,7 +53,7 @@ export function useVideoRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const resolveRef = useRef<((value: { data: string; duration: number } | null) => void) | null>(null)
+  const resolveRef = useRef<((value: VideoRecordingResult) => void) | null>(null)
   const cancelledRef = useRef(false)
   const startTimeRef = useRef(0)
   const mimeTypeRef = useRef('video/webm')
@@ -100,7 +137,7 @@ export function useVideoRecorder() {
       if (wasRecording) {
         const resolve = resolveRef.current!
         const mimeType = mimeTypeRef.current
-        const recorder = new MediaRecorder(newStream, { mimeType })
+        const recorder = createRecorder(newStream, mimeType)
         recorderRef.current = recorder
 
         recorder.ondataavailable = (e) => {
@@ -115,12 +152,7 @@ export function useVideoRecorder() {
           }
           const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
           const blob = new Blob(chunksRef.current, { type: mimeType })
-          const reader = new FileReader()
-          reader.onloadend = () => {
-            const base64 = (reader.result as string).split(',')[1]
-            resolve({ data: base64, duration: finalDuration })
-          }
-          reader.readAsDataURL(blob)
+          readBlobResult(blob, finalDuration, resolve)
         }
 
         recorder.onerror = () => {
@@ -157,7 +189,7 @@ export function useVideoRecorder() {
     }
   }, [cameraId])
 
-  const beginRecording = useCallback((): Promise<{ data: string; duration: number } | null> => {
+  const beginRecording = useCallback((): Promise<VideoRecordingResult> => {
     return new Promise((resolve) => {
       const s = streamRef.current
       if (!s) {
@@ -181,7 +213,7 @@ export function useVideoRecorder() {
           : 'video/webm'
       mimeTypeRef.current = mimeType
 
-      const recorder = new MediaRecorder(s, { mimeType })
+      const recorder = createRecorder(s, mimeType)
       recorderRef.current = recorder
 
       recorder.ondataavailable = (e) => {
@@ -196,12 +228,7 @@ export function useVideoRecorder() {
         }
         const finalDuration = Math.floor((Date.now() - startTimeRef.current) / 1000)
         const blob = new Blob(chunksRef.current, { type: mimeType })
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1]
-          resolve({ data: base64, duration: finalDuration })
-        }
-        reader.readAsDataURL(blob)
+        readBlobResult(blob, finalDuration, resolve)
       }
 
       recorder.onerror = () => {

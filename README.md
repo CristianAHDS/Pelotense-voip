@@ -38,6 +38,7 @@ npm run dev
 | UDP_PORT     | 3002    | UDP voice port  |
 | MAX_USERS    | 100     | Max clients     |
 | MAX_ROOMS    | 20      | Max rooms       |
+| DB_PATH      | ./data/voip.db | SQLite database path (persistence) |
 | LOG_LEVEL    | INFO    | DEBUG/INFO/WARN/ERROR |
 
 ## Client
@@ -59,6 +60,7 @@ npm run tauri dev  # Tauri desktop
 ### WebSocket Messages
 - `join_room`, `leave_room`, `create_room`, `delete_room`
 - `list_rooms`, `list_users`
+- `list_private_messages`, `private_history`
 - `heartbeat`
 
 ### UDP Packet Format (binary)

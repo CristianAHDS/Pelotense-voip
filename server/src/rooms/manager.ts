@@ -1,7 +1,8 @@
-import { Room, Client, LiveState } from '../types/index.js'
+import { Room, Client, LiveState, ChatMessage } from '../types/index.js'
 import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
+import { SqliteStore } from '../storage/index.js'
 
 const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados']
 
@@ -9,10 +10,13 @@ export class RoomManager {
   private rooms = new Map<string, Room>()
   private maxRooms: number
   private liveBroadcasts = new Map<string, LiveState>()
+  private storage?: SqliteStore
 
-  constructor(maxRooms: number) {
+  constructor(maxRooms: number, storage?: SqliteStore) {
     this.maxRooms = maxRooms
+    this.storage = storage
     this.initDefaultRooms()
+    this.loadPersistedRooms()
   }
 
   private initDefaultRooms(): void {
@@ -34,6 +38,31 @@ export class RoomManager {
       }
       this.rooms.set(id, room)
       logger.info('RoomManager', `Default room created: ${name}`, { id })
+    }
+  }
+
+  private loadPersistedRooms(): void {
+    if (!this.storage) return
+    for (const stored of this.storage.loadRooms()) {
+      if (stored.fixed) continue
+      const room: Room = {
+        id: stored.id,
+        name: stored.name,
+        clients: new Map(),
+        createdAt: stored.createdAt,
+        messages: this.storage.loadMessages(stored.id),
+        fixed: false,
+        createdBy: stored.createdBy,
+        createdByName: stored.createdByName,
+      }
+      this.rooms.set(room.id, room)
+      logger.info('RoomManager', `Persisted room restored: ${room.name}`, { id: room.id })
+    }
+    // Carrega mensagens das salas fixas também (histórico sobrevive ao restart).
+    for (const room of this.rooms.values()) {
+      if (room.fixed) {
+        room.messages = this.storage.loadMessages(room.id)
+      }
     }
   }
 
@@ -65,6 +94,7 @@ export class RoomManager {
     }
 
     this.rooms.set(id, room)
+    this.storage?.saveRoom(room)
     logger.info('RoomManager', `Room created: ${name}`, { id })
     eventBus.emit(EventType.RoomCreated, { roomId: id, roomName: name })
     return room
@@ -81,6 +111,7 @@ export class RoomManager {
 
     this.liveBroadcasts.delete(roomId)
     this.rooms.delete(roomId)
+    this.storage?.deleteRoom(roomId)
     logger.info('RoomManager', `Room deleted: ${room.name}`, { id: roomId })
     eventBus.emit(EventType.RoomDeleted, { roomId, roomName: room.name })
     return true
@@ -169,6 +200,31 @@ export class RoomManager {
 
   clearLiveBroadcast(roomId: string): void {
     this.liveBroadcasts.delete(roomId)
+  }
+
+  addMessage(roomId: string, msg: ChatMessage): void {
+    const room = this.rooms.get(roomId)
+    if (!room) return
+    room.messages.push(msg)
+    this.storage?.saveMessage(roomId, msg)
+  }
+
+  updateMessage(roomId: string, msg: ChatMessage): void {
+    const room = this.rooms.get(roomId)
+    if (!room) return
+    const idx = room.messages.findIndex((m) => m.id === msg.id)
+    if (idx === -1) return
+    room.messages[idx] = msg
+    this.storage?.saveMessage(roomId, msg)
+  }
+
+  deleteMessage(roomId: string, messageId: string): void {
+    const room = this.rooms.get(roomId)
+    if (!room) return
+    const idx = room.messages.findIndex((m) => m.id === messageId)
+    if (idx === -1) return
+    room.messages.splice(idx, 1)
+    this.storage?.deleteMessage(roomId, messageId)
   }
 
   private generateId(): string {

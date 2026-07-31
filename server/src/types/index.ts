@@ -19,6 +19,26 @@ export interface ChatMessage {
   text?: string
   audioData?: string
   videoData?: string
+  imageData?: string
+  duration?: number
+  timestamp: number
+  forwarded?: boolean
+  reactions?: MessageReaction[]
+}
+
+export interface MessageReaction {
+  emoji: string
+  userIds: string[]
+}
+
+export interface PrivateMessage {
+  id?: string
+  fromUserId: string
+  fromUserName: string
+  toUserId: string
+  text?: string
+  audioData?: string
+  videoData?: string
   duration?: number
   timestamp: number
 }
@@ -71,7 +91,10 @@ export enum WsMessageType {
   Login = 'login',
   ChatAudioMessage = 'chat_audio_message',
   ChatVideoMessage = 'chat_video_message',
+  ChatImageMessage = 'chat_image_message',
   ChatMessage = 'chat_message',
+  MessageReaction = 'message_reaction',
+  ForwardMessage = 'forward_message',
   PrivateMessage = 'private_message',
   DeleteMessage = 'delete_message',
   MessageDeleted = 'message_deleted',
@@ -89,6 +112,8 @@ export enum WsMessageType {
   LiveForceStop = 'live_force_stop',
   PrivateAudioMessage = 'private_audio_message',
   PrivateVideoMessage = 'private_video_message',
+  ListPrivateMessages = 'list_private_messages',
+  PrivateHistory = 'private_history',
 }
 
 export interface WsMessage {
@@ -151,6 +176,7 @@ export interface SecurityLimits {
   maxTextLength: number
   maxAudioMessageBytes: number
   maxVideoMessageBytes: number
+  maxImageMessageBytes: number
   maxLiveChunkBytes: number
   maxVoiceFrameBytes: number
 }
@@ -161,7 +187,8 @@ export const DEFAULT_SECURITY_LIMITS: SecurityLimits = {
   maxRoomNameLength: 64,
   maxTextLength: 4000,
   maxAudioMessageBytes: 512 * 1024,
-  maxVideoMessageBytes: 2 * 1024 * 1024,
+  maxVideoMessageBytes: 5 * 1024 * 1024,
+  maxImageMessageBytes: 5 * 1024 * 1024,
   maxLiveChunkBytes: 512 * 1024,
   maxVoiceFrameBytes: 64 * 1024,
 }

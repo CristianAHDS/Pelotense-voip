@@ -4,6 +4,7 @@ import { WsHandler } from '../network/wsHandler.js'
 import { ClientManager } from '../clients/manager.js'
 import { RoomManager } from '../rooms/manager.js'
 import { WsMessage, WsMessageType, SecurityLimits } from '../types/index.js'
+import { SqliteStore } from '../storage/index.js'
 
 export interface TestServer {
   wss: WebSocketServer
@@ -14,11 +15,11 @@ export interface TestServer {
   close: () => Promise<void>
 }
 
-export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: SecurityLimits, adminNames: string[] = []): Promise<TestServer> {
+export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: SecurityLimits, adminNames: string[] = [], storage?: SqliteStore): Promise<TestServer> {
   const wss = new WebSocketServer({ port: 0 })
   const clients = new ClientManager(maxUsers)
-  const rooms = new RoomManager(maxRooms)
-  const handler = new WsHandler(wss, clients, rooms, 3002, limits, adminNames)
+  const rooms = new RoomManager(maxRooms, storage)
+  const handler = new WsHandler(wss, clients, rooms, 3002, limits, adminNames, storage)
   const port = (wss.address() as AddressInfo).port
   const close = (): Promise<void> =>
     new Promise((resolve) => {

@@ -47,6 +47,36 @@ describe('UserList (admin)', () => {
   })
 })
 
+describe('UserList (bot do rádio)', () => {
+  it('mostra o bot na lista de pessoas na sala "Retorno ao vivo"', () => {
+    useRoomStore.getState().setCurrentRoom('r1', 'Retorno ao vivo')
+    const { container } = render(<UserList />)
+    expect(container.querySelector('.radio-bot')).not.toBeNull()
+  })
+
+  it('não mostra o bot na lista em outras salas', () => {
+    useRoomStore.getState().setCurrentRoom('r1', 'Ao vivo')
+    const { container } = render(<UserList />)
+    expect(container.querySelector('.radio-bot')).toBeNull()
+  })
+})
+
+describe('RoomList (bot na sala de retorno)', () => {
+  it('mostra o bot como ocupante na sala "Retorno ao vivo"', () => {
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Retorno ao vivo', users: 0, fixed: true }])
+    const { container } = render(<RoomList />)
+    const avatars = container.querySelectorAll('.room-user-avatar')
+    expect(avatars.length).toBe(1)
+    expect(avatars[0].getAttribute('title')).toBe('Bot')
+  })
+
+  it('não mostra o bot como ocupante em outras salas', () => {
+    useRoomStore.getState().setRooms([{ id: 'r1', name: 'Externas', users: 0, fixed: true }])
+    const { container } = render(<RoomList />)
+    expect(container.querySelectorAll('.room-user-avatar').length).toBe(0)
+  })
+})
+
 describe('RoomList (permissão de delete)', () => {
   it('mostra botão Delete para o criador da sala', () => {
     useConnectionStore.getState().setConnected('me', 'Eu', false)

@@ -36,6 +36,7 @@ export const config = {
   maxWsPayload: getInt('MAX_WS_PAYLOAD', 8 * 1024 * 1024),
   logLevel: getLogLevel('LOG_LEVEL', LogLevel.INFO),
   adminNames: getList('ADMIN_NAMES', []),
+  dbPath: getEnv('DB_PATH', './data/voip.db'),
 }
 
 export const securityLimits: SecurityLimits = {
@@ -45,6 +46,7 @@ export const securityLimits: SecurityLimits = {
   maxTextLength: getInt('MAX_TEXT_LENGTH', DEFAULT_SECURITY_LIMITS.maxTextLength),
   maxAudioMessageBytes: getInt('MAX_AUDIO_MESSAGE_BYTES', DEFAULT_SECURITY_LIMITS.maxAudioMessageBytes),
   maxVideoMessageBytes: getInt('MAX_VIDEO_MESSAGE_BYTES', DEFAULT_SECURITY_LIMITS.maxVideoMessageBytes),
+  maxImageMessageBytes: getInt('MAX_IMAGE_MESSAGE_BYTES', DEFAULT_SECURITY_LIMITS.maxImageMessageBytes),
   maxLiveChunkBytes: getInt('MAX_LIVE_CHUNK_BYTES', DEFAULT_SECURITY_LIMITS.maxLiveChunkBytes),
   maxVoiceFrameBytes: getInt('MAX_VOICE_FRAME_BYTES', DEFAULT_SECURITY_LIMITS.maxVoiceFrameBytes),
 }

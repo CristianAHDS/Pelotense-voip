@@ -5,6 +5,7 @@ import { RoomManager } from '../rooms/index.js'
 import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
+import { SqliteStore } from '../storage/index.js'
 
 export class WsHandler {
   private wss: WebSocketServer
@@ -13,6 +14,7 @@ export class WsHandler {
   private udpPort: number
   private limits: SecurityLimits
   private adminNames: string[]
+  private storage?: SqliteStore
   private pendingClients = new Map<WebSocket, { ip: string }>()
   private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
 
@@ -23,6 +25,7 @@ export class WsHandler {
     udpPort: number,
     limits: SecurityLimits = DEFAULT_SECURITY_LIMITS,
     adminNames: string[] = [],
+    storage?: SqliteStore,
   ) {
     this.wss = wss
     this.clients = clients
@@ -30,6 +33,7 @@ export class WsHandler {
     this.udpPort = udpPort
     this.limits = limits
     this.adminNames = adminNames
+    this.storage = storage
     this.setup()
     this.startDeadConnectionMonitor()
   }
@@ -258,6 +262,18 @@ export class WsHandler {
         this.handleChatVideoMessage(client, msg.payload as { videoData: string; duration: number })
         break
 
+      case WsMessageType.ChatImageMessage:
+        this.handleChatImageMessage(client, msg.payload as { imageData: string })
+        break
+
+      case WsMessageType.MessageReaction:
+        this.handleMessageReaction(client, msg.payload as { messageId: string; emoji: string })
+        break
+
+      case WsMessageType.ForwardMessage:
+        this.handleForwardMessage(client, msg.payload as { messageId: string; roomName: string })
+        break
+
       case WsMessageType.DeleteMessage:
         this.handleDeleteMessage(client, msg.payload as { messageId: string })
         break
@@ -272,6 +288,10 @@ export class WsHandler {
 
       case WsMessageType.PrivateVideoMessage:
         this.handlePrivateVideoMessage(client, msg.payload as { toUserId: string; videoData: string; duration: number })
+        break
+
+      case WsMessageType.ListPrivateMessages:
+        this.handleListPrivateMessages(client, msg.payload as { withUserId: string })
         break
 
       case WsMessageType.LiveForceStop:
@@ -321,7 +341,7 @@ export class WsHandler {
       timestamp: Date.now(),
     }
 
-    room.messages.push(chatMsg)
+    this.rooms.addMessage(room.id, chatMsg)
 
     this.broadcastToRoom(client.room, {
       type: WsMessageType.ChatMessage,
@@ -329,7 +349,7 @@ export class WsHandler {
     }, '')
   }
 
-  private handleChatAudioMessage(client: Client, payload: { audioData: string; duration: number }): void {
+  private handleChatAudioMessage(client: Client, payload: { id?: string; audioData: string; duration: number }): void {
     if (!client.room || !payload.audioData) return
     if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
       logger.warn('WsHandler', `Audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
@@ -340,7 +360,9 @@ export class WsHandler {
     if (!room) return
 
     const chatMsg: ChatMessage = {
-      id: this.generateMessageId(),
+      // id do cliente (mensagem otimista) é preservado para o eco ser
+      // correlacionado no remetente; sem ele, gera um novo.
+      id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
       userId: client.id,
       userName: client.name,
       audioData: payload.audioData,
@@ -348,7 +370,7 @@ export class WsHandler {
       timestamp: Date.now(),
     }
 
-    room.messages.push(chatMsg)
+    this.rooms.addMessage(room.id, chatMsg)
 
     this.broadcastToRoom(client.room, {
       type: WsMessageType.ChatAudioMessage,
@@ -356,7 +378,7 @@ export class WsHandler {
     }, '')
   }
 
-  private handleChatVideoMessage(client: Client, payload: { videoData: string; duration: number }): void {
+  private handleChatVideoMessage(client: Client, payload: { id?: string; videoData: string; duration: number }): void {
     if (!client.room || !payload.videoData) return
     if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
       logger.warn('WsHandler', `Video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
@@ -367,7 +389,7 @@ export class WsHandler {
     if (!room) return
 
     const chatMsg: ChatMessage = {
-      id: this.generateMessageId(),
+      id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
       userId: client.id,
       userName: client.name,
       videoData: payload.videoData,
@@ -375,12 +397,108 @@ export class WsHandler {
       timestamp: Date.now(),
     }
 
-    room.messages.push(chatMsg)
+    this.rooms.addMessage(room.id, chatMsg)
 
     this.broadcastToRoom(client.room, {
       type: WsMessageType.ChatVideoMessage,
       payload: chatMsg,
     }, '')
+  }
+
+  private handleChatImageMessage(client: Client, payload: { id?: string; imageData: string }): void {
+    if (!client.room || !payload.imageData) return
+    if (this.base64Exceeds(payload.imageData, this.limits.maxImageMessageBytes)) {
+      logger.warn('WsHandler', `Image message from ${client.id} exceeds ${this.limits.maxImageMessageBytes} bytes, dropped`)
+      return
+    }
+
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const chatMsg: ChatMessage = {
+      id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
+      userId: client.id,
+      userName: client.name,
+      imageData: payload.imageData,
+      timestamp: Date.now(),
+    }
+
+    this.rooms.addMessage(room.id, chatMsg)
+
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.ChatImageMessage,
+      payload: chatMsg,
+    }, '')
+  }
+
+  private handleMessageReaction(client: Client, payload: { messageId: string; emoji: string }): void {
+    if (!client.room || !payload.messageId) return
+    const emoji = payload.emoji?.trim()
+    if (!emoji || emoji.length > 16) return
+
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const msg = room.messages.find((m) => m.id === payload.messageId)
+    if (!msg) return
+
+    if (msg.userId === client.id) return
+
+    msg.reactions ??= []
+    let entry = msg.reactions.find((r) => r.emoji === emoji)
+    if (!entry) {
+      entry = { emoji, userIds: [] }
+      msg.reactions.push(entry)
+    }
+
+    const idx = entry.userIds.indexOf(client.id)
+    if (idx >= 0) {
+      entry.userIds.splice(idx, 1)
+    } else {
+      entry.userIds.push(client.id)
+    }
+    if (entry.userIds.length === 0) {
+      msg.reactions = msg.reactions.filter((r) => r.emoji !== emoji)
+    }
+
+    this.rooms.updateMessage(room.id, msg)
+
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.MessageReaction,
+      payload: msg,
+    }, '')
+  }
+
+  private handleForwardMessage(client: Client, payload: { messageId: string; roomName: string }): void {
+    if (!client.room || !payload.messageId || !payload.roomName) return
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const source = room.messages.find((m) => m.id === payload.messageId)
+    if (!source) return
+
+    const target = this.rooms.findByName(payload.roomName)
+    if (!target) return
+
+    const copy: ChatMessage = {
+      ...source,
+      id: this.generateMessageId(),
+      forwarded: true,
+      timestamp: Date.now(),
+      reactions: undefined,
+    }
+
+    this.rooms.addMessage(target.id, copy)
+
+    const type = copy.audioData
+      ? WsMessageType.ChatAudioMessage
+      : copy.videoData
+        ? WsMessageType.ChatVideoMessage
+        : copy.imageData
+          ? WsMessageType.ChatImageMessage
+          : WsMessageType.ChatMessage
+
+    this.broadcastToRoom(target.id, { type, payload: copy }, '')
   }
 
   private handleBinaryMessage(client: Client, data: Buffer): void {
@@ -423,19 +541,23 @@ export class WsHandler {
     const msg = {
       type: WsMessageType.PrivateMessage,
       payload: {
+        id: this.generateMessageId(),
         fromUserId: client.id,
         fromUserName: client.name,
         toUserId: payload.toUserId,
+        toUserName: target.name,
         text: payload.text.trim(),
         timestamp: Date.now(),
       },
     }
 
+    this.storage?.savePrivateMessage(msg.payload)
+
     this.send(target.ws, msg)
     this.send(client.ws, msg)
   }
 
-  private handlePrivateAudioMessage(client: Client, payload: { toUserId: string; audioData: string; duration: number }): void {
+  private handlePrivateAudioMessage(client: Client, payload: { toUserId: string; id?: string; audioData: string; duration: number }): void {
     if (!payload.toUserId || !payload.audioData) return
     if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
       logger.warn('WsHandler', `Private audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
@@ -448,20 +570,24 @@ export class WsHandler {
     const msg = {
       type: WsMessageType.PrivateAudioMessage,
       payload: {
+        id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
         fromUserId: client.id,
         fromUserName: client.name,
         toUserId: payload.toUserId,
+        toUserName: target.name,
         audioData: payload.audioData,
         duration: payload.duration,
         timestamp: Date.now(),
       },
     }
 
+    this.storage?.savePrivateMessage(msg.payload)
+
     this.send(target.ws, msg)
     this.send(client.ws, msg)
   }
 
-  private handlePrivateVideoMessage(client: Client, payload: { toUserId: string; videoData: string; duration: number }): void {
+  private handlePrivateVideoMessage(client: Client, payload: { toUserId: string; id?: string; videoData: string; duration: number }): void {
     if (!payload.toUserId || !payload.videoData) return
     if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
       logger.warn('WsHandler', `Private video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
@@ -474,17 +600,38 @@ export class WsHandler {
     const msg = {
       type: WsMessageType.PrivateVideoMessage,
       payload: {
+        id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
         fromUserId: client.id,
         fromUserName: client.name,
         toUserId: payload.toUserId,
+        toUserName: target.name,
         videoData: payload.videoData,
         duration: payload.duration,
         timestamp: Date.now(),
       },
     }
 
+    this.storage?.savePrivateMessage(msg.payload)
+
     this.send(target.ws, msg)
     this.send(client.ws, msg)
+  }
+
+  private handleListPrivateMessages(client: Client, payload: { withUserId: string }): void {
+    if (!payload.withUserId || !this.storage) return
+    const peer = this.clients.get(payload.withUserId)
+    if (!peer) {
+      this.send(client.ws, {
+        type: WsMessageType.PrivateHistory,
+        payload: { withUserId: payload.withUserId, messages: [] },
+      })
+      return
+    }
+    const messages = this.storage.loadPrivateMessages(client.name, peer.name)
+    this.send(client.ws, {
+      type: WsMessageType.PrivateHistory,
+      payload: { withUserId: payload.withUserId, messages },
+    })
   }
 
   private stopBroadcastForLeaving(client: Client, roomId: string): void {
@@ -734,7 +881,7 @@ export class WsHandler {
     const msg = room.messages[idx]
     if (msg.userId !== client.id && !client.admin) return
 
-    room.messages.splice(idx, 1)
+    this.rooms.deleteMessage(room.id, payload.messageId)
 
     this.broadcastToRoom(client.room, {
       type: WsMessageType.MessageDeleted,

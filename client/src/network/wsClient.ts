@@ -11,6 +11,10 @@ export class WsClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private intentionalDisconnect: boolean = false
+  // Mensagens enviadas enquanto o socket estava fechado (reconexão no mobile):
+  // são reenviadas após o Login, para o envio não "sumir" silenciosamente.
+  private pendingQueue: Array<{ type: string; payload?: unknown }> = []
+  private static readonly MAX_PENDING = 100
 
   connect(url: string): void {
     this.intentionalDisconnect = false
@@ -41,6 +45,9 @@ export class WsClient {
       this.startHeartbeat()
       this.emit('connected', { type: 'connected' as WsMessageType, payload: undefined })
       this.emit('*', { type: 'connected' as WsMessageType, payload: undefined })
+      // Flush após o 'connected': o Login enviado pelo handler já foi mandado,
+      // então as mensagens pendentes chegam ao servidor depois da autenticação.
+      this.flushQueue()
     }
 
     this.ws.onmessage = (event) => {
@@ -76,6 +83,7 @@ export class WsClient {
     this.intentionalDisconnect = true
     this.cancelReconnect()
     this.stopHeartbeat()
+    this.pendingQueue.length = 0
     this.cleanupWs()
   }
 
@@ -87,15 +95,28 @@ export class WsClient {
   }
 
   send(type: string, payload?: unknown): void {
+    const msg: WsMessage = { type: type as WsMessageType, payload }
     if (this.ws?.readyState === WebSocket.OPEN) {
-      const msg: WsMessage = { type: type as WsMessageType, payload }
       this.ws.send(JSON.stringify(msg))
+    } else if (this.pendingQueue.length < WsClient.MAX_PENDING) {
+      // Socket fechado (mobile em reconexão): guarda para reenviar após o Login.
+      // Áudio/vídeo em tempo real (sendBinary) não entra na fila — dados velhos
+      // são inúteis; já as mensagens de chat/intenções precisam ser preservadas.
+      this.pendingQueue.push(msg)
     }
   }
 
   sendBinary(data: ArrayBuffer): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(data)
+    }
+  }
+
+  private flushQueue(): void {
+    if (this.ws?.readyState !== WebSocket.OPEN) return
+    while (this.pendingQueue.length > 0) {
+      const msg = this.pendingQueue.shift()!
+      this.ws.send(JSON.stringify(msg))
     }
   }
 

@@ -132,6 +132,35 @@ describe('roomStore', () => {
     expect(useRoomStore.getState().messages).toHaveLength(0)
   })
 
+  it('promove mensagem otimista: eco com o mesmo id substitui no lugar e limpa "enviando"', () => {
+    useRoomStore.getState().addMessage({
+      id: 'temp-1',
+      userId: 'me',
+      userName: 'Eu',
+      audioData: 'YXVkaW8=',
+      duration: 2,
+      timestamp: 100,
+      sending: true,
+    })
+    expect(useRoomStore.getState().messages).toHaveLength(1)
+    expect(useRoomStore.getState().messages[0].sending).toBe(true)
+
+    useRoomStore.getState().addMessage({
+      id: 'temp-1',
+      userId: 'me',
+      userName: 'Eu',
+      audioData: 'YXVkaW8=',
+      duration: 2,
+      timestamp: 101,
+    })
+
+    const msgs = useRoomStore.getState().messages
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].id).toBe('temp-1')
+    expect(msgs[0].sending).toBeUndefined()
+    expect(msgs[0].timestamp).toBe(101)
+  })
+
   it('define sala atual e limpa mensagens', () => {
     useRoomStore.getState().setCurrentRoom('r1', 'Ao vivo')
     expect(useRoomStore.getState().currentRoom).toBe('r1')
@@ -139,6 +168,15 @@ describe('roomStore', () => {
     useRoomStore.getState().setMessages([{ id: 'm1', userId: 'u1', userName: 'A', text: 'x', timestamp: 0 }])
     useRoomStore.getState().clearMessages()
     expect(useRoomStore.getState().messages).toHaveLength(0)
+  })
+
+  it('persiste a sala atual no localStorage (restaura após reload)', () => {
+    localStorage.clear()
+    useRoomStore.getState().setCurrentRoom('r1', 'Ao vivo')
+    expect(JSON.parse(localStorage.getItem('voip.currentRoom')!)).toEqual({ roomId: 'r1', roomName: 'Ao vivo' })
+
+    useRoomStore.getState().setCurrentRoom(null)
+    expect(localStorage.getItem('voip.currentRoom')).toBeNull()
   })
 })
 
@@ -180,6 +218,35 @@ describe('privateChatStore', () => {
   it('agrupa mensagens enviadas por mim sob o destinatário', () => {
     usePrivateChatStore.getState().addMessage(dm('me', 'other', 'resposta'))
     expect(usePrivateChatStore.getState().messages.other).toHaveLength(1)
+  })
+
+  it('promove mensagem otimista privada: eco com o mesmo id substitui no lugar', () => {
+    usePrivateChatStore.getState().addMessage({
+      id: 'temp-1',
+      fromUserId: 'me',
+      fromUserName: 'Eu',
+      toUserId: 'other',
+      audioData: 'YXVkaW8=',
+      duration: 2,
+      timestamp: 100,
+      sending: true,
+    })
+    expect(usePrivateChatStore.getState().messages.other).toHaveLength(1)
+
+    usePrivateChatStore.getState().addMessage({
+      id: 'temp-1',
+      fromUserId: 'me',
+      fromUserName: 'Eu',
+      toUserId: 'other',
+      audioData: 'YXVkaW8=',
+      duration: 2,
+      timestamp: 101,
+    })
+
+    const msgs = usePrivateChatStore.getState().messages.other
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].sending).toBeUndefined()
+    expect(msgs[0].timestamp).toBe(101)
   })
 
   it('fecha o chat', () => {

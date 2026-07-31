@@ -60,8 +60,15 @@ vi.mock('../voice/index.ts', () => {
   return { VoiceManager: MockVoiceManager }
 })
 
+const { notifyMock } = vi.hoisted(() => ({ notifyMock: vi.fn() }))
+vi.mock('../services/notifications.ts', () => ({
+  notifyNewMessage: notifyMock,
+  requestNotificationPermission: vi.fn(),
+  playMessageSound: vi.fn(),
+}))
+
 const { connectToServer, disconnectFromServer, getWsClient } = await import('../services/connectionService.ts')
-const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom } = await import('../services/connectionService.ts')
+const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom, sendChatAudioMessage, sendChatVideoMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, generateClientMessageId, sendChatImageMessage, sendMessageReaction, sendForwardMessage, requestPrivateHistory } = await import('../services/connectionService.ts')
 const voiceMock = await import('../voice/index.ts')
 const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number; startMicCalls: number; flushAudioCalls: number }
 
@@ -76,6 +83,7 @@ beforeEach(() => {
   MockVoiceManager.resumeCalls = 0
   MockVoiceManager.startMicCalls = 0
   MockVoiceManager.flushAudioCalls = 0
+  notifyMock.mockClear()
   useConnectionStore.setState({ connected: false, reconnecting: false, id: null, name: null })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [], unread: {}, loadingRooms: false, loadingMessages: false })
   useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
@@ -101,6 +109,25 @@ describe('connectionService', () => {
     expect(useConnectionStore.getState().connected).toBe(true)
     expect(useConnectionStore.getState().id).toBe('id1')
     expect(useConnectionStore.getState().name).toBe('A')
+  })
+
+  it('no primeiro login não re-entra em sala (currentRoomName é nulo)', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit('connected')
+    emit(WsMessageType.Welcome, { id: 'id1', name: 'A' })
+    expect(sent.filter((m) => m.type === WsMessageType.JoinRoom)).toHaveLength(0)
+  })
+
+  it('após reconectar (novo Welcome) re-entra na sala atual para restaurar o client.room no servidor', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit('connected')
+    emit(WsMessageType.Welcome, { id: 'id1', name: 'A' })
+    emit(WsMessageType.RoomJoined, { roomId: 'r1', roomName: 'Ao vivo', messages: [] })
+    sent.length = 0
+
+    emit(WsMessageType.Welcome, { id: 'id1', name: 'A' })
+
+    expect(sent).toContainEqual({ type: WsMessageType.JoinRoom, payload: 'Ao vivo' })
   })
 
   it('processa RoomList e UserList', () => {
@@ -206,6 +233,27 @@ describe('connectionService', () => {
     expect(sent).toContainEqual({ type: WsMessageType.LeaveRoom })
   })
 
+  it('envia áudio/vídeo (sala e privado) carregando o id do cliente para correlacionar o eco', () => {
+    connectToServer('ws://x', 'A', 'p')
+    const id1 = generateClientMessageId()
+    sendChatAudioMessage(id1, 'YXVkaW8=', 3)
+    sendChatVideoMessage(id1, 'dmlkZW8=', 4)
+    sendPrivateAudioMessage('other', id1, 'YXVkaW8=', 3)
+    sendPrivateVideoMessage('other', id1, 'dmlkZW8=', 4)
+    expect(sent).toContainEqual({ type: WsMessageType.ChatAudioMessage, payload: { id: id1, audioData: 'YXVkaW8=', duration: 3 } })
+    expect(sent).toContainEqual({ type: WsMessageType.ChatVideoMessage, payload: { id: id1, videoData: 'dmlkZW8=', duration: 4 } })
+    expect(sent).toContainEqual({ type: WsMessageType.PrivateAudioMessage, payload: { toUserId: 'other', id: id1, audioData: 'YXVkaW8=', duration: 3 } })
+    expect(sent).toContainEqual({ type: WsMessageType.PrivateVideoMessage, payload: { toUserId: 'other', id: id1, videoData: 'dmlkZW8=', duration: 4 } })
+  })
+
+  it('generateClientMessageId gera ids únicos', () => {
+    const a = generateClientMessageId()
+    const b = generateClientMessageId()
+    expect(a).toBeTruthy()
+    expect(b).toBeTruthy()
+    expect(a).not.toBe(b)
+  })
+
   it('disconnectFromServer limpa todo o estado', () => {
     connectToServer('ws://x', 'A', 'p')
     emit('connected')
@@ -283,5 +331,84 @@ describe('connectionService', () => {
     useRoomStore.getState().incrementUnread('r1')
     disconnectFromServer()
     expect(useRoomStore.getState().unread).toEqual({})
+  })
+
+  it('envia imagem, reação e encaminhamento com o payload correto', () => {
+    connectToServer('ws://x', 'A', 'p')
+    const id1 = generateClientMessageId()
+    sendChatImageMessage(id1, 'aW1n')
+    sendMessageReaction('m1', '👍')
+    sendForwardMessage('m1', 'Ao vivo')
+    expect(sent).toContainEqual({ type: WsMessageType.ChatImageMessage, payload: { id: id1, imageData: 'aW1n' } })
+    expect(sent).toContainEqual({ type: WsMessageType.MessageReaction, payload: { messageId: 'm1', emoji: '👍' } })
+    expect(sent).toContainEqual({ type: WsMessageType.ForwardMessage, payload: { messageId: 'm1', roomName: 'Ao vivo' } })
+  })
+
+  it('processa ChatImageMessage adicionando a mensagem', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit(WsMessageType.ChatImageMessage, { id: 'm9', userId: 'u1', userName: 'X', imageData: 'aW1n', timestamp: 1 })
+    expect(useRoomStore.getState().messages).toHaveLength(1)
+    expect(useRoomStore.getState().messages[0].imageData).toBe('aW1n')
+  })
+
+  it('processa MessageReaction promovendo a mensagem atualizada (mesmo id)', () => {
+    connectToServer('ws://x', 'A', 'p')
+    emit(WsMessageType.ChatMessage, { id: 'm1', userId: 'u1', userName: 'X', text: 'oi', timestamp: 1 })
+    emit(WsMessageType.MessageReaction, { id: 'm1', userId: 'u1', userName: 'X', text: 'oi', timestamp: 1, reactions: [{ emoji: '👍', userIds: ['u1'] }] })
+    const msgs = useRoomStore.getState().messages
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].reactions).toEqual([{ emoji: '👍', userIds: ['u1'] }])
+  })
+
+  it('notifica em mensagem privada de outro usuário quando o chat não está ativo', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useConnectionStore.getState().setConnected('me', 'A')
+    emit(WsMessageType.PrivateMessage, { fromUserId: 'other', fromUserName: 'Outro', toUserId: 'me', text: 'privado', timestamp: 1 })
+    expect(notifyMock).toHaveBeenCalledWith('Outro', 'privado')
+  })
+
+  it('não notifica quando o chat privado está ativo e a aba focada', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useConnectionStore.getState().setConnected('me', 'A')
+    usePrivateChatStore.getState().openChat('other', 'Outro')
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true })
+    emit(WsMessageType.PrivateMessage, { fromUserId: 'other', fromUserName: 'Outro', toUserId: 'me', text: 'privado', timestamp: 1 })
+    expect(notifyMock).not.toHaveBeenCalled()
+  })
+
+  it('não notifica eco da própria mensagem privada', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useConnectionStore.getState().setConnected('me', 'A')
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true })
+    try {
+      emit(WsMessageType.PrivateMessage, { fromUserId: 'me', fromUserName: 'A', toUserId: 'other', text: 'eu disse', timestamp: 1 })
+    } finally {
+      Object.defineProperty(document, 'hidden', { value: false, configurable: true })
+    }
+    expect(notifyMock).not.toHaveBeenCalled()
+  })
+
+  it('armazena o histórico privado recebido do servidor', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useConnectionStore.getState().setConnected('me', 'A')
+    emit(WsMessageType.PrivateHistory, {
+      withUserId: 'other',
+      messages: [
+        { id: 'p1', fromUserId: 'other', fromUserName: 'Outro', toUserId: 'me', text: 'oi', timestamp: 1 },
+        { id: 'p2', fromUserId: 'me', fromUserName: 'A', toUserId: 'other', text: 'olá', timestamp: 2 },
+      ],
+    })
+    const msgs = usePrivateChatStore.getState().messages['other'] ?? []
+    expect(msgs).toHaveLength(2)
+    expect(msgs[0].text).toBe('oi')
+    expect(msgs[1].text).toBe('olá')
+  })
+
+  it('requestPrivateHistory envia ListPrivateMessages com o par', () => {
+    connectToServer('ws://x', 'A', 'p')
+    sent.length = 0
+    requestPrivateHistory('other')
+    expect(sent).toContainEqual({ type: WsMessageType.ListPrivateMessages, payload: { withUserId: 'other' } })
   })
 })

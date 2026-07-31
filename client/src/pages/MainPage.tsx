@@ -10,6 +10,7 @@ import { useConnectionStore } from '../stores/connectionStore.ts';
 import { useRoomStore } from '../stores/roomStore.ts';
 import { usePrivateChatStore } from '../stores/privateChatStore.ts';
 import { useSettingsStore, applyTheme } from '../stores/settingsStore.ts';
+import { useT } from '../i18n/index.ts';
 
 type SheetTab = 'rooms' | 'users' | 'connection';
 
@@ -21,12 +22,23 @@ export function MainPage() {
   const unreadCount = usePrivateChatStore((s) => Object.keys(s.unread).length);
   const theme = useSettingsStore((s) => s.theme);
   const cycleTheme = useSettingsStore((s) => s.cycleTheme);
+  const language = useSettingsStore((s) => s.language);
+  const setLanguage = useSettingsStore((s) => s.setLanguage);
+  const t = useT();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<SheetTab>('rooms');
 
   useEffect(() => {
     setSheetOpen(false);
   }, [connected]);
+
+  // No mobile, o sheet de salas/usuários/conexão deve fechar sozinho quando o
+  // usuário entra numa sala (ao invés de ficar cobrindo o chat).
+  useEffect(() => {
+    if (currentRoomName) {
+      setSheetOpen(false);
+    }
+  }, [currentRoomName]);
 
   useEffect(() => {
     applyTheme(theme);
@@ -39,16 +51,16 @@ export function MainPage() {
       : 'disconnected';
 
   const statusLabel = reconnecting
-    ? 'Reconectando'
+    ? t('statusReconnecting')
     : connected
-      ? 'Conectado'
-      : 'Offline';
+      ? t('statusConnected')
+      : t('statusOffline');
 
   const statusTitle = reconnecting
-    ? 'Reconnecting...'
+    ? t('statusReconnecting')
     : connected
-      ? `Connected as ${connectedName}`
-      : 'Disconnected';
+      ? t('connectedAs', { name: connectedName ?? '' })
+      : t('statusOffline');
 
   const openSheet = (tab: SheetTab) => {
     setSheetTab(tab);
@@ -63,7 +75,7 @@ export function MainPage() {
         <button
           className="menu-toggle"
           onClick={() => openSheet('rooms')}
-          aria-label="Open menu"
+          aria-label={t('openMenu')}
         >
           {sheetOpen ? '✕' : '☰'}
         </button>
@@ -73,10 +85,10 @@ export function MainPage() {
             className="current-room-indicator"
             role="status"
             aria-live="polite"
-            title={`Você está em: ${currentRoomName}`}
+            title={t('youAreIn', { room: currentRoomName })}
           >
             <span className="current-room-indicator-dot" />
-            <span className="current-room-indicator-label">Em</span>
+            <span className="current-room-indicator-label">{t('statusIn')}</span>
             <span className="current-room-indicator-name">{currentRoomName}</span>
           </div>
         )}
@@ -92,15 +104,23 @@ export function MainPage() {
         <button
           className="theme-toggle"
           onClick={cycleTheme}
-          aria-label={`Theme: ${theme}`}
-          title={`Tema: ${theme}`}
+          aria-label={t('themeToggle', { theme })}
+          title={t('themeToggle', { theme })}
         >
           {themeIcon}
         </button>
         <button
+          className="lang-toggle"
+          onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
+          aria-label={t('language')}
+          title={t('language')}
+        >
+          {language === 'pt' ? 'EN' : 'PT'}
+        </button>
+        <button
           className="menu-toggle menu-toggle--users"
           onClick={() => openSheet('users')}
-          aria-label="Toggle users"
+          aria-label={t('toggleUsers')}
         >
           Users {sheetOpen ? '✕' : '▸'}
           {unreadCount > 0 && (
@@ -141,19 +161,19 @@ export function MainPage() {
             className={`mobile-sheet-tab ${sheetTab === 'rooms' ? 'mobile-sheet-tab--active' : ''}`}
             onClick={() => setSheetTab('rooms')}
           >
-            Salas
+            {t('roomsTab')}
           </button>
           <button
             className={`mobile-sheet-tab ${sheetTab === 'users' ? 'mobile-sheet-tab--active' : ''}`}
             onClick={() => setSheetTab('users')}
           >
-            Pessoas
+            {t('peopleTab')}
           </button>
           <button
             className={`mobile-sheet-tab ${sheetTab === 'connection' ? 'mobile-sheet-tab--active' : ''}`}
             onClick={() => setSheetTab('connection')}
           >
-            Conexão
+            {t('connectionTab')}
           </button>
         </div>
         <div className="mobile-sheet-body">

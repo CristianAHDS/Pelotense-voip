@@ -1,23 +1,29 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse, sendLiveRequestCancel } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { LiveViewer } from './LiveViewer.tsx'
-import type { ChatMsg } from '../types/index.ts'
+import { RadioBot } from './RadioBot.tsx'
+import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
+import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
+import { fileToResizedBase64, imageBase64ExceedsLimit } from '../utils/image.ts'
+import { useT, tStatic } from '../i18n/index.ts'
+
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 
 function formatTime(ts: number): string {
   const diff = Date.now() - ts
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return tStatic('now')
+  if (mins < 60) return tStatic('minAgo', { n: mins })
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+  if (hrs < 24) return tStatic('hourAgo', { n: hrs })
+  return tStatic('dayAgo', { n: Math.floor(hrs / 24) })
 }
 
 function exactTime(ts: number): string {
@@ -40,8 +46,8 @@ function dateLabel(ts: number): string {
   const now = new Date()
   const yesterday = new Date(now)
   yesterday.setDate(now.getDate() - 1)
-  if (sameDay(ts, now.getTime())) return 'Hoje'
-  if (sameDay(ts, yesterday.getTime())) return 'Ontem'
+  if (sameDay(ts, now.getTime())) return tStatic('today')
+  if (sameDay(ts, yesterday.getTime())) return tStatic('yesterday')
   return d.toLocaleDateString()
 }
 
@@ -53,11 +59,73 @@ function DateSeparator({ ts }: { ts: number }) {
   )
 }
 
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="lightbox" role="dialog" aria-modal="true" onClick={onClose}>
+      <button className="lightbox-close" onClick={onClose} aria-label={tStatic('close')}>
+        ✕
+      </button>
+      <img
+        src={src}
+        className="lightbox-media"
+        alt=""
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  )
+}
+
+function ForwardPicker({ rooms, onForward, onClose }: {
+  rooms: RoomInfo[]
+  onForward: (roomName: string) => void
+  onClose: () => void
+}) {
+  return (
+    <div className="forward-overlay" onClick={onClose}>
+      <div
+        className="forward-picker"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="forward-picker-header">
+          <span>{tStatic('forwardTo')}</span>
+          <button className="lightbox-close" onClick={onClose} aria-label={tStatic('close')}>✕</button>
+        </div>
+        <div className="forward-picker-list">
+          {rooms.map((r) => (
+            <button
+              key={r.id}
+              className="forward-picker-item"
+              onClick={() => onForward(r.name)}
+            >
+              <span className="forward-picker-room">#{r.name}</span>
+              <span className="forward-picker-users">{tStatic('usersOnline', { n: r.users })}</span>
+            </button>
+          ))}
+          {rooms.length === 0 && (
+            <p className="empty-state-hint">{tStatic('roomsEmpty')}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function ChatPanel() {
   const messages = useRoomStore((s) => s.messages)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const loadingMessages = useRoomStore((s) => s.loadingMessages)
   const myId = useConnectionStore((s) => s.id)
+  const myName = useConnectionStore((s) => s.name)
   const myAdmin = useConnectionStore((s) => s.admin)
   const connected = useConnectionStore((s) => s.connected)
   const broadcaster = useLiveStore((s) => s.broadcaster)
@@ -76,6 +144,12 @@ export function ChatPanel() {
   const videoRec = useVideoRecorder()
   const isRecording = audioRec.recording || videoRec.recording
   const isAoVivo = currentRoomName === 'Ao vivo'
+  const isRadioRoom = currentRoomName === RADIO_ROOM_NAME
+  const rooms = useRoomStore((s) => s.rooms)
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+  const [forwardMsg, setForwardMsg] = useState<ChatMsg | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const t = useT()
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -110,7 +184,18 @@ export function ChatPanel() {
   async function handleStartAudioRecording() {
     const result = await audioRec.startRecording()
     if (result) {
-      sendChatAudioMessage(result.data, result.duration)
+      // Feedback imediato: bolha local "enviando…", confirmada pelo eco do servidor.
+      const id = generateClientMessageId()
+      useRoomStore.getState().addMessage({
+        id,
+        userId: myId ?? '',
+        userName: myName ?? '',
+        audioData: result.data,
+        duration: result.duration,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendChatAudioMessage(id, result.data, result.duration)
     }
   }
 
@@ -124,10 +209,49 @@ export function ChatPanel() {
     }
   }
 
+  async function handleImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const base64 = await fileToResizedBase64(file)
+    if (!base64) {
+      useToastStore.getState().show('error', t('imageUnreadable'))
+      return
+    }
+    if (imageBase64ExceedsLimit(base64)) {
+      useToastStore.getState().show('error', t('imageTooLarge'))
+      return
+    }
+    const id = generateClientMessageId()
+    useRoomStore.getState().addMessage({
+      id,
+      userId: myId ?? '',
+      userName: myName ?? '',
+      imageData: base64,
+      timestamp: Date.now(),
+      sending: true,
+    })
+    sendChatImageMessage(id, base64)
+  }
+
   async function handleBeginRecording() {
     const result = await videoRec.beginRecording()
+    if (result && 'error' in result) {
+      useToastStore.getState().show('error', t('videoTooLarge'))
+      return
+    }
     if (result) {
-      sendChatVideoMessage(result.data, result.duration)
+      const id = generateClientMessageId()
+      useRoomStore.getState().addMessage({
+        id,
+        userId: myId ?? '',
+        userName: myName ?? '',
+        videoData: result.data,
+        duration: result.duration,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendChatVideoMessage(id, result.data, result.duration)
     }
   }
 
@@ -256,16 +380,20 @@ export function ChatPanel() {
     <div className="chat-panel">
       <div className="chat-header">
         <span className="chat-header-name">#{currentRoomName}</span>
-        <span className="chat-header-count">{messages.length} messages</span>
+        <span className="chat-header-count">{t('messagesCount', { count: messages.length })}</span>
       </div>
 
       {isAoVivo && broadcaster && broadcaster.userId !== myId && (
         <LiveViewer />
       )}
 
+      {isRadioRoom && (
+        <RadioBot />
+      )}
+
       <div className="chat-messages">
         {loadingMessages ? (
-          <div aria-busy="true" aria-label="Carregando mensagens">
+          <div aria-busy="true" aria-label={t('loadingMessages')}>
             <div className="skeleton skeleton-line" style={{ width: '55%' }} />
             <div className="skeleton skeleton-line" style={{ width: '70%' }} />
             <div className="skeleton skeleton-line" style={{ width: '40%' }} />
@@ -273,8 +401,8 @@ export function ChatPanel() {
         ) : messages.length === 0 ? (
           <div className="empty-state">
             <span className="empty-state-icon">💬</span>
-            <span className="empty-state-title">Nenhuma mensagem ainda</span>
-            <span className="empty-state-hint">Esta sala está em silêncio. Seja a primeira voz por aqui!</span>
+            <span className="empty-state-title">{t('noMessages')}</span>
+            <span className="empty-state-hint">{t('noMessagesHint')}</span>
           </div>
         ) : (
           messages.map((msg, i) => {
@@ -291,6 +419,9 @@ export function ChatPanel() {
                   canDelete={isSelf || myAdmin}
                   avatarColor={color}
                   showAvatar={!prev || prev.userId !== msg.userId}
+                  myId={myId}
+                  onForward={setForwardMsg}
+                  onLightbox={setLightboxSrc}
                 />
               </React.Fragment>
             )
@@ -498,20 +629,20 @@ export function ChatPanel() {
         <div className="chat-takeover-dialog">
           <div className="chat-takeover-dialog-box">
             <p className="chat-takeover-dialog-text">
-              <strong>{pendingRequest.fromUserName}</strong> wants to take over the live broadcast. Allow?
+              <strong>{pendingRequest.fromUserName}</strong> {tStatic('liveTakeover')}
             </p>
             <div className="chat-takeover-dialog-actions">
               <button
                 onClick={handleDenyTakeover}
                 className="chat-takeover-deny-btn"
               >
-                Deny
+                {tStatic('liveDeny')}
               </button>
               <button
                 onClick={handleAcceptTakeover}
                 className="chat-takeover-accept-btn"
               >
-                Allow
+                {tStatic('liveAllow')}
               </button>
             </div>
           </div>
@@ -553,7 +684,7 @@ export function ChatPanel() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Message #general"
+                placeholder={t('messagePlaceholder', { room: currentRoomName ?? '' })}
                 className="chat-input"
               />
               {!isAoVivo && (
@@ -598,6 +729,24 @@ export function ChatPanel() {
                 </button>
               )}
               <button
+                onClick={() => imageInputRef.current?.click()}
+                className="chat-img-btn"
+                title="Enviar imagem"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleImageSelected}
+              />
+              <button
                 onClick={handleSend}
                 className="chat-send-btn"
                 disabled={!text.trim()}
@@ -611,21 +760,53 @@ export function ChatPanel() {
           )}
         </div>
       </div>
+
+      {lightboxSrc && <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
+      {forwardMsg && (
+        <ForwardPicker
+          rooms={rooms}
+          onForward={(roomName) => {
+            if (!forwardMsg.id) return
+            sendForwardMessage(forwardMsg.id, roomName)
+            useToastStore.getState().show('success', t('forwardSent', { room: roomName }))
+            setForwardMsg(null)
+          }}
+          onClose={() => setForwardMsg(null)}
+        />
+      )}
     </div>
   )
 }
 
-function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
+function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onForward, onLightbox }: {
   msg: ChatMsg
   isSelf: boolean
   canDelete: boolean
   avatarColor: string
   showAvatar: boolean
+  myId: string | null
+  onForward: (msg: ChatMsg) => void
+  onLightbox: (src: string) => void
 }) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const progressRef = useRef<HTMLDivElement>(null)
   const [playing, setPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(msg.duration ?? 0)
+  const [seeking, setSeeking] = useState(false)
+  const [rate, setRate] = useState(1)
+  const [reactionsOpen, setReactionsOpen] = useState(false)
+
+  const RATES = [0.5, 1, 1.5, 2]
+
+  // Alturas das barras da onda: determinísticas por mensagem, para não
+  // "tremeluzir" a cada atualização de currentTime (timeupdate).
+  const bars = useMemo(
+    () => Array.from({ length: 32 }, (_, i) => 20 + Math.sin(i * 0.8) * 30 + ((i * 37) % 10)),
+    []
+  )
 
   useEffect(() => {
     if (msg.audioData && !audioUrl) {
@@ -652,15 +833,65 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
     }
   }, [msg.audioData, msg.videoData])
 
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = rate
+  }, [rate])
+
   function togglePlay() {
     if (!audioRef.current) return
     if (playing) {
       audioRef.current.pause()
-      audioRef.current.currentTime = 0
-      setPlaying(false)
     } else {
+      audioRef.current.playbackRate = rate
       audioRef.current.play()
-      setPlaying(true)
+    }
+  }
+
+  function cycleRate() {
+    setRate((r) => {
+      const next = RATES[(RATES.indexOf(r) + 1) % RATES.length]
+      if (audioRef.current) audioRef.current.playbackRate = next
+      return next
+    })
+  }
+
+  function toggleReaction(emoji: string) {
+    if (!msg.id) return
+    sendMessageReaction(msg.id, emoji)
+    setReactionsOpen(false)
+  }
+
+  const totalDuration =
+    audioRef.current?.duration && isFinite(audioRef.current.duration)
+      ? audioRef.current.duration
+      : duration
+
+  const progress = totalDuration > 0 ? Math.min(1, Math.max(0, currentTime / totalDuration)) : 0
+
+  function seekFromClientX(clientX: number) {
+    if (!audioRef.current || !progressRef.current) return
+    const rect = progressRef.current.getBoundingClientRect()
+    if (rect.width === 0) return
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    const target = ratio * totalDuration
+    audioRef.current.currentTime = target
+    setCurrentTime(target)
+  }
+
+  function seekBy(delta: number) {
+    if (!audioRef.current) return
+    const next = Math.min(totalDuration, Math.max(0, audioRef.current.currentTime + delta))
+    audioRef.current.currentTime = next
+    setCurrentTime(next)
+  }
+
+  function handleSeekKey(e: React.KeyboardEvent) {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      seekBy(5)
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      seekBy(-5)
     }
   }
 
@@ -684,6 +915,9 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
             {msg.userName}
           </div>
         )}
+        {msg.forwarded && (
+          <div className="chat-bubble-forwarded">{tStatic('forwarded')}</div>
+        )}
         {msg.videoData ? (
           <div className="chat-bubble-video">
             {videoUrl && (
@@ -695,12 +929,21 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
             )}
             <div className="chat-bubble-time">{formatDuration(msg.duration ?? 0)}</div>
           </div>
+        ) : msg.imageData ? (
+          <div className="chat-bubble-image">
+            <img
+              src={`data:image/jpeg;base64,${msg.imageData}`}
+              className="chat-image"
+              alt=""
+              onClick={() => onLightbox(`data:image/jpeg;base64,${msg.imageData}`)}
+            />
+          </div>
         ) : msg.audioData ? (
           <div className="chat-bubble-audio">
             <button
               onClick={togglePlay}
               className="chat-audio-play-btn"
-              title={playing ? 'Pause' : 'Play'}
+              title={playing ? tStatic('audioPause') : tStatic('audioPlay')}
             >
               {playing ? (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -713,42 +956,134 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar }: {
                 </svg>
               )}
             </button>
-            <div className="chat-audio-progress">
+            <button
+              onClick={cycleRate}
+              className="chat-audio-rate-btn"
+              title={tStatic('speed')}
+            >
+              {rate}x
+            </button>
+            <div
+              ref={progressRef}
+              className="chat-audio-progress"
+              role="slider"
+              aria-label="Linha do tempo do áudio"
+              aria-valuemin={0}
+              aria-valuemax={Math.round(totalDuration)}
+              aria-valuenow={Math.round(currentTime)}
+              tabIndex={0}
+              onPointerDown={(e) => {
+                e.preventDefault()
+                ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
+                setSeeking(true)
+                seekFromClientX(e.clientX)
+              }}
+              onPointerMove={(e) => {
+                if (seeking) seekFromClientX(e.clientX)
+              }}
+              onPointerUp={() => setSeeking(false)}
+              onPointerCancel={() => setSeeking(false)}
+              onPointerLeave={() => setSeeking(false)}
+              onKeyDown={handleSeekKey}
+            >
               <div className="chat-audio-wave">
-                {Array.from({ length: 32 }, (_, i) => (
+                {bars.map((h, i) => (
                   <div
                     key={i}
-                    className="chat-audio-bar"
-                    style={{
-                      height: `${20 + Math.sin(i * 0.8) * 30 + Math.random() * 10}%`,
-                      opacity: playing ? 1 : 0.4,
-                    }}
+                    className={`chat-audio-bar ${(i + 1) / bars.length <= progress ? 'chat-audio-bar--active' : ''}`}
+                    style={{ height: `${h}%` }}
                   />
                 ))}
               </div>
-              <span className="chat-audio-duration">
-                {playing ? '' : formatDuration(msg.duration ?? 0)}
-              </span>
+              <div className="chat-audio-time-row">
+                <span className="chat-audio-time">{formatDuration(currentTime)}</span>
+                <span className="chat-audio-duration">{formatDuration(duration)}</span>
+              </div>
             </div>
             <audio
               ref={audioRef}
               src={audioUrl ?? undefined}
-              onEnded={() => setPlaying(false)}
+              onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+              onLoadedMetadata={(e) => {
+                if (Number.isFinite(e.currentTarget.duration) && e.currentTarget.duration > 0) {
+                  setDuration(e.currentTarget.duration)
+                }
+              }}
+              onEnded={() => {
+                setPlaying(false)
+                setCurrentTime(0)
+              }}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
             />
           </div>
         ) : (
           <div className="chat-bubble-text">{msg.text}</div>
         )}
+        <div className="chat-bubble-reactions">
+          {msg.reactions?.map((r) => {
+            const mine = !!myId && r.userIds.includes(myId)
+            return (
+              <button
+                key={r.emoji}
+                className={`chat-reaction-chip${mine ? ' mine' : ''}${isSelf ? ' static' : ''}`}
+                onClick={() => { if (!isSelf && msg.id) sendMessageReaction(msg.id, r.emoji) }}
+                disabled={isSelf}
+              >
+                <span>{r.emoji}</span>
+                <span className="chat-reaction-count">{r.userIds.length}</span>
+              </button>
+            )
+          })}
+          {!isSelf && (
+            <span className="chat-reaction-add">
+              <button
+                className="chat-reaction-add-btn"
+                onClick={() => setReactionsOpen((v) => !v)}
+                title={tStatic('react')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                  <line x1="9" y1="9" x2="9.01" y2="9" />
+                  <line x1="15" y1="9" x2="15.01" y2="9" />
+                </svg>
+              </button>
+              {reactionsOpen && (
+                <div className="chat-reaction-picker">
+                  {QUICK_REACTIONS.map((e) => (
+                    <button key={e} className="chat-reaction-option" onClick={() => toggleReaction(e)}>
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </span>
+          )}
+        </div>
         <div className="chat-bubble-footer">
           <span className="chat-bubble-time" title={exactTime(msg.timestamp)}>
             {msg.videoData ? formatDuration(msg.duration ?? 0) : formatTime(msg.timestamp)}
           </span>
+          {msg.sending && (
+            <span className="chat-bubble-sending">{tStatic('sending')}</span>
+          )}
+          <button
+            onClick={() => onForward(msg)}
+            className="chat-bubble-forward-btn"
+            title={tStatic('forwardTo')}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 2 11 13" />
+              <path d="M22 2 15 22l-4-9-9-4z" />
+            </svg>
+          </button>
           {canDelete && (
             <button
               onClick={() => {
                 if (!msg.id) return
                 deleteMessage(msg.id)
-                useToastStore.getState().show('success', 'Mensagem apagada')
+                useToastStore.getState().show('success', tStatic('messageSent'))
               }}
               className="chat-bubble-delete-btn"
               title="Delete"
