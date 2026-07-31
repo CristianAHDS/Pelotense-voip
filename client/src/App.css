@@ -1137,6 +1137,7 @@ body {
   padding: 10px 14px;
   background: #1a1a1a;
   gap: 8px;
+  position: relative;
 }
 
 .chat-video-preview-left {
@@ -1144,26 +1145,75 @@ body {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  flex: 1;
 }
 
-.chat-camera-select {
-  background: #2a2a2a;
-  color: #ccc;
-  border: 1px solid #444;
+.chat-video-preview-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.chat-cam-settings-btn {
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: #888;
   cursor: pointer;
-  max-width: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-cam-settings-btn:hover {
+  color: #e0e0e0;
+  background: rgba(255,255,255,0.08);
+}
+
+.chat-camera-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.chat-camera-picker-item {
+  background: transparent;
+  border: none;
+  color: #bbb;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.chat-camera-select:focus {
-  outline: none;
-  border-color: #3b82f6;
+.chat-camera-picker-item:hover {
+  background: rgba(255,255,255,0.08);
+  color: #e0e0e0;
+}
+
+.chat-camera-picker-item.active {
+  color: #fff;
+  background: rgba(59,130,246,0.2);
 }
 
 .chat-video-preview-actions {

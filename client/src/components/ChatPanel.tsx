@@ -36,6 +36,7 @@ export function ChatPanel() {
   const myId = useConnectionStore((s) => s.id)
   const connected = useConnectionStore((s) => s.connected)
   const [text, setText] = useState('')
+  const [cameraPickerOpen, setCameraPickerOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const audioRec = useAudioRecorder()
   const videoRec = useVideoRecorder()
@@ -96,6 +97,7 @@ export function ChatPanel() {
 
   function handleCancelVideoRecording() {
     videoRec.cancelRecording()
+    setCameraPickerOpen(false)
   }
 
   if (!connected || !currentRoomName) return null
@@ -140,19 +142,36 @@ export function ChatPanel() {
                   <span className="chat-recording-dot" />
                   <span className="chat-recording-time">{videoRec.duration}s</span>
                 </span>
-                {videoRec.devices.length > 1 && !videoRec.recording && (
-                  <select
-                    className="chat-camera-select"
-                    value={videoRec.cameraId}
-                    onChange={(e) => videoRec.setCameraId(e.target.value)}
-                  >
+              </div>
+              <div className="chat-video-preview-center">
+                {cameraPickerOpen && (
+                  <div className="chat-camera-picker">
                     {videoRec.devices.map((d) => (
-                      <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
+                      <button
+                        key={d.deviceId}
+                        className={`chat-camera-picker-item${videoRec.cameraId === d.deviceId ? ' active' : ''}`}
+                        onClick={() => {
+                          videoRec.setCameraId(d.deviceId)
+                          setCameraPickerOpen(false)
+                        }}
+                      >
+                        {d.label}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 )}
               </div>
               <div className="chat-video-preview-actions">
+                <button
+                  onClick={() => videoRec.enumerateDevices().then(() => setCameraPickerOpen(!cameraPickerOpen))}
+                  className="chat-cam-settings-btn"
+                  title="Choose camera"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
                 <button
                   onClick={handleCancelVideoRecording}
                   className="chat-cancel-btn"
