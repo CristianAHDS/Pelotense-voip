@@ -1,0 +1,70 @@
+app = "pelotense-voip"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Volumes persistentes: SQLite + certificados.
+[[mounts]]
+  source = "voip_data"
+  destination = "/app/server/data"
+
+[[mounts]]
+  source = "voip_certs"
+  destination = "/app/server/certs"
+
+[env]
+  HOST = "0.0.0.0"
+  SERVER_PORT = "3000"
+  WS_PORT = "3001"
+  WSS_PORT = "3003"
+  HTTPS_CLIENT_PORT = "3443"
+  UDP_PORT = "3002"
+  DB_PATH = "./data/voip.db"
+  LOG_LEVEL = "INFO"
+  MAX_USERS = "100"
+  MAX_ROOMS = "20"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb"
+
+# HTTP (client buildado / health) — 3000 interno, exposto em 80/443
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+  [[services.ports]]
+    handlers = ["tls"]
+    port = 443
+
+# WebSocket (ws://) — 3001
+[[services]]
+  internal_port = 3001
+  protocol = "tcp"
+  [[services.ports]]
+    port = 3001
+
+# Voz (UDP) — 3002
+[[services]]
+  internal_port = 3002
+  protocol = "udp"
+  [[services.ports]]
+    port = 3002
+
+# WebSocket Secure (wss://) — 3003
+[[services]]
+  internal_port = 3003
+  protocol = "tcp"
+  [[services.ports]]
+    port = 3003
+
+# HTTPS do client (microfone) — 3443
+[[services]]
+  internal_port = 3443
+  protocol = "tcp"
+  [[services.ports]]
+    port = 3443
