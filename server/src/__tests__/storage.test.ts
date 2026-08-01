@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { WebSocket } from 'ws'
+import Database from 'better-sqlite3'
 import { SqliteStore } from '../storage/index.js'
 import { RoomManager } from '../rooms/manager.js'
 import { TestClient, TestServer, startTestServer, connectClient } from './helpers.js'
@@ -103,6 +104,41 @@ describe('SqliteStore', () => {
     store.savePrivateMessage({ id: 'p2', fromUserId: 'a', fromUserName: 'Ana', toUserId: 'c', toUserName: 'Carlos', text: 'op', timestamp: 2 })
     store.savePrivateMessage({ id: 'p3', fromUserId: 'b', fromUserName: 'Bia', toUserId: 'a', toUserName: 'Ana', text: 'opa', timestamp: 3 })
     expect(store.loadPrivateMessagesWith('Ana').sort()).toEqual(['Bia', 'Carlos'])
+  })
+
+  it('migra banco antigo: adiciona colunas que faltam em private_messages (ex: toUserName)', () => {
+    store.close()
+    removeDir(dir)
+    dir = mkdtempSync(join(tmpdir(), 'voip-sqlite-mig-'))
+    const dbPath = join(dir, 'test.db')
+
+    // Simula um banco com schema antigo da tabela de DMs (sem toUserName).
+    const raw = new Database(dbPath)
+    raw.exec(`
+      CREATE TABLE private_messages (
+        id TEXT PRIMARY KEY,
+        fromUserId TEXT NOT NULL,
+        fromUserName TEXT NOT NULL,
+        toUserId TEXT NOT NULL,
+        text TEXT,
+        timestamp INTEGER NOT NULL
+      );
+    `)
+    raw.close()
+
+    store = new SqliteStore(dbPath)
+    store.savePrivateMessage({
+      id: 'pm1',
+      fromUserId: 'a',
+      fromUserName: 'Ana',
+      toUserId: 'b',
+      toUserName: 'Bia',
+      text: 'oi',
+      timestamp: 1,
+    })
+    const msgs = store.loadPrivateMessages('Ana', 'Bia')
+    expect(msgs.length).toBe(1)
+    expect(msgs[0].text).toBe('oi')
   })
 })
 

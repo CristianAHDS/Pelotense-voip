@@ -1,24 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { PrivateChatMsg } from '../types/index.ts'
 import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
 import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, sendPrivateImageMessage, deletePrivateMessage, generateClientMessageId } from '../services/connectionService.ts'
-import { useMediaRecorder } from '../hooks/useMediaRecorder.ts'
+import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
+import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit } from '../utils/image.ts'
 import { ChatMedia } from './ChatMedia.tsx'
 import { useT, tStatic } from '../i18n/index.ts'
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(blob)
-  })
-}
 
 function DmMediaBubble({ msg }: { msg: PrivateChatMsg }) {
   if (msg.audioData || msg.videoData || msg.imageData) {
@@ -48,11 +40,19 @@ export function PrivateChatPanel() {
   const myAdmin = useConnectionStore((s) => s.admin)
   const toggleDmFullscreen = useAccountStore((s) => s.toggleDmFullscreen)
   const [text, setText] = useState('')
+  const [cameraPickerOpen, setCameraPickerOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
-  const audioRecorder = useMediaRecorder('audio')
-  const videoRecorder = useMediaRecorder('video')
+  const audioRec = useAudioRecorder()
+  const videoRec = useVideoRecorder()
+
+  const setVideoPreview = useCallback((el: HTMLVideoElement | null) => {
+    if (el && videoRec.streamRef.current) {
+      el.srcObject = videoRec.streamRef.current
+      el.play().catch(() => {})
+    }
+  }, [videoRec.streamVersion])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -60,8 +60,9 @@ export function PrivateChatPanel() {
 
   useEffect(() => {
     setText('')
-    audioRecorder.cancel()
-    videoRecorder.cancel()
+    audioRec.cancelRecording()
+    videoRec.closeCamera()
+    setCameraPickerOpen(false)
   }, [activeUserId])
 
   if (!connected) return null
@@ -90,54 +91,70 @@ export function PrivateChatPanel() {
     }
   }
 
-  async function handleSendAudio() {
+  async function handleStartAudioRecording() {
     if (!activeUserId) return
-    if (audioRecorder.recording) {
-      const blob = await audioRecorder.stop()
-      if (blob) {
-        const data = await blobToBase64(blob)
-        const duration = Math.max(1, Math.round(blob.size / 16000))
-        const id = generateClientMessageId()
-        usePrivateChatStore.getState().addMessage({
-          id,
-          fromUserId: myId ?? '',
-          fromUserName: myName ?? '',
-          toUserId: activeUserId,
-          audioData: data,
-          duration,
-          timestamp: Date.now(),
-          sending: true,
-        })
-        sendPrivateAudioMessage(activeUserId, id, data, duration)
-      }
-    } else {
-      audioRecorder.start()
+    const result = await audioRec.startRecording()
+    if (result) {
+      const id = generateClientMessageId()
+      usePrivateChatStore.getState().addMessage({
+        id,
+        fromUserId: myId ?? '',
+        fromUserName: myName ?? '',
+        toUserId: activeUserId,
+        audioData: result.data,
+        duration: result.duration,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendPrivateAudioMessage(activeUserId, id, result.data, result.duration)
     }
   }
 
-  async function handleSendVideo() {
-    if (!activeUserId) return
-    if (videoRecorder.recording) {
-      const blob = await videoRecorder.stop()
-      if (blob) {
-        const data = await blobToBase64(blob)
-        const duration = Math.max(1, Math.round(blob.size / 64000))
-        const id = generateClientMessageId()
-        usePrivateChatStore.getState().addMessage({
-          id,
-          fromUserId: myId ?? '',
-          fromUserName: myName ?? '',
-          toUserId: activeUserId,
-          videoData: data,
-          duration,
-          timestamp: Date.now(),
-          sending: true,
-        })
-        sendPrivateVideoMessage(activeUserId, id, data, duration)
-      }
-    } else {
-      videoRecorder.start()
+  function handleStopAudioRecording() {
+    audioRec.stopRecording()
+  }
+
+  function handleCancelAudioRecording() {
+    audioRec.cancelRecording()
+  }
+
+  async function handleOpenCamera() {
+    if (videoRec.devices.length === 0) {
+      await videoRec.enumerateDevices()
     }
+    await videoRec.openCamera()
+  }
+
+  async function handleBeginRecording() {
+    if (!activeUserId) return
+    const result = await videoRec.beginRecording()
+    if (result && 'error' in result) {
+      useToastStore.getState().show('error', tStatic('videoTooLarge'))
+      return
+    }
+    if (result) {
+      const id = generateClientMessageId()
+      usePrivateChatStore.getState().addMessage({
+        id,
+        fromUserId: myId ?? '',
+        fromUserName: myName ?? '',
+        toUserId: activeUserId,
+        videoData: result.data,
+        duration: result.duration,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendPrivateVideoMessage(activeUserId, id, result.data, result.duration)
+    }
+  }
+
+  function handleStopVideoRecording() {
+    videoRec.stopRecording()
+  }
+
+  function handleCancelVideoRecording() {
+    videoRec.closeCamera()
+    setCameraPickerOpen(false)
   }
 
   async function handleImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -233,68 +250,181 @@ export function PrivateChatPanel() {
         <div ref={bottomRef} />
       </div>
 
+      {videoRec.hasStream && (
+        <div className="chat-video-preview-overlay">
+          <div className="chat-video-preview-box">
+            <video
+              ref={setVideoPreview}
+              autoPlay
+              muted
+              playsInline
+              className="chat-video-preview"
+            />
+            <div className="chat-video-preview-toolbar">
+              <div className="chat-video-preview-left">
+                <span className="chat-recording-indicator">
+                  <span className="chat-recording-dot" />
+                  {videoRec.recording && <span className="chat-recording-time">{videoRec.duration}s</span>}
+                </span>
+              </div>
+              <div className="chat-video-preview-center">
+                {cameraPickerOpen && (
+                  <div className="chat-camera-picker">
+                    {videoRec.devices.map((d) => (
+                      <button
+                        key={d.deviceId}
+                        className={`chat-camera-picker-item${videoRec.cameraId === d.deviceId ? ' active' : ''}`}
+                        onClick={() => {
+                          videoRec.switchCamera(d.deviceId)
+                          setCameraPickerOpen(false)
+                        }}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="chat-video-preview-actions">
+                <button
+                  onClick={() => videoRec.enumerateDevices().then(() => setCameraPickerOpen(!cameraPickerOpen))}
+                  className="chat-cam-settings-btn"
+                  title="Choose camera"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleCancelVideoRecording}
+                  className="chat-cancel-btn"
+                  title="Cancel"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+                {videoRec.recording ? (
+                  <button
+                    onClick={handleStopVideoRecording}
+                    className="chat-recording-stop-btn"
+                    title="Stop and send"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleBeginRecording}
+                    className="chat-recording-start-btn"
+                    title="Start recording"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="12" r="6" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="chat-footer chat-footer--dm">
         <div className="chat-input-wrap">
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Message @${activeUserName}`}
-            className="chat-input"
-          />
-          <button
-            onClick={() => handleSendAudio()}
-            className={`chat-mic-btn ${audioRecorder.recording ? 'recording' : ''}`}
-            disabled={!audioRecorder.supported || videoRecorder.recording}
-            title={tStatic('recordAudio')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-              <line x1="12" y1="19" x2="12" y2="23" />
-              <line x1="8" y1="23" x2="16" y2="23" />
-            </svg>
-          </button>
-          <button
-            onClick={() => handleSendVideo()}
-            className={`chat-cam-btn ${videoRecorder.recording ? 'recording' : ''}`}
-            disabled={!videoRecorder.supported || audioRecorder.recording}
-            title={tStatic('recordVideo')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="23 7 16 12 23 17 23 7" />
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-            </svg>
-          </button>
-          <button
-            onClick={() => imageInputRef.current?.click()}
-            className="chat-img-btn"
-            title={tStatic('sendImage')}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </button>
-          <input
-            ref={imageInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleImageSelected}
-          />
-          <button
-            onClick={handleSend}
-            className="chat-send-btn"
-            disabled={!text.trim()}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
+          {audioRec.recording ? (
+            <>
+              <div className="chat-recording-indicator">
+                <span className="chat-recording-dot" />
+                <span className="chat-recording-time">{audioRec.duration}s</span>
+              </div>
+              <button
+                onClick={handleCancelAudioRecording}
+                className="chat-cancel-btn"
+                title="Cancel"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <button
+                onClick={handleStopAudioRecording}
+                className="chat-recording-stop-btn"
+                title="Send"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`Message @${activeUserName}`}
+                className="chat-input"
+              />
+              <button
+                onClick={handleStartAudioRecording}
+                className="chat-mic-btn"
+                disabled={videoRec.recording}
+                title={tStatic('recordAudio')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              </button>
+              <button
+                onClick={handleOpenCamera}
+                className={`chat-cam-btn ${videoRec.recording ? 'recording' : ''}`}
+                disabled={audioRec.recording}
+                title={tStatic('recordVideo')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7" />
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                </svg>
+              </button>
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className="chat-img-btn"
+                title={tStatic('sendImage')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleImageSelected}
+              />
+              <button
+                onClick={handleSend}
+                className="chat-send-btn"
+                disabled={!text.trim()}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

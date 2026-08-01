@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { getUserMediaWithMic } from '../utils/media.ts'
 
 export function useAudioRecorder() {
   const [recording, setRecording] = useState(false)
@@ -46,7 +47,7 @@ export function useAudioRecorder() {
 
   const startRecording = useCallback((): Promise<{ data: string; duration: number } | null> => {
     return new Promise((resolve) => {
-      navigator.mediaDevices.getUserMedia({ audio: true })
+      getUserMediaWithMic(false, true)
         .then((stream) => {
           streamRef.current = stream
           chunksRef.current = []

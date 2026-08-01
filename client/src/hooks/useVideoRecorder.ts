@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import * as liveRtc from '../services/liveRtc.ts'
+import { getUserMediaWithMic } from '../utils/media.ts'
 
 interface VideoDevice {
   deviceId: string
@@ -116,10 +117,10 @@ export function useVideoRecorder() {
     if (!oldStream) return
 
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: newCameraId }, width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: true,
-      })
+      const newStream = await getUserMediaWithMic(
+        { deviceId: { exact: newCameraId }, width: { ideal: 640 }, height: { ideal: 480 } },
+        true,
+      )
 
       const wasRecording = recorderRef.current?.state === 'recording'
 
@@ -177,13 +178,10 @@ export function useVideoRecorder() {
 
   const openCamera = useCallback(async (): Promise<boolean> => {
     try {
-      const constraints: MediaStreamConstraints = {
-        video: cameraId
-          ? { deviceId: { exact: cameraId }, width: { ideal: 640 }, height: { ideal: 480 } }
-          : { width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: true,
-      }
-      const s = await navigator.mediaDevices.getUserMedia(constraints)
+      const videoConstraints: MediaTrackConstraints = cameraId
+        ? { deviceId: { exact: cameraId }, width: { ideal: 640 }, height: { ideal: 480 } }
+        : { width: { ideal: 640 }, height: { ideal: 480 } }
+      const s = await getUserMediaWithMic(videoConstraints, true)
       streamRef.current = s
       setHasStream(true)
       setStreamVersion((v) => v + 1)

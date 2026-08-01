@@ -123,7 +123,6 @@ export class SqliteStore {
         duration INTEGER,
         timestamp INTEGER NOT NULL
       );
-      CREATE INDEX IF NOT EXISTS idx_private_pair ON private_messages(fromUserName, toUserName);
       CREATE TABLE IF NOT EXISTS accounts (
         name TEXT PRIMARY KEY,
         id TEXT,
@@ -163,9 +162,27 @@ export class SqliteStore {
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email)')
 
     const pmCols = this.db.prepare('PRAGMA table_info(private_messages)').all() as Array<{ name: string }>
-    if (!pmCols.some((c) => c.name === 'imageData')) {
-      this.db.exec('ALTER TABLE private_messages ADD COLUMN imageData TEXT')
+    const pmColsSet = new Set(pmCols.map((c) => c.name))
+    // Migração completa da tabela de DMs: bancos antigos podem não ter algumas
+    // colunas (ex: toUserName). ALTER ADD COLUMN não aceita NOT NULL sem default,
+    // então as colunas entram como opcionais (novos inserts preenchem tudo).
+    const pmAdd: Array<[string, string]> = [
+      ['fromUserId', 'TEXT'],
+      ['fromUserName', 'TEXT'],
+      ['toUserId', 'TEXT'],
+      ['toUserName', 'TEXT'],
+      ['text', 'TEXT'],
+      ['audioData', 'TEXT'],
+      ['videoData', 'TEXT'],
+      ['imageData', 'TEXT'],
+      ['duration', 'INTEGER'],
+    ]
+    for (const [col, type] of pmAdd) {
+      if (!pmColsSet.has(col)) {
+        this.db.exec(`ALTER TABLE private_messages ADD COLUMN ${col} ${type}`)
+      }
     }
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_private_pair ON private_messages(fromUserName, toUserName)')
   }
 
   close(): void {
