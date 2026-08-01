@@ -1,0 +1,20 @@
+[build]
+  command = "npm --prefix client ci && npm --prefix client run build"
+  publish = "client/dist"
+
+# Ajuste o tempo do build para o tsc + vite não estourarem o limite padrão.
+[build.environment]
+  CI = "true"
+
+# SPA fallback: serve o index.html para rotas não encontradas.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers básicos de segurança/PWA.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

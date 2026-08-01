@@ -1,0 +1,32 @@
+services:
+  voip-server:
+    build: .
+    container_name: voip-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"          # HTTP (client buildado / health)
+      - "3001:3001"          # WebSocket (ws://)
+      - "3002:3002/udp"      # UDP de voz
+      - "3003:3003"          # WebSocket Secure (wss://)
+      - "3443:3443"          # HTTPS do client (microfone)
+    environment:
+      HOST: 0.0.0.0
+      SERVER_PORT: "3000"
+      WS_PORT: "3001"
+      WSS_PORT: "3003"
+      HTTPS_CLIENT_PORT: "3443"
+      UDP_PORT: "3002"
+      DB_PATH: ./data/voip.db
+      MAX_USERS: "100"
+      MAX_ROOMS: "20"
+      LOG_LEVEL: INFO
+      # Admins (opcional):
+      # ADMIN_NAMES: "Cris"
+      # ADMIN_IDS: "fc2su3qi"
+    volumes:
+      - voip-data:/app/server/data
+      - voip-certs:/app/server/certs
+
+volumes:
+  voip-data:
+  voip-certs:

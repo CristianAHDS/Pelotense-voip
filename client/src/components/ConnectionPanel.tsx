@@ -7,6 +7,7 @@ import { useT } from '../i18n/index.ts'
 
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:'
+const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || '192.168.8.94'
 
 type AuthMode = 'login' | 'register'
 
@@ -16,7 +17,7 @@ function loadStored() {
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
-        host: parsed.host ?? '192.168.8.94',
+        host: parsed.host ?? DEFAULT_HOST,
         wsPort: parsed.wsPort ?? '3001',
         wssPort: parsed.wssPort ?? '3003',
         name: parsed.name ?? '',
@@ -25,7 +26,7 @@ function loadStored() {
       }
     }
   } catch { /* ignore */ }
-  return { host: '192.168.8.94', wsPort: '3001', wssPort: '3003', name: '', email: '', password: '' }
+  return { host: DEFAULT_HOST, wsPort: '3001', wssPort: '3003', name: '', email: '', password: '' }
 }
 
 function saveStored(host: string, wsPort: string, wssPort: string, name: string, email: string, password: string): void {
