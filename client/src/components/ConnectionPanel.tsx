@@ -19,14 +19,14 @@ function loadStored() {
       return {
         host: parsed.host ?? DEFAULT_HOST,
         wsPort: parsed.wsPort ?? '3001',
-        wssPort: parsed.wssPort ?? '3003',
+        wssPort: parsed.wssPort ?? '443',
         name: parsed.name ?? '',
         email: parsed.email ?? '',
         password: parsed.password ?? '',
       }
     }
   } catch { /* ignore */ }
-  return { host: DEFAULT_HOST, wsPort: '3001', wssPort: '3003', name: '', email: '', password: '' }
+  return { host: DEFAULT_HOST, wsPort: '3001', wssPort: '443', name: '', email: '', password: '' }
 }
 
 function saveStored(host: string, wsPort: string, wssPort: string, name: string, email: string, password: string): void {
@@ -44,7 +44,7 @@ function clearStoredCredentials(): void {
     saveStored(
       parsed.host ?? DEFAULT_HOST,
       parsed.wsPort ?? '3001',
-      parsed.wssPort ?? '3003',
+      parsed.wssPort ?? '443',
       '',
       '',
       '',
@@ -203,8 +203,8 @@ export function ConnectionPanel() {
     const v = DEFAULT_HOST
     setHost(v)
     setWsPort('3001')
-    setWssPort('3003')
-    saveStored(v, '3001', '3003', nickname, email, password)
+    setWssPort('443')
+    saveStored(v, '3001', '443', nickname, email, password)
   }
 
   const authError = localError || loginError

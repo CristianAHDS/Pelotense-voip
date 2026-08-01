@@ -27,21 +27,23 @@ primary_region = "gru"
   cpus = 1
   memory = "256mb"
 
-# HTTP (client buildado / health) — 3000 interno, exposto em 80/443
+# HTTP (client buildado / health) — 3000 interno, exposto em 80
 [[services]]
   internal_port = 3000
   protocol = "tcp"
   [[services.ports]]
     handlers = ["http"]
     port = 80
-  [[services.ports]]
-    handlers = ["tls"]
-    port = 443
 
-# WebSocket (ws://) — 3001
+# WebSocket — 3001 interno
+# 443: TLS válido do Fly (Let's Encrypt p/ *.fly.dev) — o wss:// sem aviso de cert
+# 3001: ws:// direto (para clientes em HTTP)
 [[services]]
   internal_port = 3001
   protocol = "tcp"
+  [[services.ports]]
+    handlers = ["http", "tls"]
+    port = 443
   [[services.ports]]
     port = 3001
 
