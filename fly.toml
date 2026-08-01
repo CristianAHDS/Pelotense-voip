@@ -4,15 +4,6 @@ primary_region = "gru"
 [build]
   dockerfile = "Dockerfile"
 
-# Volumes persistentes: SQLite + certificados.
-[[mounts]]
-  source = "voip_data"
-  destination = "/app/server/data"
-
-[[mounts]]
-  source = "voip_certs"
-  destination = "/app/server/certs"
-
 [env]
   HOST = "0.0.0.0"
   SERVER_PORT = "3000"
@@ -24,6 +15,15 @@ primary_region = "gru"
   LOG_LEVEL = "INFO"
   MAX_USERS = "100"
   MAX_ROOMS = "20"
+
+# Volumes persistentes: SQLite + certificados.
+[[mounts]]
+  source = "voip_data"
+  destination = "/app/server/data"
+
+[[mounts]]
+  source = "voip_certs"
+  destination = "/app/server/certs"
 
 [vm]
   cpu_kind = "shared"

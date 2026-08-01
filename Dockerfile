@@ -4,9 +4,9 @@
 # ============================================================
 
 # ---- Build (tsc) ----
-# node:20 (Debian completo) já traz as ferramentas de build dos addons nativos
-# (better-sqlite3), evitando falhas de compilação na imagem slim.
-FROM node:20 AS build
+# node:24 (igual ao ambiente local) — better-sqlite3@13 exige Node >= 22 e o
+# lockfile foi gerado com npm 11; node:20/npm 10 não resolve o lockfile.
+FROM node:24 AS build
 WORKDIR /app/server
 COPY server/package.json server/package-lock.json ./
 RUN npm ci
@@ -14,8 +14,7 @@ COPY server/ ./
 RUN npm run build && npm prune --omit=dev
 
 # ---- Runtime ----
-FROM node:20-slim AS runtime
-# Garantias extras caso algum addon precise compilar de qualquer forma.
+FROM node:24-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 ENV NODE_ENV=production
