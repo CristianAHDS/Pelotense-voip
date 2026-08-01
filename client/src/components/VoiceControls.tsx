@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useVoice } from '../hooks/useVoice.ts'
+import { useMicTest } from '../hooks/useMicTest.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
@@ -30,6 +31,8 @@ function saveMicDevice(deviceId: string): void {
 
 export function VoiceControls({ compact }: Props) {
   const { muted, volume, level, rxLevel, toggleMute, setVolume } = useVoice()
+  const micTest = useMicTest()
+  const prevMutedRef = useRef(false)
   const connected = useConnectionStore((s) => s.connected)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const micDisabled = currentRoomName === 'Boletins gravados'
@@ -66,6 +69,17 @@ export function VoiceControls({ compact }: Props) {
     saveMicDevice(deviceId)
     const vm = getVoiceManager()
     void vm?.setMicrophone(deviceId)
+  }
+
+  function handleMicTest(): void {
+    if (micTest.testing) {
+      micTest.stop()
+      useVoiceStore.getState().setMuted(prevMutedRef.current)
+    } else {
+      prevMutedRef.current = muted
+      useVoiceStore.getState().setMuted(true)
+      micTest.start()
+    }
   }
 
   const pct = Math.round((Number.isFinite(level) ? level : 0) * 100)
@@ -248,6 +262,33 @@ export function VoiceControls({ compact }: Props) {
           value={volume}
           onChange={(e) => setVolume(parseFloat(e.target.value))}
         />
+      </div>
+      <div className="mic-test-control">
+        <button
+          onClick={handleMicTest}
+          className={`btn btn-mic-test ${micTest.testing ? 'testing' : ''}`}
+          title={micTest.testing ? 'Parar teste de microfone' : 'Testar microfone'}
+        >
+          {micTest.testing ? '⏹ Parar teste' : '🎤 Testar microfone'}
+        </button>
+        {micTest.testing && (
+          <div className="mic-test-live">
+            <div className="vu-meter">
+              <div className="vu-meter-track">
+                {Array.from({ length: bars }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`vu-bar ${i < Math.round(micTest.level * bars) ? 'vu-bar--active' : ''} ${
+                      i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="vu-meter-value">{Math.round(micTest.level * 100)}%</div>
+            </div>
+            <span className="mic-test-hint">Fale e ouça sua voz no fone (use headphones p/ evitar eco).</span>
+          </div>
+        )}
       </div>
       <div className="vu-meter">
         <div className="vu-meter-label">Mic</div>

@@ -1559,6 +1559,46 @@ body {
   margin-top: 12px;
 }
 
+.mic-test-control {
+  margin-top: 12px;
+}
+
+.btn-mic-test {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}
+
+.btn-mic-test:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.btn-mic-test.testing {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.btn-mic-test.testing:hover:not(:disabled) {
+  background: var(--red-strong);
+  color: #fff;
+}
+
+.mic-test-live {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mic-test-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
 .volume-control label {
   font-size: 13px;
   color: var(--text-2);

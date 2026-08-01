@@ -16,6 +16,16 @@ O servidor apenas **relaya** os pacotes de voz entre os clientes (não decodific
 
 ---
 
+## Acesso online
+
+O cliente (frontend) está publicado no Netlify:
+
+**[🔗 pelotense-voip.netlify.app](https://pelotense-voip.netlify.app)**
+
+> O frontend aponta para o servidor de voz via o painel de conexão (host + porta WSS/WS). O backend roda separadamente (ex: Oracle Cloud / Docker).
+
+---
+
 ## Telas
 
 ### Modo claro
