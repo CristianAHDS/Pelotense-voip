@@ -4,12 +4,13 @@
 # ============================================================
 
 # ---- Build (tsc) ----
-# node:24 (igual ao ambiente local) — better-sqlite3@13 exige Node >= 22 e o
-# lockfile foi gerado com npm 11; node:20/npm 10 não resolve o lockfile.
+# node:24 (igual ao ambiente local) — better-sqlite3@13 exige Node >= 22.
 FROM node:24 AS build
 WORKDIR /app/server
 COPY server/package.json server/package-lock.json ./
-RUN npm ci
+# `npm install` (em vez de `npm ci`): o lockfile não traz as entradas resolvidas
+# das deps opcionais do better-sqlite3 (@emnapi/*) — o install resolve na hora.
+RUN npm install --no-audit --no-fund
 COPY server/ ./
 RUN npm run build && npm prune --omit=dev
 
