@@ -3,7 +3,7 @@ import { useAccountStore } from '../stores/accountStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { requestAccounts, sendAdminUpdateAccount } from '../services/connectionService.ts'
 import { Avatar } from '../ui/Avatar.tsx'
-import { MASTER_USER_ID, USER_TAGS, tagColor } from '../ui/admin.ts'
+import { isMasterUser, USER_TAGS, tagColor } from '../ui/admin.ts'
 import { useT } from '../i18n/index.ts'
 
 type AdminTab = 'users' | 'system'
@@ -24,7 +24,7 @@ function AdminUserEdit({ account, onBack }: { account: { id?: string; name: stri
   const [error, setError] = useState('')
   const [isAdmin, setIsAdmin] = useState(!!account.admin)
   const [tags, setTags] = useState<string[]>(account.tags ?? [])
-  const isMaster = account.id === MASTER_USER_ID
+  const isMaster = isMasterUser(account)
 
   function handleSave() {
     const trimmed = name.trim()
@@ -249,8 +249,8 @@ export function AdminPanel() {
                           <span className="user-name">
                             {a.name}
                             {a.admin && (
-                              <span className={`user-admin-badge ${a.id === MASTER_USER_ID ? 'user-admin-badge--master' : ''}`} title={a.id === MASTER_USER_ID ? 'Master Admin' : 'Admin'}>
-                                {a.id === MASTER_USER_ID ? 'Master' : 'Admin'}
+                              <span className={`user-admin-badge ${isMasterUser(a) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(a) ? 'Master Admin' : 'Admin'}>
+                                {isMasterUser(a) ? 'Master' : 'Admin'}
                               </span>
                             )}
                             {a.tags?.map((tag) => (
@@ -281,8 +281,8 @@ export function AdminPanel() {
                           <span className="user-name">
                             {a.name}
                             {a.admin && (
-                              <span className={`user-admin-badge ${a.id === MASTER_USER_ID ? 'user-admin-badge--master' : ''}`} title={a.id === MASTER_USER_ID ? 'Master Admin' : 'Admin'}>
-                                {a.id === MASTER_USER_ID ? 'Master' : 'Admin'}
+                              <span className={`user-admin-badge ${isMasterUser(a) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(a) ? 'Master Admin' : 'Admin'}>
+                                {isMasterUser(a) ? 'Master' : 'Admin'}
                               </span>
                             )}
                             {a.tags?.map((tag) => (

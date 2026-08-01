@@ -11,7 +11,7 @@ import { useT } from '../i18n/index.ts'
 import { RadioBot } from './RadioBot.tsx'
 import { UserInfoPopup, TooltipUser } from './UserInfoPopup.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
-import { MASTER_USER_ID, tagColor } from '../ui/admin.ts'
+import { isMasterUser, tagColor } from '../ui/admin.ts'
 
 interface PopoverState {
   user: TooltipUser
@@ -97,9 +97,9 @@ export function UserList() {
   const offlineAccounts = accounts.filter((a) => !a.online)
 
   // Master primeiro, depois admins, depois os demais.
-  function byRole<T extends { id?: string; admin?: boolean }>(a: T, b: T): number {
-    const aMaster = a.id === MASTER_USER_ID ? 1 : 0
-    const bMaster = b.id === MASTER_USER_ID ? 1 : 0
+  function byRole<T extends { id?: string; name?: string; email?: string; admin?: boolean }>(a: T, b: T): number {
+    const aMaster = isMasterUser(a) ? 1 : 0
+    const bMaster = isMasterUser(b) ? 1 : 0
     if (aMaster !== bMaster) return bMaster - aMaster
     const aAdmin = a.admin ? 1 : 0
     const bAdmin = b.admin ? 1 : 0
@@ -142,8 +142,8 @@ export function UserList() {
                 <span className="user-name">
                   {user.name}{isMe ? ' (you)' : ''}
                   {user.admin ? (
-                    <span className={`user-admin-badge ${user.id === MASTER_USER_ID ? 'user-admin-badge--master' : ''}`} title={user.id === MASTER_USER_ID ? 'Master Admin' : 'Admin'}>
-                      {user.id === MASTER_USER_ID ? 'Master' : 'Admin'}
+                    <span className={`user-admin-badge ${isMasterUser(user) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(user) ? 'Master Admin' : 'Admin'}>
+                      {isMasterUser(user) ? 'Master' : 'Admin'}
                     </span>
                   ) : user.tags?.[0] ? (
                     <span className="user-tag" style={{ background: tagColor(user.tags[0]), borderColor: tagColor(user.tags[0]) }}>{user.tags[0]}</span>
@@ -199,8 +199,8 @@ export function UserList() {
                 <span className="user-name">
                   {acc.name}
                   {acc.admin ? (
-                    <span className={`user-admin-badge ${acc.id === MASTER_USER_ID ? 'user-admin-badge--master' : ''}`} title={acc.id === MASTER_USER_ID ? 'Master Admin' : 'Admin'}>
-                      {acc.id === MASTER_USER_ID ? 'Master' : 'Admin'}
+                    <span className={`user-admin-badge ${isMasterUser(acc) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(acc) ? 'Master Admin' : 'Admin'}>
+                      {isMasterUser(acc) ? 'Master' : 'Admin'}
                     </span>
                   ) : acc.tags?.[0] ? (
                     <span className="user-tag" style={{ background: tagColor(acc.tags[0]), borderColor: tagColor(acc.tags[0]) }}>{acc.tags[0]}</span>

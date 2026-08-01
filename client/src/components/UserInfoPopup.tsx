@@ -4,7 +4,7 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { sendRequestLivePreview } from '../services/connectionService.ts'
 import * as liveRtc from '../services/liveRtc.ts'
-import { MASTER_USER_ID, tagColor } from '../ui/admin.ts'
+import { isMasterUser, tagColor } from '../ui/admin.ts'
 import { useT } from '../i18n/index.ts'
 
 export interface TooltipUser {
@@ -23,7 +23,7 @@ export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
   onMouseLeave?: () => void
 }) {
   const t = useT()
-  const isMaster = user.id === MASTER_USER_ID
+  const isMaster = isMasterUser(user)
   const isAdmin = !!user.admin || isMaster
   const rooms = useRoomStore((s) => s.rooms)
   const currentBroadcaster = useLiveStore((s) => s.broadcaster)

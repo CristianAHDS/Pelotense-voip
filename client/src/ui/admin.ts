@@ -1,4 +1,13 @@
 export const MASTER_USER_ID = (import.meta.env.VITE_MASTER_USER_ID as string | undefined) || 'fc2su3qi'
+export const MASTER_NAME = (import.meta.env.VITE_MASTER_NAME as string | undefined) || 'Cris'
+export const MASTER_EMAIL = (import.meta.env.VITE_MASTER_EMAIL as string | undefined) || 'admin@ahoradosul.com.br'
+
+// Sempre master: pelo id configurado OU pelo nome OU pelo e-mail.
+export function isMasterUser(u: { id?: string; name?: string; email?: string }): boolean {
+  return u.id === MASTER_USER_ID
+    || u.name === MASTER_NAME
+    || (!!u.email && u.email.toLowerCase() === MASTER_EMAIL.toLowerCase())
+}
 
 export const USER_TAGS = ['Repórter', 'TI', 'Vídeo', 'Áudio', 'Produção', 'Locução']
 

@@ -8,6 +8,15 @@ import { EventType } from '../types/index.js'
 import { SqliteStore } from '../storage/index.js'
 
 const MASTER_USER_ID = process.env.MASTER_USER_ID || 'fc2su3qi'
+const MASTER_NAME = process.env.MASTER_NAME || 'Cris'
+const MASTER_EMAIL = process.env.MASTER_EMAIL || 'admin@ahoradosul.com.br'
+
+// Sempre master: pelo id configurado OU pelo nome OU pelo e-mail.
+function isMaster(u: { id?: string; name: string; email?: string }): boolean {
+  return u.id === MASTER_USER_ID
+    || u.name === MASTER_NAME
+    || (!!u.email && u.email.toLowerCase() === MASTER_EMAIL.toLowerCase())
+}
 
 export class WsHandler {
   private wss: WebSocketServer
@@ -242,7 +251,7 @@ export class WsHandler {
       udpPort: 0,
       ip: pending.ip,
       lastPing: Date.now(),
-      admin: id === MASTER_USER_ID || this.adminNames.includes(resolvedName) || this.adminIds.includes(id) || account.isAdmin === true,
+      admin: isMaster(account) || this.adminNames.includes(resolvedName) || this.adminIds.includes(id) || account.isAdmin === true,
       avatar: avatar ?? account.avatar,
       email: account.email,
       tags: account.tags,
@@ -828,8 +837,8 @@ export class WsHandler {
     this.send(client.ws, { type: WsMessageType.AccountsList, payload: this.buildAccountsList() })
   }
 
-  private isAccountAdmin(a: { id?: string; name: string; isAdmin?: boolean }): boolean {
-    return a.id === MASTER_USER_ID
+  private isAccountAdmin(a: { id?: string; name: string; email?: string; isAdmin?: boolean }): boolean {
+    return isMaster(a)
       || (!!a.id && this.adminIds.includes(a.id))
       || this.adminNames.includes(a.name)
       || a.isAdmin === true
@@ -902,7 +911,7 @@ export class WsHandler {
 
     const oldName = target.name
     const isAdmin = typeof payload.isAdmin === 'boolean' ? payload.isAdmin : target.isAdmin === true
-    if (target.id === MASTER_USER_ID && !isAdmin) {
+    if (isMaster(target) && !isAdmin) {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Master admin cannot be demoted' })
       return
     }
