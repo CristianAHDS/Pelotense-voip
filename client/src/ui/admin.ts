@@ -1,4 +1,4 @@
-export const MASTER_USER_ID = 'fc2su3qi'
+export const MASTER_USER_ID = (import.meta.env.VITE_MASTER_USER_ID as string | undefined) || 'fc2su3qi'
 
 export const USER_TAGS = ['Repórter', 'TI', 'Vídeo', 'Áudio', 'Produção', 'Locução']
 

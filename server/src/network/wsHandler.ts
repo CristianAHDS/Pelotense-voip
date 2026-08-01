@@ -7,7 +7,7 @@ import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
 import { SqliteStore } from '../storage/index.js'
 
-const MASTER_USER_ID = 'fc2su3qi'
+const MASTER_USER_ID = process.env.MASTER_USER_ID || 'fc2su3qi'
 
 export class WsHandler {
   private wss: WebSocketServer
