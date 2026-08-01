@@ -12,18 +12,15 @@ primary_region = "gru"
   HTTPS_CLIENT_PORT = "3443"
   UDP_PORT = "3002"
   DB_PATH = "./data/voip.db"
+  CERTS_DIR = "./data/certs"
   LOG_LEVEL = "INFO"
   MAX_USERS = "100"
   MAX_ROOMS = "20"
 
-# Volumes persistentes: SQLite + certificados.
+# Volume único (Fly permite apenas 1 por máquina): SQLite + certificados.
 [[mounts]]
   source = "voip_data"
   destination = "/app/server/data"
-
-[[mounts]]
-  source = "voip_certs"
-  destination = "/app/server/certs"
 
 [vm]
   cpu_kind = "shared"

@@ -4,7 +4,9 @@ import { fileURLToPath } from 'url'
 import selfsigned from 'selfsigned'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const CERTS_DIR = join(__dirname, '..', '..', 'certs')
+// Permite apontar os certificados para dentro do volume de dados (Fly/Oracle:
+// só um volume por máquina no Fly). Padrão: server/certs.
+const CERTS_DIR = process.env.CERTS_DIR ?? join(__dirname, '..', '..', 'certs')
 const KEY_PATH = join(CERTS_DIR, 'server.key')
 const CERT_PATH = join(CERTS_DIR, 'server.crt')
 
