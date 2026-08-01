@@ -152,8 +152,8 @@ VITE_SERVER_HOST=192.168.8.94 npm run dev
 - **Salas de voz**: salas fixas (canais da emissora) + salas temporárias criadas pelos usuários, com chat por sala.
 - **Conta com e-mail**: criação de conta exige e-mail, com envio de código de confirmação via SMTP (ver `SMTP_*`); o login aceita **nick ou e-mail** + senha.
 - **Rádio ao vivo**: bot de rádio (streaming online) disponível apenas na sala **"Retorno ao vivo"**; aparece no chat, na lista de pessoas e como ocupante da sala; o play é manual.
-- **Transmissão ao vivo (câmera)**: somente um usuário transmite por vez na sala "Ao vivo", com pedido de troca (takeover) e confirmação.
-- **DM com áudio/vídeo**: mensagens diretas por usuário com texto, áudio e vídeo gravados (`MediaRecorder`).
+- **Transmissão ao vivo (câmera)**: somente um usuário transmite por vez na sala "Ao vivo", com pedido de troca (takeover) e confirmação. O vídeo/áudio é enviado em **tempo real via WebRTC (mesh)** — o transmissor cria um `RTCPeerConnection` por espectador e a sinalização (offer/answer/ICE) é relayada pelo WebSocket existente (`rtc_signal`), sem MediaRecorder/MSE. Troca de câmera mantém a live (`replaceTrack`) e o preview no popup de informações reusa a conexão já ativa.
+- **DM com áudio/vídeo/imagem**: mensagens diretas por usuário com texto, áudio, vídeo e imagem; player de mídia igual ao chat de sala (`ChatMedia`), delete de DM e tela cheia do DM.
 - **Histórico persistente**: salas, mensagens, DMs e contas sobrevivem ao reinício via SQLite; o cliente também guarda histórico local (IndexedDB com fallback localStorage).
 - **Preferências de conta**: modal central para alterar nome, senha e avatar (upload de imagem); persistido localmente e no servidor (`update_profile`/`profile_updated`).
 - **Avatar de imagem**: aparece na lista de usuários, nos ocupantes/criador das salas e no chat (com fallback para iniciais coloridas).
@@ -221,7 +221,22 @@ npm run test:server       # só servidor (vitest)
 npm run test:client       # só cliente (vitest)
 ```
 
-Suite atual: **113 testes no servidor + 240 no cliente**.
+Suite atual: **134 testes no servidor + 267 no cliente**.
+
+### Teste E2E da live (Playwright)
+
+Há um teste visual de ponta a ponta que sobe o servidor, abre dois navegadores reais
+(transmissor + espectador, com câmera fake do Chromium) e verifica que o espectador
+**realmente recebe o vídeo** (não preto). Ele também gera screenshots em `e2e/artifacts/`.
+
+```bash
+npx playwright install chromium   # só na primeira vez
+npm run e2e                       # builda cliente/servidor, sobe o server e roda o teste
+```
+
+O teste (`e2e/live.spec.ts`) valida que o `<video>` do espectador tem `srcObject`, frames
+decodificados (`videoWidth > 0`) e **pixels não pretos** — foi o teste que detectou e
+confirmou a correção da live preta.
 
 ---
 
@@ -235,7 +250,9 @@ Suite atual: **113 testes no servidor + 240 no cliente**.
 | `client:build`         | Builda o cliente (tsc + vite)                  |
 | `client:tauri`         | Roda o cliente via Tauri                       |
 | `serve`                | Builda o cliente e sobe o servidor servindo o dist |
-| `test` / `test:server` / `test:client` | Testes |
+| `test` / `test:server` / `test:client` | Testes (vitest) |
+| `e2e` | Teste E2E da live (Playwright, navegador real + câmera fake) |
+| `e2e:server` | Builda cliente/servidor e sobe o servidor para o E2E |
 
 ---
 

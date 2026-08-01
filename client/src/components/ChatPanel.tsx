@@ -3,7 +3,8 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveChunk, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId } from '../services/connectionService.ts'
+import * as liveRtc from '../services/liveRtc.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
@@ -124,6 +125,7 @@ function ForwardPicker({ rooms, onForward, onClose }: {
 
 export function ChatPanel() {
   const messages = useRoomStore((s) => s.messages)
+  const currentRoomId = useRoomStore((s) => s.currentRoom)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const loadingMessages = useRoomStore((s) => s.loadingMessages)
   const myId = useConnectionStore((s) => s.id)
@@ -139,7 +141,6 @@ export function ChatPanel() {
   const [text, setText] = useState('')
   const [cameraPickerOpen, setCameraPickerOpen] = useState(false)
   const [isLiveBroadcasting, setIsLiveBroadcasting] = useState(false)
-  const liveMediaRecorderRef = useRef<MediaRecorder | null>(null)
   const liveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const audioRec = useAudioRecorder()
@@ -296,9 +297,7 @@ export function ChatPanel() {
   }
 
   function handleStopLiveBroadcast() {
-    if (liveMediaRecorderRef.current && liveMediaRecorderRef.current.state !== 'inactive') {
-      liveMediaRecorderRef.current.stop()
-    }
+    liveRtc.stopBroadcast()
     if (liveTimerRef.current) {
       clearInterval(liveTimerRef.current)
       liveTimerRef.current = null
@@ -330,31 +329,12 @@ export function ChatPanel() {
       const stream = videoRec.streamRef.current
       if (!stream) return
 
-      function onChunk(e: BlobEvent) {
-        if (e.data.size === 0) return
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const result = reader.result as string
-          if (!result) return
-          const parts = result.split(',')
-          if (parts.length < 2) return
-          sendLiveChunk(parts[1], 0)
-        }
-        reader.readAsDataURL(e.data)
-      }
-
-      const mimeTypes = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
-      let mr: MediaRecorder | null = null
-      for (const mime of mimeTypes) {
-        try {
-          mr = new MediaRecorder(stream, { mimeType: mime })
-          break
-        } catch { /* try next */ }
-      }
-      if (!mr) mr = new MediaRecorder(stream)
-      liveMediaRecorderRef.current = mr
-      mr.ondataavailable = onChunk
-      mr.start(1000)
+      // WebRTC: cria um RTCPeerConnection para cada espectador atual da sala.
+      const users = useRoomStore.getState().users
+      const viewerIds = users
+        .filter((u) => u.id !== myId && u.room === currentRoomId)
+        .map((u) => u.id)
+      liveRtc.startBroadcast(stream, viewerIds)
     }
   }, [broadcaster?.userId])
 
@@ -363,9 +343,7 @@ export function ChatPanel() {
     if (!isAoVivo) return
     if (!broadcaster) {
       if (isLiveBroadcasting) {
-        if (liveMediaRecorderRef.current && liveMediaRecorderRef.current.state !== 'inactive') {
-          liveMediaRecorderRef.current.stop()
-        }
+        liveRtc.stopBroadcast()
         if (liveTimerRef.current) {
           clearInterval(liveTimerRef.current)
           liveTimerRef.current = null

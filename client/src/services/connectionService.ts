@@ -10,6 +10,7 @@ import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
 import { notifyNewMessage, requestNotificationPermission } from './notifications.ts'
 import { chatHistory } from './historyStore.ts'
+import * as liveRtc from './liveRtc.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
@@ -190,6 +191,27 @@ export function connectToServer(address: string, name: string, password: string,
 
   wsClient.on(WsMessageType.UserList, (msg) => {
     useRoomStore.getState().setUsers(msg.payload as any)
+    const users = msg.payload as Array<{ id: string; room: string | null }>
+    const myId = useConnectionStore.getState().id
+    const roomId = useRoomStore.getState().currentRoom
+    const viewerIds = users
+      .filter((u) => u.id !== myId && u.room === roomId)
+      .map((u) => u.id)
+    liveRtc.reconcileViewers(viewerIds)
+  })
+
+  wsClient.on(WsMessageType.RTCSignal, (msg) => {
+    const payload = msg.payload as { fromUserId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
+    liveRtc.handleSignal(payload.fromUserId, { sdp: payload.sdp, candidate: payload.candidate })
+  })
+
+  wsClient.on(WsMessageType.LivePeerJoined, (msg) => {
+    const payload = msg.payload as { peerUserId: string; preview?: boolean }
+    if (payload.preview) {
+      liveRtc.addPreviewViewer(payload.peerUserId)
+    } else {
+      liveRtc.addViewer(payload.peerUserId)
+    }
   })
 
   wsClient.on(WsMessageType.AccountsList, (msg) => {
@@ -273,12 +295,14 @@ export function connectToServer(address: string, name: string, password: string,
   })
 
   wsClient.on(WsMessageType.LiveStarted, (msg) => {
-    const payload = msg.payload as { userId: string; userName: string }
+    const payload = msg.payload as { userId: string; userName: string; mime?: string }
     useLiveStore.getState().setBroadcaster({ userId: payload.userId, userName: payload.userName })
+    useLiveStore.getState().setMime(payload.mime ?? null)
   })
 
   wsClient.on(WsMessageType.LiveStopped, (msg) => {
     useLiveStore.getState().setBroadcaster(null)
+    useLiveStore.getState().setMime(null)
   })
 
   wsClient.on(WsMessageType.LiveChunkReceived, (msg) => {
@@ -487,6 +511,18 @@ export function sendLiveForceStop(targetUserId: string): void {
   wsClient.send(WsMessageType.LiveForceStop, { targetUserId })
 }
 
+export function sendRTCSignal(toUserId: string, signal: { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }): void {
+  if (!wsClient) { console.error('sendRTCSignal: wsClient is null'); return }
+  wsClient.send(WsMessageType.RTCSignal, { toUserId, sdp: signal.sdp, candidate: signal.candidate })
+}
+
+export function sendRequestLivePreview(broadcasterUserId: string): void {
+  if (!wsClient) { console.error('sendRequestLivePreview: wsClient is null'); return }
+  wsClient.send(WsMessageType.RequestLivePreview, { broadcasterUserId })
+}
+
+liveRtc.initRtc(sendRTCSignal)
+
 export function disconnectFromServer(): void {
   cleanupVoice()
   intentionalDisconnect = true
@@ -501,6 +537,9 @@ export function disconnectFromServer(): void {
   useRoomStore.getState().setAccounts([])
   useLiveStore.getState().setBroadcaster(null)
   useLiveStore.getState().clearChunks()
+  useLiveStore.getState().setMime(null)
+  useLiveStore.getState().setMyMime(null)
+  liveRtc.cleanup()
   useVoiceStore.getState().clearSpeaking()
   useVoiceStore.getState().setRxLevel(0)
   useRoomStore.getState().clearUnread()

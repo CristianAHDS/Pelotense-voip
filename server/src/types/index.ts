@@ -116,6 +116,9 @@ export enum WsMessageType {
   LiveRequestCancelled = 'live_request_cancelled',
   LiveChunkReceived = 'live_chunk_received',
   LiveForceStop = 'live_force_stop',
+  RTCSignal = 'rtc_signal',
+  LivePeerJoined = 'live_peer_joined',
+  RequestLivePreview = 'request_live_preview',
   PrivateAudioMessage = 'private_audio_message',
   PrivateVideoMessage = 'private_video_message',
   PrivateImageMessage = 'private_image_message',
@@ -176,6 +179,7 @@ export interface LiveState {
   timestamp: number
   takeoverRequesterId?: string
   initChunk?: string
+  mime?: string
 }
 
 export type EventListener<T = unknown> = (payload: T) => void
@@ -201,7 +205,7 @@ export const DEFAULT_SECURITY_LIMITS: SecurityLimits = {
   maxAudioMessageBytes: 512 * 1024,
   maxVideoMessageBytes: 5 * 1024 * 1024,
   maxImageMessageBytes: 5 * 1024 * 1024,
-  maxLiveChunkBytes: 512 * 1024,
+  maxLiveChunkBytes: 2 * 1024 * 1024,
   maxVoiceFrameBytes: 64 * 1024,
   maxAvatarBytes: 2 * 1024 * 1024,
 }

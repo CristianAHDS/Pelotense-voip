@@ -12,6 +12,11 @@
     "serve": "cd client && npm run build && cd ../server && npm run dev",
     "test": "npm run test:server && npm run test:client",
     "test:server": "cd server && npm test",
-    "test:client": "cd client && npm test"
+    "test:client": "cd client && npm test",
+    "e2e": "playwright test",
+    "e2e:server": "npm run client:build && cd server && npm run build && set DB_PATH=./data/e2e.db&& npm start"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

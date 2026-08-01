@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import * as liveRtc from '../services/liveRtc.ts'
 
 interface VideoDevice {
   deviceId: string
@@ -133,6 +134,9 @@ export function useVideoRecorder() {
 
       streamRef.current = newStream
       setStreamVersion((v) => v + 1)
+
+      // Se estiver transmitindo ao vivo, troca as tracks do WebRTC sem cair a live.
+      liveRtc.replaceStream(newStream)
 
       if (wasRecording) {
         const resolve = resolveRef.current!

@@ -429,8 +429,16 @@ export class WsHandler {
         this.handleLiveForceStop(client, msg.payload as { targetUserId: string })
         break
 
+      case WsMessageType.RTCSignal:
+        this.handleRTCSignal(client, msg.payload as { toUserId: string; sdp?: unknown; candidate?: unknown })
+        break
+
+      case WsMessageType.RequestLivePreview:
+        this.handleRequestLivePreview(client, msg.payload as { broadcasterUserId: string })
+        break
+
       case WsMessageType.LiveStart:
-        this.handleLiveStart(client)
+        this.handleLiveStart(client, msg.payload as { mime?: string } | undefined)
         break
 
       case WsMessageType.LiveStop:
@@ -1082,8 +1090,18 @@ export class WsHandler {
     if (liveBroadcast) {
       this.send(client.ws, {
         type: WsMessageType.LiveStarted,
-        payload: { userId: liveBroadcast.userId, userName: liveBroadcast.userName },
+        payload: { userId: liveBroadcast.userId, userName: liveBroadcast.userName, mime: liveBroadcast.mime },
       })
+      // Avisa o transmissor para criar um RTCPeerConnection com o novo espectador.
+      if (liveBroadcast.userId !== client.id) {
+        const broadcaster = this.clients.get(liveBroadcast.userId)
+        if (broadcaster) {
+          this.send(broadcaster.ws, {
+            type: WsMessageType.LivePeerJoined,
+            payload: { peerUserId: client.id, peerName: client.name },
+          })
+        }
+      }
       if (liveBroadcast.initChunk) {
         this.send(client.ws, {
           type: WsMessageType.LiveChunkReceived,
@@ -1274,7 +1292,35 @@ export class WsHandler {
     }, '')
   }
 
-  private handleLiveStart(client: Client): void {
+  // Sinalização WebRTC: apenas encaminha offer/answer/ICE entre os pares.
+  private handleRTCSignal(client: Client, payload: { toUserId: string; sdp?: unknown; candidate?: unknown }): void {
+    if (!payload.toUserId) return
+    const target = this.clients.get(payload.toUserId)
+    if (!target) return
+    this.send(target.ws, {
+      type: WsMessageType.RTCSignal,
+      payload: {
+        fromUserId: client.id,
+        fromUserName: client.name,
+        sdp: payload.sdp,
+        candidate: payload.candidate,
+      },
+    })
+  }
+
+  // Preview de live no popup de informações: pede ao transmissor para criar um
+  // RTCPeerConnection extra para o solicitante (mesmo fora da sala da live).
+  private handleRequestLivePreview(client: Client, payload: { broadcasterUserId: string }): void {
+    if (!payload.broadcasterUserId) return
+    const broadcaster = this.clients.get(payload.broadcasterUserId)
+    if (!broadcaster) return
+    this.send(broadcaster.ws, {
+      type: WsMessageType.LivePeerJoined,
+      payload: { peerUserId: client.id, peerName: client.name, preview: true },
+    })
+  }
+
+  private handleLiveStart(client: Client, payload: { mime?: string } = {}): void {
     const roomId = client.room
     if (!roomId) return
 
@@ -1291,10 +1337,11 @@ export class WsHandler {
       return
     }
 
-    this.rooms.setLiveBroadcast(roomId, { userId: client.id, userName: client.name, timestamp: Date.now(), initChunk: undefined })
+    const mime = typeof payload.mime === 'string' && payload.mime ? payload.mime : undefined
+    this.rooms.setLiveBroadcast(roomId, { userId: client.id, userName: client.name, timestamp: Date.now(), initChunk: undefined, mime })
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveStarted,
-      payload: { userId: client.id, userName: client.name },
+      payload: { userId: client.id, userName: client.name, mime },
     }, '')
     this.broadcast({
       type: WsMessageType.RoomList,

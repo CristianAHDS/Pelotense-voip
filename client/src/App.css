@@ -181,7 +181,7 @@ body {
   background: var(--bg);
   color: var(--text);
   height: 100%;
-  overflow: auto;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -236,6 +236,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow-x: hidden;
 }
 
 .app-header {
@@ -248,6 +249,8 @@ body {
   flex-shrink: 0;
   position: relative;
   z-index: 20;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .app-header h1 {
@@ -3214,12 +3217,18 @@ body {
   .status-pill {
     font-size: 11px;
     padding: 4px 10px;
+    flex-shrink: 1;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .current-room-indicator {
     font-size: 11px;
     padding: 4px 10px;
     max-width: 120px;
+    flex-shrink: 1;
+    overflow: hidden;
   }
 
   .sidebar {
@@ -3918,6 +3927,37 @@ body {
 .user-info-popup .admin-user-edit-admin,
 .user-info-popup .admin-user-edit-tags {
   background: var(--panel);
+}
+
+.live-preview {
+  position: relative;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+}
+
+.live-preview-video {
+  width: 100%;
+  max-height: 180px;
+  border-radius: 8px;
+  background: #000;
+  display: block;
+  object-fit: contain;
+}
+
+.live-preview-label {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.5px;
 }
 
 /* Edição de usuário no painel do admin */

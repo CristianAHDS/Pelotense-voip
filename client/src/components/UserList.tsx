@@ -96,6 +96,19 @@ export function UserList() {
 
   const offlineAccounts = accounts.filter((a) => !a.online)
 
+  // Master primeiro, depois admins, depois os demais.
+  function byRole<T extends { id?: string; admin?: boolean }>(a: T, b: T): number {
+    const aMaster = a.id === MASTER_USER_ID ? 1 : 0
+    const bMaster = b.id === MASTER_USER_ID ? 1 : 0
+    if (aMaster !== bMaster) return bMaster - aMaster
+    const aAdmin = a.admin ? 1 : 0
+    const bAdmin = b.admin ? 1 : 0
+    return bAdmin - aAdmin
+  }
+
+  const sortedOnline = [...users].sort(byRole)
+  const sortedOffline = [...offlineAccounts].sort(byRole)
+
   return (
     <div className="panel user-list">
       <h2>{t('usersWithCount', { count: users.length + offlineAccounts.length })}</h2>
@@ -107,7 +120,7 @@ export function UserList() {
           <span>{t('onlineUsers', { n: users.length })}</span>
         </h3>
         <div className="user-list-items">
-          {users.map((user) => {
+          {sortedOnline.map((user) => {
             const isMe = user.id === myId
             const isActive = user.id === activeUserId
             const hasUnread = !isMe && unread[user.id]
@@ -170,7 +183,7 @@ export function UserList() {
             <span>{t('offlineUsers', { n: offlineAccounts.length })}</span>
           </h3>
           <div className="user-list-items">
-            {offlineAccounts.map((acc) => (
+            {sortedOffline.map((acc) => (
               <div
                 key={acc.id ?? acc.name}
                 className={`user-item user-item--offline ${acc.id ? 'user-item--clickable' : ''}`}
