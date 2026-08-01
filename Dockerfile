@@ -4,23 +4,24 @@
 # ============================================================
 
 # ---- Build (tsc) ----
-FROM node:20-slim AS build
-# better-sqlite3 é nativo: se o prebuild não estiver disponível para a plataforma,
-# precisa de compilador. Instala as ferramentas de build.
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+# node:20 (Debian completo) já traz as ferramentas de build dos addons nativos
+# (better-sqlite3), evitando falhas de compilação na imagem slim.
+FROM node:20 AS build
 WORKDIR /app/server
 COPY server/package.json server/package-lock.json ./
 RUN npm ci
 COPY server/ ./
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
 # ---- Runtime ----
 FROM node:20-slim AS runtime
+# Garantias extras caso algum addon precise compilar de qualquer forma.
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 ENV NODE_ENV=production
 COPY --from=build /app/server/package.json /app/server/package-lock.json ./
-RUN npm ci --omit=dev
+# node_modules já compilado (evita npm ci no runtime — fonte do erro).
+COPY --from=build /app/server/node_modules ./node_modules
 COPY --from=build /app/server/dist ./dist
 
 # O fastify-static serve o client buildado em ../client/dist. Como o front vai
