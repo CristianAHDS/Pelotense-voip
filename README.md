@@ -18,9 +18,17 @@ O servidor apenas **relaya** os pacotes de voz entre os clientes (não decodific
 
 ## Telas
 
+### Modo claro
+
 | Login / Registro | Salas e chat | Painel do admin |
 | --- | --- | --- |
 | ![Login](docs/screenshots/login.png) | ![Aplicação](docs/screenshots/app.png) | ![Admin](docs/screenshots/admin.png) |
+
+### Modo escuro
+
+| Login / Registro | Salas e chat | Painel do admin |
+| --- | --- | --- |
+| ![Login dark](docs/screenshots/login-dark.png) | ![Aplicação dark](docs/screenshots/app-dark.png) | ![Admin dark](docs/screenshots/admin-dark.png) |
 
 ---
 
