@@ -7,7 +7,7 @@ import { useT } from '../i18n/index.ts'
 
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:'
-const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || '192.168.8.94'
+const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || '66.241.124.227'
 
 type AuthMode = 'login' | 'register'
 
@@ -42,7 +42,7 @@ function clearStoredCredentials(): void {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     saveStored(
-      parsed.host ?? '192.168.8.94',
+      parsed.host ?? DEFAULT_HOST,
       parsed.wsPort ?? '3001',
       parsed.wssPort ?? '3003',
       '',
@@ -200,7 +200,7 @@ export function ConnectionPanel() {
       : 'disconnected'
 
   function fillDefault() {
-    const v = '192.168.8.94'
+    const v = DEFAULT_HOST
     setHost(v)
     setWsPort('3001')
     setWssPort('3003')
@@ -354,7 +354,7 @@ export function ConnectionPanel() {
                   </div>
                 </div>
                 <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
-                  Preencher padrão (192.168.8.94)
+                  Preencher padrão ({DEFAULT_HOST})
                 </button>
               </details>
 
