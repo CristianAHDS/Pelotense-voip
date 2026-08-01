@@ -147,22 +147,6 @@ Para apontar o cliente para um servidor específico no build, use a variável `V
 VITE_SERVER_HOST=192.168.8.94 npm run dev
 ```
 
-### Funcionalidades principais
-
-- **Salas de voz**: salas fixas (canais da emissora) + salas temporárias criadas pelos usuários, com chat por sala.
-- **Conta com e-mail**: criação de conta exige e-mail, com envio de código de confirmação via SMTP (ver `SMTP_*`); o login aceita **nick ou e-mail** + senha.
-- **Rádio ao vivo**: bot de rádio (streaming online) disponível apenas na sala **"Retorno ao vivo"**; aparece no chat, na lista de pessoas e como ocupante da sala; o play é manual.
-- **Transmissão ao vivo (câmera)**: somente um usuário transmite por vez na sala "Ao vivo", com pedido de troca (takeover) e confirmação. O vídeo/áudio é enviado em **tempo real via WebRTC (mesh)** — o transmissor cria um `RTCPeerConnection` por espectador e a sinalização (offer/answer/ICE) é relayada pelo WebSocket existente (`rtc_signal`), sem MediaRecorder/MSE. Troca de câmera mantém a live (`replaceTrack`) e o preview no popup de informações reusa a conexão já ativa.
-- **DM com áudio/vídeo/imagem**: mensagens diretas por usuário com texto, áudio, vídeo e imagem; player de mídia igual ao chat de sala (`ChatMedia`), delete de DM e tela cheia do DM.
-- **Histórico persistente**: salas, mensagens, DMs e contas sobrevivem ao reinício via SQLite; o cliente também guarda histórico local (IndexedDB com fallback localStorage).
-- **Preferências de conta**: modal central para alterar nome, senha e avatar (upload de imagem); persistido localmente e no servidor (`update_profile`/`profile_updated`).
-- **Avatar de imagem**: aparece na lista de usuários, nos ocupantes/criador das salas e no chat (com fallback para iniciais coloridas).
-- **Download de áudio em WAV**: botão para baixar mensagens de voz convertidas para WAV PCM.
-- **Chat em tela cheia**: botão no header do chat abre uma janela central com o chat e input fixo embaixo.
-- **Indicador de quem fala**: destaque verde pulsante no usuário que está falando.
-- **Admin**: nomes em `ADMIN_NAMES` ou IDs em `ADMIN_IDS` podem deletar salas, forçar o fim de lives e apagar mensagens de qualquer usuário.
-- **Tema claro/escuro/automático**, i18n PT/EN, PWA com notificações e toasts.
-
 ---
 
 ## Protocolo
