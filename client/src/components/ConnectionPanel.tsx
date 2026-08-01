@@ -7,7 +7,7 @@ import { useT } from '../i18n/index.ts'
 
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:'
-const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || '66.241.124.227'
+const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || 'pelotense-voip.fly.dev'
 
 type AuthMode = 'login' | 'register'
 
