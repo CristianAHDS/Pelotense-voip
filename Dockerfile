@@ -5,6 +5,9 @@
 
 # ---- Build (tsc) ----
 FROM node:20-slim AS build
+# better-sqlite3 é nativo: se o prebuild não estiver disponível para a plataforma,
+# precisa de compilador. Instala as ferramentas de build.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 COPY server/package.json server/package-lock.json ./
 RUN npm ci
@@ -13,6 +16,7 @@ RUN npm run build
 
 # ---- Runtime ----
 FROM node:20-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 ENV NODE_ENV=production
 COPY --from=build /app/server/package.json /app/server/package-lock.json ./
