@@ -47,6 +47,7 @@ export function MainPage() {
 
   // No mobile, o sheet de salas/usuários/conexão deve fechar sozinho quando o
   // usuário entra numa sala (ao invés de ficar cobrindo o chat).
+  //
   useEffect(() => {
     if (currentRoomName) {
       setSheetOpen(false);
