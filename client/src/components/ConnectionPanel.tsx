@@ -250,11 +250,16 @@ export function ConnectionPanel() {
       : 'disconnected'
 
   function fillDefault() {
-    const v = DEFAULTS.host
-    setHost(v)
-    setWsPort(DEFAULTS.wsPort)
-    setWssPort(DEFAULTS.wssPort)
-    saveStored(v, DEFAULTS.wsPort, DEFAULTS.wssPort, nickname, email, password)
+    // Usa o mesmo host do config/site remoto (prioridade sobre o padrão fixo).
+    void loadAppConfig().then((cfg) => {
+      const v = cfg.host || DEFAULTS.host
+      const ws = cfg.wsPort || DEFAULTS.wsPort
+      const wss = cfg.wssPort || DEFAULTS.wssPort
+      setHost(v)
+      setWsPort(ws)
+      setWssPort(wss)
+      saveStored(v, ws, wss, nickname, email, password)
+    })
   }
 
   const authError = localError || loginError
@@ -404,7 +409,7 @@ export function ConnectionPanel() {
                   </div>
                 </div>
                 <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
-                  Preencher padrão ({DEFAULTS.host})
+                  Preencher padrão
                 </button>
               </details>
 
