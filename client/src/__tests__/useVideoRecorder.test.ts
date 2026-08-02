@@ -51,7 +51,10 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
     value: {
-      getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }),
+      getUserMedia: vi.fn().mockResolvedValue({
+        getTracks: () => [{ stop: vi.fn() }],
+        getVideoTracks: () => [{ stop: vi.fn(), readyState: 'live', muted: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }],
+      }),
       enumerateDevices: vi.fn().mockResolvedValue([]),
     },
   })

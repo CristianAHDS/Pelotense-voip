@@ -1,5 +1,5 @@
 import React from 'react'
-import { useLiveStore } from '../stores/liveStore.ts'
+import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { RadioLogo } from '../ui/RadioLogo.tsx'
@@ -7,11 +7,17 @@ import { useT } from '../i18n/index.ts'
 
 // V2.3 — Mini-player da emissora "no ar": mostra quem está transmitindo
 // (sala "Ao vivo") com equalizer animado enquanto houver broadcast.
+// Deriva o broadcaster da lista de salas (room_list), que o servidor envia
+// a TODOS os clientes, para que quem está em OUTRA sala também veja que há
+// uma live no ar (antes dependia do LiveStarted, que só chega aos da sala).
 export function MiniPlayer() {
   const connected = useConnectionStore((s) => s.connected)
-  const broadcaster = useLiveStore((s) => s.broadcaster)
+  const rooms = useRoomStore((s) => s.rooms)
   const speaking = useVoiceStore((s) => s.speaking)
   const t = useT()
+
+  const liveRoom = rooms.find((r) => r.live)
+  const broadcaster = liveRoom?.live ?? null
 
   if (!connected || !broadcaster) return null
 

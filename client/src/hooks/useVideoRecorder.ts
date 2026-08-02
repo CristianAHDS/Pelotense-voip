@@ -191,16 +191,52 @@ export function useVideoRecorder() {
     }
   }, [])
 
+  // No mobile (iOS), após parar uma live longa a câmera demora a ser liberada
+  // pelo hardware; pedir getUserMedia de novo na hora pode falhar ou voltar com
+  // o track ainda "mudo" (vídeo preto). Então: (1) tenta de novo com um delay
+  // curto se a aquisição falhar e (2) espera o track de vídeo ficar realmente
+  // ativo (live e não muted) antes de considerar a câmera pronta.
   const openCamera = useCallback(async (): Promise<boolean> => {
-    try {
-      const s = await getUserMediaWithMic(videoConstraints(cameraId), true)
-      streamRef.current = s
-      setHasStream(true)
-      setStreamVersion((v) => v + 1)
-      return true
-    } catch {
-      return false
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 500))
+      }
+      let s: MediaStream | null = null
+      try {
+        s = await getUserMediaWithMic(videoConstraints(cameraId), true)
+      } catch {
+        continue
+      }
+      if (!s) continue
+      const track = s.getVideoTracks()[0]
+      if (!track) {
+        // Sem track de vídeo (ex: câmera indisponível): não marca como pronta.
+        s.getTracks().forEach((t) => t.stop())
+        continue
+      }
+      if (track.readyState === 'live' && !track.muted) {
+        streamRef.current = s
+        setHasStream(true)
+        setStreamVersion((v) => v + 1)
+        return true
+      }
+      // Track ainda inicializando (iOS): espera destravar.
+      const ok = await new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => resolve(track.readyState === 'live' && !track.muted), 1500)
+        track.addEventListener('unmute', () => {
+          clearTimeout(timeout)
+          resolve(track.readyState === 'live')
+        }, { once: true })
+      })
+      if (ok) {
+        streamRef.current = s
+        setHasStream(true)
+        setStreamVersion((v) => v + 1)
+        return true
+      }
+      s.getTracks().forEach((t) => t.stop())
     }
+    return false
   }, [cameraId])
 
   const beginRecording = useCallback((): Promise<VideoRecordingResult> => {

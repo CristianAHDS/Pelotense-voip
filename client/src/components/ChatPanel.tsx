@@ -331,7 +331,13 @@ export function ChatPanel() {
   }
 
   async function handleStartLiveBroadcast() {
-    if (!videoRec.hasStream) {
+    // Mesmo com hasStream=true, confirma que a stream ainda tem track de vídeo
+    // viva e não-muda (no mobile a câmera pode ter sido liberada pelo sistema
+    // após uma live longa); se não, reabre antes de iniciar.
+    const warm = videoRec.streamRef.current
+    const warmVideo = warm?.getVideoTracks()[0]
+    const warmUsable = !!warm && warmVideo?.readyState === 'live' && !warmVideo.muted
+    if (!videoRec.hasStream || !warmUsable) {
       if (videoRec.devices.length === 0) {
         await videoRec.enumerateDevices()
       }
@@ -355,7 +361,10 @@ export function ChatPanel() {
     setIsLiveBroadcasting(false)
     setCameraPickerOpen(false)
     sendLiveStop()
-    videoRec.cancelRecording()
+    // Não para a câmera aqui: no mobile (iOS) re-adquirir o getUserMedia logo
+    // após parar é instável (câmera ainda ocupada), então a stream fica quente
+    // para a próxima live. A câmera é liberada ao sair da sala "Ao vivo".
+    // videoRec.cancelRecording()
   }
 
   function handleAcceptTakeover() {
@@ -399,11 +408,22 @@ export function ChatPanel() {
           liveTimerRef.current = null
         }
         setIsLiveBroadcasting(false)
-        videoRec.cancelRecording()
         setCameraPickerOpen(false)
+        // Mantém a câmera quente (ver handleStopLiveBroadcast); a stream só é
+        // liberada ao sair da sala "Ao vivo", para a próxima live iniciar na hora.
+        // videoRec.cancelRecording()
       }
     }
   }, [broadcaster])
+
+  // Ao sair da sala "Ao vivo", libera a câmera (a stream fica quente entre
+  // lives dentro da sala, mas não pode ficar ligada depois de sair).
+  useEffect(() => {
+    if (!isAoVivo) {
+      if (videoRec.hasStream) videoRec.closeCamera()
+      setCameraPickerOpen(false)
+    }
+  }, [isAoVivo])
 
   if (!connected || !currentRoomName) return null
 

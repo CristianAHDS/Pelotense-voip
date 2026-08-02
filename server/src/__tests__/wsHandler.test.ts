@@ -228,6 +228,27 @@ describe('Salas', () => {
     }
     expect(liveAfter).toBeNull()
   })
+
+  it('reconexão do broadcaster com o mesmo nome encerra a live (sem badge LIVE órfão)', async () => {
+    const b = await freshClient('ReporterRecon')
+    b.send(WsMessageType.JoinRoom, 'Ao vivo')
+    await b.waitFor(WsMessageType.RoomJoined)
+    b.send(WsMessageType.LiveStart)
+    await b.waitFor(WsMessageType.LiveStarted)
+    expect(server.rooms.getLiveBroadcast(server.rooms.findByName('Ao vivo')!.id)).toBeDefined()
+
+    // Um novo login com o mesmo nome substitui a sessão antiga (mobile auto-reconecta).
+    await freshClient('ReporterRecon')
+
+    expect(server.rooms.getLiveBroadcast(server.rooms.findByName('Ao vivo')!.id)).toBeUndefined()
+
+    // O room_list para um terceiro cliente também não deve mais marcar a sala como LIVE.
+    const c = await freshClient('ViewerRecon')
+    c.send(WsMessageType.ListRooms)
+    const msg = await c.waitFor(WsMessageType.RoomList)
+    const rooms = msg.payload as Array<{ name: string; live?: { userId: string; userName: string } | null }>
+    expect(rooms.find((r) => r.name === 'Ao vivo')?.live).toBeNull()
+  })
 })
 
 describe('Admin', () => {

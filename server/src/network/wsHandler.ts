@@ -381,6 +381,10 @@ export class WsHandler {
   private removeExistingClient(client: Client): void {
     const roomId = client.room
     if (roomId) {
+      // Se este cliente (ex: o broadcaster) estiver sendo substituído por um
+      // novo login da mesma conta (comum no mobile ao reconectar), encerra a
+      // transmissão ao vivo junto — senão o LIVE fica "órfão" no room_list.
+      this.stopBroadcastForLeaving(client, roomId)
       this.broadcastToRoom(roomId, {
         type: WsMessageType.UserLeft,
         payload: { id: client.id, name: client.name },
@@ -2001,6 +2005,12 @@ export class WsHandler {
         type: WsMessageType.LiveStopped,
         payload: { userId: client.id },
       }, '')
+      // O room_list precisa refletir o fim da live, senão o badge LIVE
+      // continua aparecendo na sala até o próximo broadcast.
+      this.broadcast({
+        type: WsMessageType.RoomList,
+        payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
+      })
       // Give the requester a moment then respond
       this.send(requester.ws, {
         type: WsMessageType.LiveRequestResponse,

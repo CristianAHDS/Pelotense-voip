@@ -62,6 +62,7 @@ function makeOfferPc(peerId: string, map: Map<string, RTCPeerConnection>): RTCPe
   }
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      pendingViewerCandidates.delete(pc)
       try { pc.close() } catch { /* ignore */ }
       map.delete(peerId)
     }
@@ -82,9 +83,24 @@ function handleBroadcasterSignal(fromUserId: string, signal: Signal): void {
   const pc = broadcasterPcs.get(fromUserId) ?? broadcasterPreviewPcs.get(fromUserId)
   if (!pc) return
   if (signal.sdp) {
-    pc.setRemoteDescription(signal.sdp).catch(() => {})
+    pc.setRemoteDescription(signal.sdp)
+      .then(() => {
+        // Aplica candidatos que chegaram antes da answer.
+        const list = pendingViewerCandidates.get(pc)
+        if (list && list.length > 0) {
+          pendingViewerCandidates.delete(pc)
+          list.forEach((c) => pc.addIceCandidate(c).catch(() => {}))
+        }
+      })
+      .catch(() => {})
   } else if (signal.candidate) {
-    pc.addIceCandidate(signal.candidate).catch(() => {})
+    if (pc.remoteDescription) {
+      pc.addIceCandidate(signal.candidate).catch(() => {})
+    } else {
+      const list = pendingViewerCandidates.get(pc) ?? []
+      list.push(signal.candidate)
+      pendingViewerCandidates.set(pc, list)
+    }
   }
 }
 
@@ -99,8 +115,16 @@ export function removeViewer(peerId: string): void {
 export function reconcileViewers(activeIds: string[]): void {
   if (!broadcasterMode) return
   const active = new Set(activeIds)
+  // Remove espectadores que saíram da sala.
   broadcasterPcs.forEach((_pc, id) => {
     if (!active.has(id)) removeViewer(id)
+  })
+  // Adiciona espectadores que já estão na sala mas ainda não têm conexão.
+  // No mobile a lista de usuários pode chegar DEPOIS do início da live, então
+  // o snapshot do viewerIds no momento do start pode ficar incompleto; este
+  // reconcile bidirecional garante que todo mundo da sala receba offer.
+  active.forEach((id) => {
+    if (!broadcasterPcs.has(id)) addViewer(id)
   })
 }
 
@@ -186,17 +210,27 @@ function setupViewerPc(pc: RTCPeerConnection, broadcasterId: string): void {
   }
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      pendingViewerCandidates.delete(pc)
       viewerPcs.delete(broadcasterId)
       previewViewerPcs.delete(broadcasterId)
     }
   }
 }
 
+// Candidatos ICE que chegam ANTES da offer (ou enquanto o setRemoteDescription
+// ainda não resolveu) são guardados por conexão e aplicados depois. No mobile,
+// offer+candidatos costumam chegar enfileirados antes do LiveViewer montar; sem
+// este buffer eles eram descartados e o ICE nunca completava (live preta/sem vídeo).
+const pendingViewerCandidates = new Map<RTCPeerConnection, RTCIceCandidateInit[]>()
+
 function handleViewerSignal(pc: RTCPeerConnection, broadcasterId: string, signal: Signal): void {
   if (signal.sdp) {
     if (signal.sdp.type === 'offer') {
       pc.setRemoteDescription(signal.sdp)
-        .then(() => pc.createAnswer())
+        .then(() => {
+          flushPendingCandidates(pc)
+          return pc.createAnswer()
+        })
         .then((answer) => pc.setLocalDescription(answer))
         .then(() => {
           if (pc.localDescription) sendSignal(broadcasterId, { sdp: pc.localDescription })
@@ -206,9 +240,19 @@ function handleViewerSignal(pc: RTCPeerConnection, broadcasterId: string, signal
   } else if (signal.candidate) {
     if (pc.remoteDescription) {
       pc.addIceCandidate(signal.candidate).catch(() => {})
+    } else {
+      const list = pendingViewerCandidates.get(pc) ?? []
+      list.push(signal.candidate)
+      pendingViewerCandidates.set(pc, list)
     }
-    // Candidatos antes da offer são ignorados (a offer redefine o ICE).
   }
+}
+
+function flushPendingCandidates(pc: RTCPeerConnection): void {
+  const list = pendingViewerCandidates.get(pc)
+  if (!list || list.length === 0) return
+  pendingViewerCandidates.delete(pc)
+  list.forEach((c) => pc.addIceCandidate(c).catch(() => {}))
 }
 
 function drainPending(broadcasterId: string, pc: RTCPeerConnection): void {
@@ -224,11 +268,16 @@ export function stopViewing(broadcasterId?: string): void {
     viewerPcs.delete(broadcasterId)
     viewerStreams.delete(broadcasterId)
     viewerStreamCbs.delete(broadcasterId)
+    pendingViewerSignals.delete(broadcasterId)
     return
   }
   closeAll(viewerPcs)
   viewerStreams.clear()
   viewerStreamCbs.clear()
+  // Sem isso, sinais (offer/candidatos) de uma live anterior do mesmo
+  // broadcaster ficam guardados e são repassados à conexão nova ao reiniciar,
+  // causando a demora/"renderização" entre lives no mobile.
+  pendingViewerSignals.clear()
 }
 
 export function stopPreviewViewing(broadcasterId?: string): void {
@@ -236,6 +285,7 @@ export function stopPreviewViewing(broadcasterId?: string): void {
     closePc(previewViewerPcs.get(broadcasterId))
     previewViewerPcs.delete(broadcasterId)
     previewViewerCbs.delete(broadcasterId)
+    pendingViewerSignals.delete(broadcasterId)
     return
   }
   closeAll(previewViewerPcs)
@@ -275,12 +325,14 @@ export function cleanup(): void {
 
 function closePc(pc: RTCPeerConnection | undefined): void {
   if (pc) {
+    pendingViewerCandidates.delete(pc)
     try { pc.close() } catch { /* ignore */ }
   }
 }
 
 function closeAll(map: Map<string, RTCPeerConnection>): void {
   map.forEach((pc) => {
+    pendingViewerCandidates.delete(pc)
     try { pc.close() } catch { /* ignore */ }
   })
   map.clear()
