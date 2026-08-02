@@ -5,6 +5,7 @@ import { useAccountStore, clearAccountPrefs } from '../stores/accountStore.ts'
 import { connectToServer } from '../services/connectionService.ts'
 import { useT } from '../i18n/index.ts'
 import { isTauri } from '../utils/isTauri.ts'
+import { loadAppConfig } from '../utils/appConfig.ts'
 
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
@@ -106,6 +107,22 @@ export function ConnectionPanel() {
   const useWss = IS_HTTPS
   const activePort = useWss ? wssPort : wsPort
   const httpsClientPort = 3443
+
+  // Aplica um config.json (opcional) como padrão quando não há credenciais
+  // salvas — ex.: colar o link do ngrok ao lado do .exe sem digitar toda vez.
+  useEffect(() => {
+    let mounted = true
+    loadAppConfig().then((cfg) => {
+      if (!mounted) return
+      try {
+        if (localStorage.getItem(STORAGE_KEY)) return
+      } catch { /* ignore */ }
+      if (cfg.host) setHost(cfg.host)
+      if (cfg.wsPort) setWsPort(cfg.wsPort)
+      if (cfg.wssPort) setWssPort(cfg.wssPort)
+    })
+    return () => { mounted = false }
+  }, [])
 
   const checkCert = useCallback(async () => {
     if (!useWss) {

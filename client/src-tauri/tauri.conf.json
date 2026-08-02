@@ -15,6 +15,11 @@
       "shell": {
         "all": false,
         "open": true
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "scope": ["$EXE/config.json"]
       }
     },
     "bundle": {
