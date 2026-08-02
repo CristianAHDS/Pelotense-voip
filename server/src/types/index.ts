@@ -219,7 +219,7 @@ export const DEFAULT_SECURITY_LIMITS: SecurityLimits = {
   maxRoomNameLength: 64,
   maxTextLength: 4000,
   maxAudioMessageBytes: 512 * 1024,
-  maxVideoMessageBytes: 5 * 1024 * 1024,
+  maxVideoMessageBytes: 1024 * 1024 * 1024,
   maxImageMessageBytes: 5 * 1024 * 1024,
   maxLiveChunkBytes: 2 * 1024 * 1024,
   maxVoiceFrameBytes: 64 * 1024,

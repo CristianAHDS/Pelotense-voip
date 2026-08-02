@@ -3579,10 +3579,39 @@ body {
   letter-spacing: 1px;
 }
 
+.live-viewer-fullscreen-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+}
+
+.live-viewer-fullscreen-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
 .live-viewer-video {
   width: 100%;
   display: block;
   max-height: 300px;
+  background: #000;
+  object-fit: contain;
+}
+
+.live-viewer-video:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  object-fit: contain;
   background: #000;
 }
 

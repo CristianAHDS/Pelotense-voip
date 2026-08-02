@@ -33,7 +33,7 @@ export const config = {
   httpsClientPort: getInt('HTTPS_CLIENT_PORT', 3443),
   maxUsers: getInt('MAX_USERS', 100),
   maxRooms: getInt('MAX_ROOMS', 20),
-  maxWsPayload: getInt('MAX_WS_PAYLOAD', 8 * 1024 * 1024),
+  maxWsPayload: getInt('MAX_WS_PAYLOAD', 2 * 1024 * 1024 * 1024),
   logLevel: getLogLevel('LOG_LEVEL', LogLevel.INFO),
   adminNames: getList('ADMIN_NAMES', []),
   adminIds: getList('ADMIN_IDS', []),

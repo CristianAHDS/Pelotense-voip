@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
+import { useConnectionStore } from '../stores/connectionStore.ts'
 
 let fileReaderPayload = ''
 
@@ -103,8 +104,13 @@ describe('useVideoRecorder', () => {
     expect(out).toEqual({ data: 'aGVsbG8gd29ybGQ=', duration: expect.any(Number) })
   })
 
-  it('resolve { error: "too-large" } quando o vídeo excede o limite do servidor', async () => {
-    fileReaderPayload = 'A'.repeat(7_000_000)
+  it('resolve { error: "too-large" } quando o vídeo excede o limite configurado', async () => {
+    // Limite pequeno para disparar o "too-large" sem gerar 1GB na memória.
+    useConnectionStore.getState().setSettings({
+      ...useConnectionStore.getState().settings,
+      maxVideoBytes: 1024,
+    })
+    fileReaderPayload = 'A'.repeat(7000)
     const out = await recordOnce()
     expect(out).toEqual({ error: 'too-large' })
   })

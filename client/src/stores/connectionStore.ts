@@ -6,7 +6,7 @@ export type LoginStep = 'none' | 'email_required' | 'confirm_required' | 'error'
 const DEFAULT_SETTINGS: SystemSettings = {
   video: { width: 1280, height: 720, fps: 30, bitrate: 2500000 },
   maxAudioBytes: 512 * 1024,
-  maxVideoBytes: 5 * 1024 * 1024,
+  maxVideoBytes: 1024 * 1024 * 1024,
 };
 
 interface ConnectionStore {
