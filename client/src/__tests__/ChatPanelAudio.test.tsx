@@ -83,4 +83,18 @@ describe('Player de áudio (timeline estilo WhatsApp)', () => {
     expect(btn).not.toBeNull()
     expect(btn!.getAttribute('aria-label')).toBe('Baixar')
   })
+
+  it('controles ficam em linha acima da timeline', () => {
+    useRoomStore.getState().setMessages([audioMsg()])
+    const { container } = render(<ChatPanel />)
+
+    const controls = container.querySelector('.chat-audio-controls')
+    const timeline = container.querySelector('.chat-audio-progress')
+    expect(controls).not.toBeNull()
+    expect(timeline).not.toBeNull()
+    expect(controls!.querySelector('.chat-audio-play-btn')).not.toBeNull()
+    expect(controls!.querySelector('.chat-audio-rate-btn')).not.toBeNull()
+    expect(controls!.querySelector('.chat-audio-download-btn')).not.toBeNull()
+    expect(controls!.nextElementSibling).toBe(timeline)
+  })
 })

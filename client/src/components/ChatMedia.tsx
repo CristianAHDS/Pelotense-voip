@@ -160,43 +160,45 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
 
   return (
     <div className="chat-bubble-audio">
-      <button
-        onClick={togglePlay}
-        className="chat-audio-play-btn"
-        title={playing ? tStatic('audioPause') : tStatic('audioPlay')}
-      >
-        {playing ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <rect x="6" y="4" width="4" height="16" rx="1" />
-            <rect x="14" y="4" width="4" height="16" rx="1" />
+      <div className="chat-audio-controls">
+        <button
+          onClick={togglePlay}
+          className="chat-audio-play-btn"
+          title={playing ? tStatic('audioPause') : tStatic('audioPlay')}
+        >
+          {playing ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1" />
+              <rect x="14" y="4" width="4" height="16" rx="1" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          )}
+        </button>
+        <button
+          onClick={cycleRate}
+          className="chat-audio-rate-btn"
+          title={tStatic('speed')}
+        >
+          {rate}x
+        </button>
+        <button
+          onClick={() => {
+            void downloadAudioAsWav(audioData, audioMessageFilename(userName, timestamp, 'wav'))
+          }}
+          className="chat-audio-download-btn"
+          title={tStatic('download')}
+          aria-label={tStatic('download')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-        )}
-      </button>
-      <button
-        onClick={cycleRate}
-        className="chat-audio-rate-btn"
-        title={tStatic('speed')}
-      >
-        {rate}x
-      </button>
-      <button
-        onClick={() => {
-          void downloadAudioAsWav(audioData, audioMessageFilename(userName, timestamp, 'wav'))
-        }}
-        className="chat-audio-download-btn"
-        title={tStatic('download')}
-        aria-label={tStatic('download')}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-      </button>
+        </button>
+      </div>
       <div
         ref={progressRef}
         className="chat-audio-progress"
