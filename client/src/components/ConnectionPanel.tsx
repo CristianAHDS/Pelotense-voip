@@ -108,18 +108,30 @@ export function ConnectionPanel() {
   const activePort = useWss ? wssPort : wsPort
   const httpsClientPort = 3443
 
-  // Aplica um config.json (opcional) como padrão quando não há credenciais
-  // salvas — ex.: colar o link do ngrok ao lado do .exe sem digitar toda vez.
+  // Aplica o config.json (link do Cloudflare/ngrok ao lado do exe) SEMPRE,
+  // preenchendo o servidor/porta automaticamente e usando-o no auto-conectar.
+  const autoConnectRef = useRef(false)
+
   useEffect(() => {
     let mounted = true
     loadAppConfig().then((cfg) => {
       if (!mounted) return
-      try {
-        if (localStorage.getItem(STORAGE_KEY)) return
-      } catch { /* ignore */ }
-      if (cfg.host) setHost(cfg.host)
-      if (cfg.wsPort) setWsPort(cfg.wsPort)
-      if (cfg.wssPort) setWssPort(cfg.wssPort)
+      const hostCfg = cfg.host || DEFAULTS.host
+      const wsCfg = cfg.wsPort || DEFAULTS.wsPort
+      const wssCfg = cfg.wssPort || DEFAULTS.wssPort
+      setHost(hostCfg)
+      setWsPort(wsCfg)
+      setWssPort(wssCfg)
+
+      // Auto-conecta com as credenciais salvas (se houver), usando o host do config.
+      if (!autoConnectRef.current && !useConnectionStore.getState().connected && stored.name) {
+        autoConnectRef.current = true
+        const protocol = IS_HTTPS ? 'wss' : 'ws'
+        const port = IS_HTTPS ? wssCfg : wsCfg
+        connectToServer(`${protocol}://${hostCfg}:${port}`, stored.name, stored.password, stored.email, 'login')
+      } else {
+        autoConnectRef.current = true
+      }
     })
     return () => { mounted = false }
   }, [])
@@ -151,18 +163,6 @@ export function ConnectionPanel() {
   useEffect(() => {
     checkCert()
   }, [checkCert])
-
-  const autoConnectRef = useRef(false)
-
-  useEffect(() => {
-    if (autoConnectRef.current) return
-    autoConnectRef.current = true
-    if (!connected && stored.name) {
-      const protocol = IS_HTTPS ? 'wss' : 'ws'
-      const port = IS_HTTPS ? stored.wssPort : stored.wsPort
-      connectToServer(`${protocol}://${stored.host}:${port}`, stored.name, stored.password, stored.email, 'login')
-    }
-  }, [])
 
   // Enquanto há credenciais salvas e a conexão ainda não estabilizou (nem
   // conectada nem falhou), mostra um skeleton em vez do formulário/status.
