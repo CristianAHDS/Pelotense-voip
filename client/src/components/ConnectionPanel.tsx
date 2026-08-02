@@ -9,6 +9,8 @@ import { isTauri } from '../utils/isTauri.ts'
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
 const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || 'pelotense-voip.fly.dev'
+const DEFAULT_WS_PORT = (import.meta.env.VITE_WS_PORT as string | undefined) || '3001'
+const DEFAULT_WSS_PORT = (import.meta.env.VITE_WSS_PORT as string | undefined) || '443'
 
 type AuthMode = 'login' | 'register'
 
@@ -19,15 +21,15 @@ function loadStored() {
       const parsed = JSON.parse(raw)
       return {
         host: parsed.host ?? DEFAULT_HOST,
-        wsPort: parsed.wsPort ?? '3001',
-        wssPort: parsed.wssPort ?? '443',
+        wsPort: parsed.wsPort ?? DEFAULT_WS_PORT,
+        wssPort: parsed.wssPort ?? DEFAULT_WSS_PORT,
         name: parsed.name ?? '',
         email: parsed.email ?? '',
         password: parsed.password ?? '',
       }
     }
   } catch { /* ignore */ }
-  return { host: DEFAULT_HOST, wsPort: '3001', wssPort: '443', name: '', email: '', password: '' }
+  return { host: DEFAULT_HOST, wsPort: DEFAULT_WS_PORT, wssPort: DEFAULT_WSS_PORT, name: '', email: '', password: '' }
 }
 
 function saveStored(host: string, wsPort: string, wssPort: string, name: string, email: string, password: string): void {
@@ -44,8 +46,8 @@ function clearStoredCredentials(): void {
     const parsed = raw ? JSON.parse(raw) : {}
     saveStored(
       parsed.host ?? DEFAULT_HOST,
-      parsed.wsPort ?? '3001',
-      parsed.wssPort ?? '443',
+      parsed.wsPort ?? DEFAULT_WS_PORT,
+      parsed.wssPort ?? DEFAULT_WSS_PORT,
       '',
       '',
       '',
@@ -211,9 +213,9 @@ export function ConnectionPanel() {
   function fillDefault() {
     const v = DEFAULT_HOST
     setHost(v)
-    setWsPort('3001')
-    setWssPort('443')
-    saveStored(v, '3001', '443', nickname, email, password)
+    setWsPort(DEFAULT_WS_PORT)
+    setWssPort(DEFAULT_WSS_PORT)
+    saveStored(v, DEFAULT_WS_PORT, DEFAULT_WSS_PORT, nickname, email, password)
   }
 
   const authError = localError || loginError
