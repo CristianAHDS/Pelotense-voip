@@ -10,17 +10,11 @@ import { loadAppConfig } from '../utils/appConfig.ts'
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
 
-// Quando o app é servido de um host público (ex: ngrok, domínio), o cliente usa
-// automaticamente esse mesmo host/porta (túnel único serve app + WSS). Para
-// local/LAN/desktop mantém o padrão configurado (192.168.8.94:3003).
-function isPrivateHost(host: string): boolean {
-  return host === 'localhost'
-    || host === '127.0.0.1'
-    || host.startsWith('192.168.')
-    || host.startsWith('10.')
-    || host.startsWith('172.')
-    || /^(\d{1,3}\.){3}\d{1,3}$/.test(host)
-}
+// Quando o app é servido de um túnel (Cloudflare/ngrok), usa automaticamente
+// esse mesmo host/porta (o túnel serve app + WebSocket). Para outros hosts
+// públicos (ex: Netlify, que é estático e não tem WebSocket), NÃO autodetecta
+// e mantém o config.json / padrão configurado.
+const TUNNEL_HOST_RE = /\.(trycloudflare\.com|ngrok-free\.app|ngrok\.io|ngrok\.app)$/
 
 function resolveDefaults(): { host: string; wsPort: string; wssPort: string } {
   const envHost = import.meta.env.VITE_SERVER_HOST as string | undefined
@@ -28,8 +22,7 @@ function resolveDefaults(): { host: string; wsPort: string; wssPort: string } {
   const envWss = import.meta.env.VITE_WSS_PORT as string | undefined
   if (!isTauri() && typeof window !== 'undefined') {
     const servedHost = window.location.hostname || ''
-    const isPublicServed = servedHost !== '' && !isPrivateHost(servedHost)
-    if (isPublicServed) {
+    if (TUNNEL_HOST_RE.test(servedHost)) {
       return {
         host: envHost || servedHost,
         wsPort: envWs || window.location.port || '3001',
