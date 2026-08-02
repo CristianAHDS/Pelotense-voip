@@ -175,6 +175,14 @@ export function ConnectionPanel() {
     connectToServer(`${protocol}://${host}:${activePort}`, trimmedName, password, email || undefined, mode)
   }
 
+  // Entrada como convidado: não exige nome/senha — o servidor gera "guest###"
+  // com as regras do modo convidado (áudio/vídeo/live, sem texto/DM).
+  function handleGuest() {
+    setLocalError('')
+    const protocol = useWss ? 'wss' : 'ws'
+    connectToServer(`${protocol}://${host}:${activePort}`, '', '', undefined, 'guest')
+  }
+
   function handleDisconnect() {
     disconnect()
     clearStoredCredentials()
@@ -378,9 +386,16 @@ export function ConnectionPanel() {
               Disconnect
             </button>
           ) : (
-            <button onClick={handleConnect} disabled={reconnecting} className="btn btn-connect">
-              {reconnecting ? 'Reconnecting...' : mode === 'register' ? t('registerButton') : t('loginButton')}
-            </button>
+            <>
+              <button onClick={handleConnect} disabled={reconnecting} className="btn btn-connect">
+                {reconnecting ? 'Reconnecting...' : mode === 'register' ? t('registerButton') : t('loginButton')}
+              </button>
+              {mode === 'login' && (
+                <button onClick={handleGuest} disabled={reconnecting} className="btn btn-guest" title={t('guestHint')}>
+                  {t('guestButton')}
+                </button>
+              )}
+            </>
           )}
         </>
       )}

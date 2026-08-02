@@ -31,6 +31,7 @@ function DmMediaBubble({ msg }: { msg: PrivateChatMsg }) {
 export function PrivateChatPanel() {
   const t = useT()
   const connected = useConnectionStore((s) => s.connected)
+  const isGuest = useConnectionStore((s) => s.guest)
   const activeUserId = usePrivateChatStore((s) => s.activeUserId)
   const activeUserName = usePrivateChatStore((s) => s.activeUserName)
   const messages = usePrivateChatStore((s) => activeUserId ? (s.messages[activeUserId] ?? []) : [])
@@ -66,6 +67,8 @@ export function PrivateChatPanel() {
   }, [activeUserId])
 
   if (!connected) return null
+  // Convidados não têm chat privado.
+  if (isGuest) return null
 
   function handleSend() {
     if (!text.trim() || !activeUserId) return

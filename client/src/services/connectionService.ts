@@ -158,7 +158,7 @@ function maybeNotifyPrivate(payload: PrivateChatMsg, body: string): void {
   notifyNewMessage(payload.fromUserName, body)
 }
 
-export function connectToServer(address: string, name: string, password: string, email?: string, intent?: 'login' | 'register'): void {
+export function connectToServer(address: string, name: string, password: string, email?: string, intent?: 'login' | 'register' | 'guest'): void {
   if (wsClient) disconnectFromServer()
 
   useConnectionStore.getState().setLoginStep('none')
@@ -189,6 +189,7 @@ export function connectToServer(address: string, name: string, password: string,
     reconnecting = false
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
+    useConnectionStore.getState().setGuest(!!payload.guest)
     if (payload.maintenance !== undefined) {
       useConnectionStore.getState().setMaintenance(payload.maintenance, payload.maintenanceMessage ?? '')
     }
@@ -482,6 +483,15 @@ function dmKey(payload: PrivateChatMsg): string {
     )
   })
 
+  wsClient.on(WsMessageType.GuestState, (msg) => {
+    const p = msg.payload as { enabled: boolean }
+    useConnectionStore.getState().setGuestMode(p.enabled)
+    useToastStore.getState().show(
+      p.enabled ? 'info' : 'success',
+      p.enabled ? 'Modo convidado ativado — é possível entrar só com o nome' : 'Modo convidado desativado'
+    )
+  })
+
   wsClient.on(WsMessageType.GlobalAnnouncement, (msg) => {
     const p = msg.payload as { id: string; text: string; durationMs: number }
     useAnnouncementStore.getState().show(p.id, p.text, p.durationMs)
@@ -669,6 +679,8 @@ export function disconnectFromServer(): void {
   cleanupVoice()
   intentionalDisconnect = true
   reconnecting = false
+  // Para o bot da rádio também (o áudio é independente da conexão WS).
+  radioPlayer.stop()
   useAdminStore.getState().clear()
   wsClient?.disconnect()
   wsClient = null

@@ -209,10 +209,13 @@ function AdminUsers({ onEdit }: { onEdit: (a: EditState['account']) => void }) {
   }
 
   function renderUser(a: { id?: string; name: string; email?: string; avatar?: string; admin?: boolean; tags?: string[]; online?: boolean }, withActions: boolean) {
+    const isOnline = a.online === true
     return (
       <div key={a.id ?? a.name} className="admin-user-row">
         <div className="admin-user-main" role="button" tabIndex={0} onClick={() => onEdit(a)} onKeyDown={(e) => e.key === 'Enter' && onEdit(a)}>
-          <Avatar id={a.id ?? a.name} name={a.name} avatar={a.avatar} />
+          <span className={`admin-user-avatar-wrap${isOnline ? ' admin-user-avatar-wrap--online' : ''}`}>
+            <Avatar id={a.id ?? a.name} name={a.name} avatar={a.avatar} />
+          </span>
           <span className="user-name">
             {a.name}
             {a.admin && (
@@ -224,12 +227,32 @@ function AdminUsers({ onEdit }: { onEdit: (a: EditState['account']) => void }) {
               <span key={tag} className="user-tag" style={{ background: tagColor(tag), borderColor: tagColor(tag) }}>{tag}</span>
             ))}
           </span>
+          <span
+            className={`admin-user-status-dot ${isOnline ? 'admin-user-status-dot--online' : 'admin-user-status-dot--offline'}`}
+            title={isOnline ? t('online') : t('offline')}
+          />
         </div>
         {withActions && (
           <div className="admin-user-actions">
-            <button type="button" className="btn btn-sm" title={t('adminRestrictions')} onClick={() => onEdit(a)}>⚙</button>
-            <button type="button" className="btn btn-sm" title={t('adminKick')} onClick={() => store.run('kick', { name: a.name })}>Kick</button>
-            <button type="button" className="btn btn-sm btn-danger" title={t('adminBan')} onClick={() => setConfirmBan({ name: a.name, email: a.email })}>Banir</button>
+            <button type="button" className="admin-icon-btn" title={t('adminRestrictions')} onClick={() => onEdit(a)}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+            <button type="button" className="admin-icon-btn" title={t('adminKick')} onClick={() => store.run('kick', { name: a.name })}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+            <button type="button" className="admin-icon-btn admin-icon-btn--danger" title={t('adminBan')} onClick={() => setConfirmBan({ name: a.name, email: a.email })}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+              </svg>
+            </button>
           </div>
         )}
       </div>
@@ -321,17 +344,41 @@ function AdminRooms() {
       </div>
       <div className="admin-rooms-list">
         {rooms.map((r) => (
-          <div key={r.id} className={`admin-room-row${r.fixed ? ' admin-room-row--fixed' : ''}`}>
+          <div key={r.id} className={`admin-room-row${r.fixed ? ' admin-room-row--fixed' : ''}${r.live ? ' admin-room-row--live' : ''}`}>
+            <span className={`admin-room-avatar ${r.featured !== undefined ? `admin-room-avatar--f${r.featured}` : ''}`} aria-hidden="true">
+              {r.live ? '📡' : r.fixed ? '📻' : '#'}
+            </span>
             <div className="admin-room-info">
               <span className="admin-room-name">
-                #{r.name}
+                {r.name}
                 {r.fixed && <span className="admin-room-fixed">FIXA</span>}
                 {r.featured !== undefined && <span className="admin-room-featured">★{r.featured}</span>}
                 {r.live && <span className="admin-room-live">LIVE</span>}
               </span>
               <span className="admin-room-meta">
-                {r.users} {t('online')} · {r.messages} {t('adminMessages')}
-                {r.occupants.length > 0 ? ` · ${r.occupants.join(', ')}` : ''}
+                <span className="admin-room-stat">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                  {r.users}
+                </span>
+                <span className="admin-room-stat">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  {r.messages}
+                </span>
+                {r.occupants.length > 0 && (
+                  <span className="admin-room-occupants" title={r.occupants.join(', ')}>
+                    {r.occupants.slice(0, 4).map((occ) => (
+                      <Avatar key={occ} id={occ} name={occ} maxInitials={1} className="admin-room-occupant-avatar" />
+                    ))}
+                    {r.occupants.length > 4 && <span className="admin-room-occupants-more">+{r.occupants.length - 4}</span>}
+                  </span>
+                )}
               </span>
             </div>
             <div className="admin-room-actions">
@@ -395,16 +442,18 @@ function AdminRooms() {
   )
 }
 
-// ---------- Sistema (A13/A17/A18/A5) ----------
+// ---------- Sistema (A13/A17/A18/A5 + modo convidado) ----------
 function AdminSystem() {
   const t = useT()
   const store = useAdminStore()
+  const metrics = store.metrics
   const limits = store.limits
   const backup = store.backup
   const cleanup = store.cleanup
   const log = store.log
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [cleanupDays, setCleanupDays] = useState('30')
+  const [confirmCleanup, setConfirmCleanup] = useState(false)
   const [removeEmpty, setRemoveEmpty] = useState(true)
   const restoreRef = useRef<HTMLInputElement>(null)
 
@@ -454,6 +503,24 @@ function AdminSystem() {
   return (
     <div className="admin-system">
       <div className="admin-section">
+        <div className="admin-section-head">
+          <h4 className="admin-section-title">{t('adminGuestMode')}</h4>
+          <span className={`admin-badge ${metrics?.guestMode ? 'admin-badge--warn' : ''}`}>
+            {metrics?.guestMode ? t('adminGuestOn') : t('adminGuestOff')}
+          </span>
+        </div>
+        <div className="admin-row">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => store.run('guest', { enabled: !metrics?.guestMode })}
+          >
+            {metrics?.guestMode ? t('adminDisable') : t('adminEnable')}
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-section">
         <h4 className="admin-section-title">{t('adminLimits')}</h4>
         <div className="admin-limits-grid">
           {limits && Object.keys(limits).map((k) => (
@@ -500,6 +567,14 @@ function AdminSystem() {
             <span>{t('adminCleanupEmptyRooms')}</span>
           </label>
           <button type="button" className="btn" onClick={() => store.run('cleanup')}>{t('adminEstimate')}</button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            title={t('adminCleanNowHint')}
+            onClick={() => setConfirmCleanup(true)}
+          >
+            {t('adminCleanNow')}
+          </button>
         </div>
         {cleanup && (
           <div className="admin-cleanup-result">
@@ -508,16 +583,18 @@ function AdminSystem() {
               {cleanup.emptyRooms.length} {t('adminEmptyRooms')}
               {cleanup.emptyRooms.length > 0 ? ` (${cleanup.emptyRooms.join(', ')})` : ''}
             </p>
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={() => store.run('cleanup_apply', { days: Number(cleanupDays) || 30, emptyRooms: removeEmpty })}
-            >
-              {t('adminApply')}
-            </button>
           </div>
         )}
       </div>
+
+      {confirmCleanup && (
+        <ConfirmDialog
+          title={t('adminCleanNow')}
+          text={t('adminCleanNowConfirm')}
+          onClose={() => setConfirmCleanup(false)}
+          onConfirm={() => store.run('cleanup_apply', { days: Number(cleanupDays) || 30, emptyRooms: removeEmpty })}
+        />
+      )}
 
       <div className="admin-section">
         <h4 className="admin-section-title">{t('adminLog')}</h4>

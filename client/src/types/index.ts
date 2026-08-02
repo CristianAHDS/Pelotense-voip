@@ -108,6 +108,7 @@ export interface AdminMetrics {
   memoryMB: number
   heapMB: number
   maintenance: boolean
+  guestMode?: boolean
 }
 
 export interface AdminRoomInfo {
@@ -164,7 +165,7 @@ export interface LoginPayload {
   email?: string
   password: string
   avatar?: string
-  intent?: 'login' | 'register'
+  intent?: 'login' | 'register' | 'guest'
   deviceId?: string
 }
 
@@ -179,6 +180,7 @@ export interface WelcomePayload {
   maintenance?: boolean
   maintenanceMessage?: string
   onboarding?: boolean
+  guest?: boolean
 }
 
 export interface ChatMsg {

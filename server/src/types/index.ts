@@ -12,6 +12,8 @@ export interface Client {
   avatar?: string
   email?: string
   tags?: string[]
+  // Convidado (modo guest): sem conta, sem texto/privado — só áudio/vídeo/live.
+  isGuest?: boolean
   // Restrições aplicadas pelo admin (runtime): mic/chat silenciados.
   restrictions?: { mic?: boolean; chat?: boolean }
   ws: WsWebSocket

@@ -53,7 +53,9 @@ export function RadioBot({ compact = false }: { compact?: boolean }) {
       mountedCount--
       disarmUnlock()
       unsubscribe()
-      if (!compact && mountedCount === 0 && hadPrimary) {
+      // Para quando a ÚLTIMA instância desmonta (a compact da lista de pessoas
+      // pode desmontar por último ao sair da sala/desconectar).
+      if (mountedCount === 0 && hadPrimary) {
         hadPrimary = false
         radioPlayer.stop()
       }

@@ -132,6 +132,7 @@ export function ChatPanel() {
   const myName = useConnectionStore((s) => s.name)
   const myAdmin = useConnectionStore((s) => s.admin)
   const connected = useConnectionStore((s) => s.connected)
+  const isGuest = useConnectionStore((s) => s.guest)
   const broadcaster = useLiveStore((s) => s.broadcaster)
   const pendingRequest = useLiveStore((s) => s.pendingRequest)
   const setPendingRequest = useLiveStore((s) => s.setPendingRequest)
@@ -673,14 +674,18 @@ export function ChatPanel() {
             </>
           ) : (
             <>
-              <input
-                type="text"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={t('messagePlaceholder', { room: currentRoomName ?? '' })}
-                className="chat-input"
-              />
+              {isGuest ? (
+                <span className="chat-guest-hint">{t('guestChatHint')}</span>
+              ) : (
+                <input
+                  type="text"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={t('messagePlaceholder', { room: currentRoomName ?? '' })}
+                  className="chat-input"
+                />
+              )}
               {!isAoVivo && (
                 <button
                   onClick={handleStartAudioRecording}
@@ -722,17 +727,19 @@ export function ChatPanel() {
                   </svg>
                 </button>
               )}
-              <button
-                onClick={() => imageInputRef.current?.click()}
-                className="chat-img-btn"
-                title="Enviar imagem"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
-              </button>
+              {!isGuest && (
+                <button
+                  onClick={() => imageInputRef.current?.click()}
+                  className="chat-img-btn"
+                  title="Enviar imagem"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                </button>
+              )}
               <input
                 ref={imageInputRef}
                 type="file"
@@ -740,16 +747,18 @@ export function ChatPanel() {
                 style={{ display: 'none' }}
                 onChange={handleImageSelected}
               />
-              <button
-                onClick={handleSend}
-                className="chat-send-btn"
-                disabled={!text.trim()}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
+              {!isGuest && (
+                <button
+                  onClick={handleSend}
+                  className="chat-send-btn"
+                  disabled={!text.trim()}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                </button>
+              )}
             </>
           )}
         </div>

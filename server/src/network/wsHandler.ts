@@ -136,7 +136,10 @@ export class WsHandler {
     if (!pending) return
 
     const { name, password, avatar } = payload
-    if (!name || !password) {
+    const intent = typeof payload.intent === 'string' ? payload.intent : ''
+    const isGuestIntent = intent === 'guest'
+    // Convidados entram sem nome e sem senha (o servidor gera "guest###").
+    if ((!name && !isGuestIntent) || (!password && !isGuestIntent)) {
       this.send(ws, { type: WsMessageType.Error, payload: 'Name and password required' })
       ws.close()
       return
@@ -183,7 +186,6 @@ export class WsHandler {
       }
     }
 
-    const intent = typeof payload.intent === 'string' ? payload.intent : ''
     const isEmailIdentifier = identifier.includes('@')
     let account = this.storage?.getAccountByIdentifier(identifier)
 
@@ -197,7 +199,27 @@ export class WsHandler {
       }
     }
 
-    if (intent === 'register') {
+    if (intent === 'guest') {
+      // Modo convidado: entra sem senha/`conta`, com restrições.
+      if (!this.guestMode) {
+        this.send(ws, { type: WsMessageType.Error, payload: { code: 'guest_disabled', message: 'Modo convidado desativado' } })
+        ws.close()
+        return
+      }
+      if (account && account.password) {
+        this.send(ws, { type: WsMessageType.Error, payload: { code: 'guest_account', message: 'Esta conta tem senha — use o login normal' } })
+        ws.close()
+        return
+      }
+      // Sem nome digitado (ou com mais de um convidado online / nome em uso),
+      // gera "guest" + id curto de 3 dígitos para cada um.
+      let guestName = identifier
+      const needsGenerated = !guestName
+        || this.clients.findByName(guestName) !== undefined
+        || this.clients.getAll().some((c) => c.isGuest)
+      if (needsGenerated) guestName = this.generateGuestName()
+      account = { name: guestName, id: this.generateId(), password: '', emailConfirmed: true, createdAt: Date.now() }
+    } else if (intent === 'register') {
       // Registro tradicional: exige e-mail e nome livre.
       if (!email) {
         this.send(ws, { type: WsMessageType.Error, payload: 'Email required' })
@@ -285,6 +307,7 @@ export class WsHandler {
       avatar: avatar ?? account.avatar,
       email: account.email,
       tags: account.tags,
+      isGuest: isGuestIntent,
       ws,
     }
 
@@ -292,6 +315,11 @@ export class WsHandler {
       this.send(ws, { type: WsMessageType.Error, payload: 'Server full' })
       ws.close()
       return
+    }
+
+    // Convidados são efêmeros: não criam conta persistida.
+    if (!isGuestIntent && this.storage) {
+      this.storage.saveAccount({ name: client.name, id: client.id, email: client.email, password: client.password, avatar: client.avatar })
     }
 
     this.pendingClients.delete(ws)
@@ -329,12 +357,8 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding },
+      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest },
     })
-
-    if (this.storage) {
-      this.storage.saveAccount({ name: client.name, id: client.id, email: client.email, password: client.password, avatar: client.avatar })
-    }
 
     this.broadcast({
       type: WsMessageType.UserList,
@@ -568,6 +592,7 @@ export class WsHandler {
           memoryMB: Math.round(mem.rss / 1024 / 1024),
           heapMB: Math.round(mem.heapUsed / 1024 / 1024),
           maintenance: this.maintenanceMode,
+          guestMode: this.guestMode,
         })
         break
       }
@@ -583,7 +608,18 @@ export class WsHandler {
           liveCount: this.rooms.getAll().filter((r) => this.rooms.getLiveBroadcast(r.id)).length,
           pendingConnections: this.pendingClients.size,
           maintenance: this.maintenanceMode,
+          guestMode: this.guestMode,
         })
+        break
+      }
+
+      case 'guest': {
+        this.guestMode = payload.enabled === true
+        this.adminLogAdd(client.name, 'guest', String(this.guestMode))
+        this.clients.getAll().forEach((c) => {
+          this.send(c.ws, { type: WsMessageType.GuestState, payload: { enabled: this.guestMode } })
+        })
+        this.adminResult(client.ws, cmd, true, { enabled: this.guestMode })
         break
       }
 
@@ -901,6 +937,15 @@ export class WsHandler {
     }
   }
 
+  private generateGuestName(): string {
+    for (let i = 0; i < 200; i++) {
+      const suffix = Math.floor(100 + Math.random() * 900)
+      const name = `guest${suffix}`
+      if (!this.clients.findByName(name)) return name
+    }
+    return 'guest' + Date.now().toString().slice(-3)
+  }
+
   private getLimitsSnapshot(): Record<string, number> {
     return {
       maxUsers: this.clients.getMaxUsers(),
@@ -932,6 +977,7 @@ export class WsHandler {
 
   private handleChatMessage(client: Client, payload: { text: string; id?: string }): void {
     if (!client.room || !payload.text?.trim()) return
+    if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (payload.text.length > this.limits.maxTextLength) {
       logger.warn('WsHandler', `Chat message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
@@ -1019,6 +1065,7 @@ export class WsHandler {
 
   private handleChatImageMessage(client: Client, payload: { id?: string; imageData: string }): void {
     if (!client.room || !payload.imageData) return
+    if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.imageData, this.limits.maxImageMessageBytes)) {
       logger.warn('WsHandler', `Image message from ${client.id} exceeds ${this.limits.maxImageMessageBytes} bytes, dropped`)
@@ -1145,6 +1192,7 @@ export class WsHandler {
 
   private handlePrivateMessage(client: Client, payload: { toUserId: string; text: string; id?: string }): void {
     if (!payload.toUserId || !payload.text?.trim()) return
+    if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (payload.text.length > this.limits.maxTextLength) {
       logger.warn('WsHandler', `Private message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
@@ -1175,6 +1223,7 @@ export class WsHandler {
 
   private handlePrivateAudioMessage(client: Client, payload: { toUserId: string; id?: string; audioData: string; duration: number }): void {
     if (!payload.toUserId || !payload.audioData) return
+    if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
       logger.warn('WsHandler', `Private audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
@@ -1206,6 +1255,7 @@ export class WsHandler {
 
   private handlePrivateVideoMessage(client: Client, payload: { toUserId: string; id?: string; videoData: string; duration: number }): void {
     if (!payload.toUserId || !payload.videoData) return
+    if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
       logger.warn('WsHandler', `Private video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
@@ -1237,6 +1287,7 @@ export class WsHandler {
 
   private handlePrivateImageMessage(client: Client, payload: { toUserId: string; id?: string; imageData: string }): void {
     if (!payload.toUserId || !payload.imageData) return
+    if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.imageData, this.limits.maxImageMessageBytes)) {
       logger.warn('WsHandler', `Private image message from ${client.id} exceeds ${this.limits.maxImageMessageBytes} bytes, dropped`)

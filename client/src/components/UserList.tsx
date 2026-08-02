@@ -26,6 +26,7 @@ export function UserList() {
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const myId = useConnectionStore((s) => s.id)
   const myAdmin = useConnectionStore((s) => s.admin)
+  const isGuest = useConnectionStore((s) => s.guest)
   const openChat = usePrivateChatStore((s) => s.openChat)
   const activeUserId = usePrivateChatStore((s) => s.activeUserId)
   const unread = usePrivateChatStore((s) => s.unread)
@@ -52,6 +53,8 @@ export function UserList() {
 
   function handleClick(userId: string, userName: string) {
     if (userId === myId) return
+    // Convidados não abrem chat privado.
+    if (isGuest) return
     openChat(userId, userName)
     requestPrivateHistory(userId)
   }
