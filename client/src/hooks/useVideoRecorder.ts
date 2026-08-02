@@ -1,24 +1,40 @@
 import { useState, useRef, useCallback } from 'react'
 import * as liveRtc from '../services/liveRtc.ts'
 import { getUserMediaWithMic } from '../utils/media.ts'
+import { useConnectionStore } from '../stores/connectionStore.ts'
 
 interface VideoDevice {
   deviceId: string
   label: string
 }
 
-// Espelha DEFAULT_SECURITY_LIMITS.maxVideoMessageBytes (5MB) do servidor, que é
-// o limite real de descarte (o servidor continua sendo a autoridade). O guarda
-// aqui evita que um vídeo grande demais seja enviado e descartado em silêncio.
-const MAX_VIDEO_MESSAGE_BYTES = 5 * 1024 * 1024
-const MAX_VIDEO_BASE64_LENGTH = Math.ceil((MAX_VIDEO_MESSAGE_BYTES * 4) / 3) + 4
-const VIDEO_BITS_PER_SECOND = 500_000
+function videoSettings() {
+  return useConnectionStore.getState().settings
+}
+
+function videoConstraints(deviceId?: string): MediaTrackConstraints {
+  const v = videoSettings().video
+  const c: MediaTrackConstraints = {
+    width: { ideal: v.width },
+    height: { ideal: v.height },
+    frameRate: { ideal: v.fps },
+  }
+  if (deviceId) {
+    ;(c as MediaTrackConstraints & { deviceId: { exact: string } }).deviceId = { exact: deviceId }
+  }
+  return c
+}
 
 function createRecorder(stream: MediaStream, mimeType: string): MediaRecorder {
+  const bitrate = videoSettings().video.bitrate
   try {
-    return new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITS_PER_SECOND })
+    return new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitrate })
   } catch {
-    return new MediaRecorder(stream, { mimeType })
+    try {
+      return new MediaRecorder(stream, { mimeType })
+    } catch {
+      return new MediaRecorder(stream)
+    }
   }
 }
 
@@ -30,7 +46,9 @@ function readBlobResult(
   const reader = new FileReader()
   reader.onloadend = () => {
     const base64 = (reader.result as string).split(',')[1]
-    if (base64.length > MAX_VIDEO_BASE64_LENGTH) {
+    const maxBytes = videoSettings().maxVideoBytes
+    const maxBase64 = Math.ceil((maxBytes * 4) / 3) + 4
+    if (!base64 || base64.length > maxBase64) {
       resolve({ error: 'too-large' })
       return
     }
@@ -117,10 +135,7 @@ export function useVideoRecorder() {
     if (!oldStream) return
 
     try {
-      const newStream = await getUserMediaWithMic(
-        { deviceId: { exact: newCameraId }, width: { ideal: 640 }, height: { ideal: 480 } },
-        true,
-      )
+      const newStream = await getUserMediaWithMic(videoConstraints(newCameraId), true)
 
       const wasRecording = recorderRef.current?.state === 'recording'
 
@@ -178,10 +193,7 @@ export function useVideoRecorder() {
 
   const openCamera = useCallback(async (): Promise<boolean> => {
     try {
-      const videoConstraints: MediaTrackConstraints = cameraId
-        ? { deviceId: { exact: cameraId }, width: { ideal: 640 }, height: { ideal: 480 } }
-        : { width: { ideal: 640 }, height: { ideal: 480 } }
-      const s = await getUserMediaWithMic(videoConstraints, true)
+      const s = await getUserMediaWithMic(videoConstraints(cameraId), true)
       streamRef.current = s
       setHasStream(true)
       setStreamVersion((v) => v + 1)

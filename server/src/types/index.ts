@@ -143,6 +143,7 @@ export enum WsMessageType {
   MaintenanceState = 'maintenance_state',
   GuestState = 'guest_state',
   OnboardingComplete = 'onboarding_complete',
+  SettingsState = 'settings_state',
 }
 
 export interface WsMessage {

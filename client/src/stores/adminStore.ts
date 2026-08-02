@@ -96,6 +96,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       case 'kick':
       case 'restrictions':
       case 'onboarding_reset':
+      case 'video_settings':
         useToastStore.getState().show('success', `Admin: ${cmd} OK`)
         set({ ...base })
         break

@@ -76,9 +76,9 @@ async function recordOnce(): Promise<unknown> {
 }
 
 describe('useVideoRecorder', () => {
-  it('usa videoBitsPerSecond reduzido para vídeos menores', async () => {
+  it('usa o videoBitsPerSecond configurado (padrão do sistema)', async () => {
     await recordOnce()
-    expect(FakeMediaRecorder.constructorCalls[0].options.videoBitsPerSecond).toBe(500000)
+    expect(FakeMediaRecorder.constructorCalls[0].options.videoBitsPerSecond).toBe(2500000)
   })
 
   it('cai para a construção sem videoBitsPerSecond quando o navegador rejeita a opção', async () => {

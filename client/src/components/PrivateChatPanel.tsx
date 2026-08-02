@@ -8,7 +8,7 @@ import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, s
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { userColor, initials } from '../ui/avatar.ts'
-import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration, fileBase64ExceedsLimit } from '../utils/image.ts'
+import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
 import { ChatMedia } from './ChatMedia.tsx'
 import { useT, tStatic } from '../i18n/index.ts'
 
@@ -200,7 +200,10 @@ export function PrivateChatPanel() {
       return
     }
     const base64 = await readFileAsBase64(file)
-    if (!base64 || fileBase64ExceedsLimit(file, base64)) {
+    const maxBytes = isAudio
+      ? useConnectionStore.getState().settings.maxAudioBytes
+      : useConnectionStore.getState().settings.maxVideoBytes
+    if (!base64 || file.size > maxBytes) {
       useToastStore.getState().show('error', tStatic('fileTooLarge'))
       return
     }

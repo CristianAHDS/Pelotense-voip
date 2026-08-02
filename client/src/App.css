@@ -4662,6 +4662,11 @@ body {
   color: var(--text-2);
 }
 
+.admin-guest-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .admin-row {
   display: flex;
   gap: 8px;

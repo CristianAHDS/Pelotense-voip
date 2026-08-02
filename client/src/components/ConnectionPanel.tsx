@@ -8,9 +8,9 @@ import { isTauri } from '../utils/isTauri.ts'
 
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
-const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || 'pelotense-voip.fly.dev'
+const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || '192.168.8.94'
 const DEFAULT_WS_PORT = (import.meta.env.VITE_WS_PORT as string | undefined) || '3001'
-const DEFAULT_WSS_PORT = (import.meta.env.VITE_WSS_PORT as string | undefined) || '443'
+const DEFAULT_WSS_PORT = (import.meta.env.VITE_WSS_PORT as string | undefined) || '3003'
 
 type AuthMode = 'login' | 'register'
 

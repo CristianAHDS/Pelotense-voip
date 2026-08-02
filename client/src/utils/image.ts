@@ -48,9 +48,6 @@ export function imageBase64ExceedsLimit(base64: string): boolean {
 }
 
 // ---- Arquivos de áudio/vídeo (upload) ----
-export const MAX_AUDIO_FILE_BYTES = 512 * 1024
-export const MAX_VIDEO_FILE_BYTES = 5 * 1024 * 1024
-
 export function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -81,9 +78,4 @@ export function getMediaDuration(file: File): Promise<number> {
     el.onerror = () => done(0)
     el.src = url
   })
-}
-
-export function fileBase64ExceedsLimit(file: File, base64: string): boolean {
-  if (file.type.startsWith('video')) return file.size > MAX_VIDEO_FILE_BYTES
-  return file.size > MAX_AUDIO_FILE_BYTES || base64.length > Math.ceil((MAX_AUDIO_FILE_BYTES * 4) / 3) + 4
 }

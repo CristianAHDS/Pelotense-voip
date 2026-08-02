@@ -90,6 +90,13 @@ export enum WsMessageType {
   MaintenanceState = 'maintenance_state',
   GuestState = 'guest_state',
   OnboardingComplete = 'onboarding_complete',
+  SettingsState = 'settings_state',
+}
+
+export interface SystemSettings {
+  video: { width: number; height: number; fps: number; bitrate: number }
+  maxAudioBytes: number
+  maxVideoBytes: number
 }
 
 export interface AdminMetrics {
@@ -181,6 +188,7 @@ export interface WelcomePayload {
   maintenanceMessage?: string
   onboarding?: boolean
   guest?: boolean
+  settings?: SystemSettings
 }
 
 export interface ChatMsg {

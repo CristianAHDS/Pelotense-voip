@@ -1,5 +1,5 @@
 import { WsClient } from '../network/wsClient.ts'
-import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg, PrivateChatMsg, AdminResult } from '../types/index.ts'
+import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg, PrivateChatMsg, AdminResult, SystemSettings } from '../types/index.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
@@ -190,6 +190,9 @@ export function connectToServer(address: string, name: string, password: string,
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     useConnectionStore.getState().setGuest(!!payload.guest)
+    if (payload.settings) {
+      useConnectionStore.getState().setSettings(payload.settings)
+    }
     if (payload.maintenance !== undefined) {
       useConnectionStore.getState().setMaintenance(payload.maintenance, payload.maintenanceMessage ?? '')
     }
@@ -490,6 +493,11 @@ function dmKey(payload: PrivateChatMsg): string {
       p.enabled ? 'info' : 'success',
       p.enabled ? 'Modo convidado ativado — é possível entrar só com o nome' : 'Modo convidado desativado'
     )
+  })
+
+  wsClient.on(WsMessageType.SettingsState, (msg) => {
+    const p = msg.payload as SystemSettings
+    useConnectionStore.getState().setSettings(p)
   })
 
   wsClient.on(WsMessageType.GlobalAnnouncement, (msg) => {

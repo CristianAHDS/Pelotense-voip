@@ -14,7 +14,7 @@ import { ChatMedia } from './ChatMedia.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
 import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
-import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration, fileBase64ExceedsLimit } from '../utils/image.ts'
+import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
 import { useT, tStatic } from '../i18n/index.ts'
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -252,7 +252,10 @@ export function ChatPanel() {
       return
     }
     const base64 = await readFileAsBase64(file)
-    if (!base64 || fileBase64ExceedsLimit(file, base64)) {
+    const maxBytes = isAudio
+      ? useConnectionStore.getState().settings.maxAudioBytes
+      : useConnectionStore.getState().settings.maxVideoBytes
+    if (!base64 || file.size > maxBytes) {
       useToastStore.getState().show('error', t('fileTooLarge'))
       return
     }

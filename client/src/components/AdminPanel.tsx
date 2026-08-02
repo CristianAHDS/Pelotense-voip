@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useAccountStore } from '../stores/accountStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useAdminStore } from '../stores/adminStore.ts'
+import { useConnectionStore } from '../stores/connectionStore.ts'
 import { requestAccounts, sendAdminUpdateAccount } from '../services/connectionService.ts'
 import { Avatar } from '../ui/Avatar.tsx'
 import { isMasterUser, USER_TAGS, tagColor } from '../ui/admin.ts'
@@ -454,6 +455,23 @@ function AdminSystem() {
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [cleanupDays, setCleanupDays] = useState('30')
   const [confirmCleanup, setConfirmCleanup] = useState(false)
+
+  // Qualidade de vídeo (sincroniza quando o servidor envia SettingsState).
+  const connSettings = useConnectionStore((s) => s.settings)
+  const [vq, setVq] = useState(() => ({
+    width: connSettings.video.width,
+    height: connSettings.video.height,
+    fps: connSettings.video.fps,
+    bitrateKbps: Math.round(connSettings.video.bitrate / 1000),
+  }))
+  useEffect(() => {
+    setVq({
+      width: connSettings.video.width,
+      height: connSettings.video.height,
+      fps: connSettings.video.fps,
+      bitrateKbps: Math.round(connSettings.video.bitrate / 1000),
+    })
+  }, [connSettings.video.width, connSettings.video.height, connSettings.video.fps, connSettings.video.bitrate])
   const [removeEmpty, setRemoveEmpty] = useState(true)
   const restoreRef = useRef<HTMLInputElement>(null)
 
@@ -516,6 +534,34 @@ function AdminSystem() {
             onClick={() => store.run('guest', { enabled: !metrics?.guestMode })}
           >
             {metrics?.guestMode ? t('adminDisable') : t('adminEnable')}
+          </button>
+        </div>
+      </div>
+
+      <div className="admin-section">
+        <h4 className="admin-section-title">{t('adminVideoQuality')}</h4>
+        <span className="admin-guest-hint">{t('adminVideoQualityHint')}</span>
+        <div className="admin-limits-grid">
+          <label className="admin-limit-field">
+            <span className="admin-limit-label">{t('adminVideoWidth')}</span>
+            <input type="number" min="320" max="3840" className="input" value={vq.width} onChange={(e) => setVq({ ...vq, width: Number(e.target.value) || 0 })} />
+          </label>
+          <label className="admin-limit-field">
+            <span className="admin-limit-label">{t('adminVideoHeight')}</span>
+            <input type="number" min="240" max="2160" className="input" value={vq.height} onChange={(e) => setVq({ ...vq, height: Number(e.target.value) || 0 })} />
+          </label>
+          <label className="admin-limit-field">
+            <span className="admin-limit-label">{t('adminVideoFps')}</span>
+            <input type="number" min="15" max="60" className="input" value={vq.fps} onChange={(e) => setVq({ ...vq, fps: Number(e.target.value) || 0 })} />
+          </label>
+          <label className="admin-limit-field">
+            <span className="admin-limit-label">{t('adminVideoBitrate')} (kbps)</span>
+            <input type="number" min="200" max="20000" className="input" value={vq.bitrateKbps} onChange={(e) => setVq({ ...vq, bitrateKbps: Number(e.target.value) || 0 })} />
+          </label>
+        </div>
+        <div className="admin-row">
+          <button type="button" className="btn btn-primary" onClick={() => store.run('video_settings', { width: vq.width, height: vq.height, fps: vq.fps, bitrate: vq.bitrateKbps * 1000 })}>
+            {t('save')}
           </button>
         </div>
       </div>

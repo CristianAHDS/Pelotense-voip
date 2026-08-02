@@ -43,6 +43,9 @@ export class WsHandler {
   private readonly adminLog: Array<{ at: number; by: string; action: string; detail?: string }> = []
   private readonly startedAt = Date.now()
 
+  // Qualidade de gravação de vídeo (configurável pelo admin).
+  private videoSettings = { width: 1280, height: 720, fps: 30, bitrate: 2500000 }
+
   constructor(
     wss: WebSocketServer,
     clients: ClientManager,
@@ -357,7 +360,7 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest },
+      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest, settings: this.getSettingsPayload() },
     })
 
     this.broadcast({
@@ -770,7 +773,20 @@ export class WsHandler {
           break
         }
         this.adminLogAdd(client.name, 'limit', `${key}=${n}`)
+        this.broadcastSettings()
         this.adminResult(client.ws, cmd, true, this.getLimitsSnapshot())
+        break
+      }
+
+      case 'video_settings': {
+        const v = this.videoSettings
+        if (typeof payload.width === 'number' && Number.isFinite(payload.width)) v.width = Math.max(320, Math.min(3840, Math.round(payload.width)))
+        if (typeof payload.height === 'number' && Number.isFinite(payload.height)) v.height = Math.max(240, Math.min(2160, Math.round(payload.height)))
+        if (typeof payload.fps === 'number' && Number.isFinite(payload.fps)) v.fps = Math.max(15, Math.min(60, Math.round(payload.fps)))
+        if (typeof payload.bitrate === 'number' && Number.isFinite(payload.bitrate)) v.bitrate = Math.max(200_000, Math.min(20_000_000, Math.round(payload.bitrate)))
+        this.adminLogAdd(client.name, 'video_settings', `${v.width}x${v.height} ${v.fps}fps ${Math.round(v.bitrate / 1000)}kbps`)
+        this.broadcastSettings()
+        this.adminResult(client.ws, cmd, true, this.getSettingsPayload())
         break
       }
 
@@ -933,6 +949,21 @@ export class WsHandler {
       if (!this.clients.findByName(name)) return name
     }
     return 'guest' + Date.now().toString().slice(-3)
+  }
+
+  private getSettingsPayload(): { video: { width: number; height: number; fps: number; bitrate: number }; maxAudioBytes: number; maxVideoBytes: number } {
+    return {
+      video: { ...this.videoSettings },
+      maxAudioBytes: this.limits.maxAudioMessageBytes,
+      maxVideoBytes: this.limits.maxVideoMessageBytes,
+    }
+  }
+
+  private broadcastSettings(): void {
+    const payload = this.getSettingsPayload()
+    this.clients.getAll().forEach((c) => {
+      this.send(c.ws, { type: WsMessageType.SettingsState, payload })
+    })
   }
 
   private getLimitsSnapshot(): Record<string, number> {
