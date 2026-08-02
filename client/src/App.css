@@ -2976,6 +2976,47 @@ body {
   outline: none;
 }
 
+.chat-audio-track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: visible;
+}
+
+.chat-bubble--self .chat-audio-track {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.chat-audio-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.chat-bubble--self .chat-audio-fill {
+  background: var(--chat-self-text);
+}
+
+.chat-audio-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--panel), 0 0 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.chat-bubble--self .chat-audio-thumb {
+  background: var(--chat-self-text);
+}
+
 .chat-audio-progress:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

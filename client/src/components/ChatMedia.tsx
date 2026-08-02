@@ -220,6 +220,16 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
         onPointerLeave={() => setSeeking(false)}
         onKeyDown={handleSeekKey}
       >
+        <div className="chat-audio-track">
+          <div
+            className="chat-audio-fill"
+            style={{ width: `${progress * 100}%` }}
+          />
+          <div
+            className="chat-audio-thumb"
+            style={{ left: `calc(${progress * 100}% - 5px)` }}
+          />
+        </div>
         <div className="chat-audio-wave">
           {bars.map((h, i) => (
             <div

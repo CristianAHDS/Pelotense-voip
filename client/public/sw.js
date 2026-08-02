@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voip-client-v1'
+const CACHE_NAME = 'voip-client-v3'
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -27,6 +27,26 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
+
+  // Navegação (documento): network-first. O index.html referencia assets com
+  // hash no nome — se servirmos um HTML antigo do cache, os assets novos não
+  // são baixados e a tela fica branca (MIME text/html no CSS antigo). Sempre
+  // busca o HTML mais recente, com fallback para o cache offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy))
+          return response
+        })
+        .catch(() => caches.match('/index.html'))
+    )
+    return
+  }
+
+  // Demais recursos (assets com hash, ícones, fontes): cache-first, pois o
+  // nome inclui o hash do conteúdo e é imutável entre deploys.
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached
