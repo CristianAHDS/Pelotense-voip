@@ -87,6 +87,24 @@ Se você quiser rodar o **servidor na sua máquina** e deixar que **outras pesso
 
 > **Atenção:** como as URLs dos túneis gratuitos mudam a cada reinício, o `config.json` é atualizado automaticamente pelo servidor — no app desktop basta abrir o exe de novo. Para um endereço **fixo**, use `NGROK_DOMAIN` (ngrok pago) ou um túnel Cloudflare nomeado (com conta).
 
+### Host remoto (editar o IP por um site)
+
+O app também busca o servidor de uma **URL remota com CORS**, para você trocar o IP sem editar nada na máquina dos usuários. **O valor remoto tem prioridade** sobre o `config.json` local.
+
+- **Arquivo atual:** [`config.json` do repositório](https://github.com/CristianAHDS/Pelotense-voip/edit/main/config.json)
+- O app lê: `https://raw.githubusercontent.com/CristianAHDS/Pelotense-voip/main/config.json`
+- **Para mudar o IP:** abra o link acima no GitHub, clique no lápis (editar), escreva o JSON abaixo com o host novo e salve (commit). Pronto — na próxima abertura o app usa esse IP:
+
+```json
+{
+  "host": "prefix-remove-privilege-stomach.trycloudflare.com",
+  "wsPort": "3001",
+  "wssPort": "443"
+}
+```
+
+> É possível usar **outro site** (ex: um GitHub Gist raw) definindo a variável de build `VITE_REMOTE_CONFIG_URL`. Sites tipo notepad.pw normalmente **não** funcionam porque bloqueiam o fetch (sem CORS).
+
 ---
 
 ## Telas
