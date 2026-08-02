@@ -3433,6 +3433,11 @@ body {
 .chat-video-preview {
   width: 100%;
   display: block;
+  max-height: 62vh;
+  object-fit: contain;
+  background: #000;
+  flex-shrink: 1;
+  min-height: 0;
 }
 
 .chat-video-preview-toolbar {
@@ -3443,6 +3448,7 @@ body {
   background: var(--panel);
   gap: 8px;
   position: relative;
+  flex-shrink: 0;
 }
 
 .chat-video-preview-left {
@@ -4292,6 +4298,17 @@ body {
   .chat-recording-start-btn {
     width: 32px;
     height: 32px;
+  }
+
+  /* Barra de controles da prévia de câmera: permite quebrar linha em telas estreitas */
+  .chat-video-preview-toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .chat-video-preview-center {
+    order: 3;
+    width: 100%;
   }
 }
 
