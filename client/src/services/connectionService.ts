@@ -22,6 +22,9 @@ let reconnecting: boolean = false
 let intentionalDisconnect: boolean = false
 let voiceManager: VoiceManager | null = null
 let voiceCleanup: (() => void) | null = null
+// Só reconecta automaticamente se já tiver logado (recebido Welcome). Se o
+// login falhou (senha errada, conta inexistente etc.), para de tentar.
+let hasReceivedWelcome: boolean = false
 
 // V2.9 — acompanha mensagens otimistas até o eco do servidor; se demorar,
 // marca como falha para o usuário poder reenviar.
@@ -161,6 +164,7 @@ function maybeNotifyPrivate(payload: PrivateChatMsg, body: string): void {
 export function connectToServer(address: string, name: string, password: string, email?: string, intent?: 'login' | 'register' | 'guest'): void {
   if (wsClient) disconnectFromServer()
 
+  hasReceivedWelcome = false
   useConnectionStore.getState().setLoginStep('none')
 
   wsClient = new WsClient()
@@ -177,6 +181,16 @@ export function connectToServer(address: string, name: string, password: string,
       intentionalDisconnect = false
       return
     }
+    // Nunca chegou a logar (senha errada, conta inexistente, servidor cheio,
+    // banido/manutenção): para de tentar reconectar e volta ao formulário.
+    if (!hasReceivedWelcome) {
+      const failed = wsClient
+      wsClient = null
+      failed?.disconnect()
+      reconnecting = false
+      useConnectionStore.getState().setDisconnected()
+      return
+    }
     if (wsClient) {
       reconnecting = true
       useConnectionStore.getState().setReconnecting(true)
@@ -187,6 +201,7 @@ export function connectToServer(address: string, name: string, password: string,
 
   wsClient.on(WsMessageType.Welcome, (msg) => {
     reconnecting = false
+    hasReceivedWelcome = true
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     useConnectionStore.getState().setGuest(!!payload.guest)
@@ -687,6 +702,7 @@ export function disconnectFromServer(): void {
   cleanupVoice()
   intentionalDisconnect = true
   reconnecting = false
+  hasReceivedWelcome = false
   // Para o bot da rádio também (o áudio é independente da conexão WS).
   radioPlayer.stop()
   useAdminStore.getState().clear()
