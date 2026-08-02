@@ -3,7 +3,7 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId, resendMessage } from '../services/connectionService.ts'
 import * as liveRtc from '../services/liveRtc.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
@@ -871,8 +871,33 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onF
           <span className="chat-bubble-time" title={exactTime(msg.timestamp)}>
             {msg.videoData ? formatDuration(msg.duration ?? 0) : formatTime(msg.timestamp)}
           </span>
-          {msg.sending && (
-            <span className="chat-bubble-sending">{tStatic('sending')}</span>
+          {isSelf && msg.sending && (
+            <span className="chat-bubble-status chat-bubble-status--sending" title={tStatic('sending')}>
+              <span className="chat-status-dots" aria-hidden="true"><i /><i /><i /></span>
+              {tStatic('sending')}
+            </span>
+          )}
+          {isSelf && msg.failed && (
+            <span className="chat-bubble-status chat-bubble-status--failed" title={tStatic('sendFailed')}>
+              <button
+                className="chat-bubble-retry"
+                onClick={() => { if (msg.id) resendMessage(msg.id) }}
+                title={tStatic('retry')}
+                aria-label={tStatic('retry')}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+              </button>
+            </span>
+          )}
+          {isSelf && !msg.sending && !msg.failed && (
+            <span className="chat-bubble-status chat-bubble-status--sent" title={tStatic('sent')}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </span>
           )}
           <button
             onClick={() => onForward(msg)}

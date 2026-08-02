@@ -46,6 +46,7 @@ interface RoomStore {
   removeUser: (userId: string) => void
   addMessage: (msg: ChatMsg) => void
   removeMessage: (messageId: string) => void
+  markMessageFailed: (messageId: string) => void
   setMessages: (msgs: ChatMsg[]) => void
   clearMessages: () => void
   incrementUnread: (roomId: string) => void
@@ -85,6 +86,12 @@ export const useRoomStore = create<RoomStore>((set) => ({
       return { messages: [...s.messages, msg] }
     }),
   removeMessage: (messageId) => set((s) => ({ messages: s.messages.filter((m) => m.id !== messageId) })),
+  markMessageFailed: (messageId) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === messageId ? { ...m, failed: true, sending: false } : m
+      ),
+    })),
   setMessages: (msgs) => set({ messages: msgs }),
   clearMessages: () => set({ messages: [] }),
   incrementUnread: (roomId) =>

@@ -1,4 +1,52 @@
 /* ============================================================
+   Fontes (Inter auto-hospedada)
+   ============================================================ */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/inter-latin-500-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/inter-latin-600-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/inter-latin-800-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ============================================================
    Design tokens
    ============================================================ */
 :root {
@@ -26,19 +74,19 @@
   --chat-self-text: #fff;
   --chat-self-text-2: rgba(255, 255, 255, 0.72);
 
-  /* Salas em destaque (abas fixas) */
-  --feat-1-bg: linear-gradient(135deg, #2a2410, #1f1a0c);
-  --feat-1-bg-hover: linear-gradient(135deg, #3a3020, #2a2410);
-  --feat-1-border: #f5c842;
-  --feat-1-text: #f5c842;
-  --feat-2-bg: linear-gradient(135deg, #1a2028, #151a22);
-  --feat-2-bg-hover: linear-gradient(135deg, #243040, #1a2028);
-  --feat-2-border: #5b8def;
-  --feat-2-text: #7ba3f5;
-  --feat-3-bg: linear-gradient(135deg, #2a1515, #221010);
-  --feat-3-bg-hover: linear-gradient(135deg, #3a1a1a, #2a1515);
-  --feat-3-border: var(--red);
-  --feat-3-text: #f87171;
+  /* Salas em destaque (abas fixas) — tons suaves e harmônicos com o tema */
+  --feat-1-bg: linear-gradient(135deg, #221f16, #1a1710);
+  --feat-1-bg-hover: linear-gradient(135deg, #2a2618, #201c11);
+  --feat-1-border: #7c6a33;
+  --feat-1-text: #c2ab58;
+  --feat-2-bg: linear-gradient(135deg, #161a20, #12161b);
+  --feat-2-bg-hover: linear-gradient(135deg, #1b212b, #151a21);
+  --feat-2-border: #44577a;
+  --feat-2-text: #85a0c6;
+  --feat-3-bg: linear-gradient(135deg, #201619, #191113);
+  --feat-3-bg-hover: linear-gradient(135deg, #291b1f, #201417);
+  --feat-3-border: #77454d;
+  --feat-3-text: #cf929b;
 
   --green: #22c55e;
   --green-strong: #16a34a;
@@ -66,8 +114,11 @@
   --transition: 0.15s ease;
   --transition-slow: 0.25s ease;
 
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+  /* Fundo translúcido para header/áreas onde o fundo animado aparece */
+  --bg-glass: rgba(14, 15, 19, 0.72);
 
   color-scheme: dark;
 }
@@ -92,22 +143,24 @@ html[data-theme='light'] {
   --accent-strong: #6d28d9;
   --accent-soft: rgba(124, 58, 237, 0.12);
 
+  --bg-glass: rgba(242, 242, 245, 0.78);
+
   --chat-self-bg: linear-gradient(135deg, #e7deff, #d8c9fb);
   --chat-self-text: #3a2f63;
   --chat-self-text-2: rgba(58, 47, 99, 0.65);
 
-  --feat-1-bg: linear-gradient(135deg, #fdf3d7, #f6e5a9);
-  --feat-1-bg-hover: linear-gradient(135deg, #fbf0cd, #f3dd9a);
-  --feat-1-border: #d4a700;
-  --feat-1-text: #7a6200;
-  --feat-2-bg: linear-gradient(135deg, #e3ecfe, #d0e0fb);
-  --feat-2-bg-hover: linear-gradient(135deg, #d5e3fd, #c2d7fa);
-  --feat-2-border: #5b8def;
-  --feat-2-text: #2753a8;
-  --feat-3-bg: linear-gradient(135deg, #fde8e8, #f8cccc);
-  --feat-3-bg-hover: linear-gradient(135deg, #fbdada, #f5bebe);
-  --feat-3-border: var(--red);
-  --feat-3-text: #b91c1c;
+  --feat-1-bg: linear-gradient(135deg, #f6f1df, #efe9cd);
+  --feat-1-bg-hover: linear-gradient(135deg, #f2ecd2, #ebe3c0);
+  --feat-1-border: #c2a94e;
+  --feat-1-text: #6b5c1f;
+  --feat-2-bg: linear-gradient(135deg, #e9eef6, #dfe6f1);
+  --feat-2-bg-hover: linear-gradient(135deg, #e3e9f3, #d9e1ee);
+  --feat-2-border: #7d93b8;
+  --feat-2-text: #4c6280;
+  --feat-3-bg: linear-gradient(135deg, #f7eaec, #efe0e3);
+  --feat-3-bg-hover: linear-gradient(135deg, #f3e2e5, #ead7db);
+  --feat-3-border: #c08a92;
+  --feat-3-text: #8a4a52;
 
   --shadow-s: 0 1px 3px rgba(15, 15, 25, 0.08);
   --shadow-m: 0 4px 16px rgba(15, 15, 25, 0.1);
@@ -137,22 +190,24 @@ html[data-theme='light'] {
     --accent-strong: #6d28d9;
     --accent-soft: rgba(124, 58, 237, 0.12);
 
+    --bg-glass: rgba(242, 242, 245, 0.78);
+
     --chat-self-bg: linear-gradient(135deg, #e7deff, #d8c9fb);
     --chat-self-text: #3a2f63;
     --chat-self-text-2: rgba(58, 47, 99, 0.65);
 
-    --feat-1-bg: linear-gradient(135deg, #fdf3d7, #f6e5a9);
-    --feat-1-bg-hover: linear-gradient(135deg, #fbf0cd, #f3dd9a);
-    --feat-1-border: #d4a700;
-    --feat-1-text: #7a6200;
-    --feat-2-bg: linear-gradient(135deg, #e3ecfe, #d0e0fb);
-    --feat-2-bg-hover: linear-gradient(135deg, #d5e3fd, #c2d7fa);
-    --feat-2-border: #5b8def;
-    --feat-2-text: #2753a8;
-    --feat-3-bg: linear-gradient(135deg, #fde8e8, #f8cccc);
-    --feat-3-bg-hover: linear-gradient(135deg, #fbdada, #f5bebe);
-    --feat-3-border: var(--red);
-    --feat-3-text: #b91c1c;
+    --feat-1-bg: linear-gradient(135deg, #f6f1df, #efe9cd);
+    --feat-1-bg-hover: linear-gradient(135deg, #f2ecd2, #ebe3c0);
+    --feat-1-border: #c2a94e;
+    --feat-1-text: #6b5c1f;
+    --feat-2-bg: linear-gradient(135deg, #e9eef6, #dfe6f1);
+    --feat-2-bg-hover: linear-gradient(135deg, #e3e9f3, #d9e1ee);
+    --feat-2-border: #7d93b8;
+    --feat-2-text: #4c6280;
+    --feat-3-bg: linear-gradient(135deg, #f7eaec, #efe0e3);
+    --feat-3-bg-hover: linear-gradient(135deg, #f3e2e5, #ead7db);
+    --feat-3-border: #c08a92;
+    --feat-3-text: #8a4a52;
 
     --shadow-s: 0 1px 3px rgba(15, 15, 25, 0.08);
     --shadow-m: 0 4px 16px rgba(15, 15, 25, 0.1);
@@ -188,6 +243,376 @@ body {
 
 #root {
   height: 100%;
+}
+
+/* ============================================================
+   Fundo animado (ondas de rádio) — V2.1
+   Camada fixa atrás de todo o app; desliga com reduced-motion.
+   ============================================================ */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-bg::before,
+.app-bg::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  will-change: transform;
+}
+
+.app-bg::before {
+  width: 62vmax;
+  height: 62vmax;
+  left: -18vmax;
+  top: -18vmax;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 62%);
+  opacity: 0.16;
+  animation: bg-drift-a 28s ease-in-out infinite alternate;
+}
+
+.app-bg::after {
+  width: 55vmax;
+  height: 55vmax;
+  right: -16vmax;
+  bottom: -20vmax;
+  background: radial-gradient(circle, #f5c842 0%, transparent 60%);
+  opacity: 0.1;
+  animation: bg-drift-b 34s ease-in-out infinite alternate;
+}
+
+@keyframes bg-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(9vmax, 7vmax, 0) scale(1.1); }
+}
+
+@keyframes bg-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-8vmax, -6vmax, 0) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-bg::before,
+  .app-bg::after {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   Equalizer animado (V2.4) — barras compartilhadas por
+   mini-player, splash e cards de sala com atividade.
+   ============================================================ */
+.eq-bar {
+  width: 3px;
+  border-radius: 2px;
+  transform-origin: bottom;
+  background: currentColor;
+  animation: eq-bounce 0.7s ease-in-out infinite;
+}
+
+.eq-bar:nth-child(1) { animation-delay: 0s; }
+.eq-bar:nth-child(2) { animation-delay: 0.09s; }
+.eq-bar:nth-child(3) { animation-delay: 0.18s; }
+.eq-bar:nth-child(4) { animation-delay: 0.27s; }
+.eq-bar:nth-child(5) { animation-delay: 0.36s; }
+.eq-bar:nth-child(6) { animation-delay: 0.12s; }
+.eq-bar:nth-child(7) { animation-delay: 0.24s; }
+.eq-bar:nth-child(8) { animation-delay: 0.06s; }
+
+@keyframes eq-bounce {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+/* ============================================================
+   Mini-player da emissora (V2.3)
+   ============================================================ */
+.mini-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  background: linear-gradient(135deg, var(--accent-soft), rgba(245, 200, 66, 0.08));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--text);
+  flex-shrink: 0;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+@supports not (color-mix(in srgb, red, transparent)) {
+  .mini-player {
+    border: 1px solid var(--border-strong);
+  }
+}
+
+.mini-player--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.25);
+}
+
+.mini-player-logo {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.mini-player-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.mini-player-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.mini-player-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-player-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.mini-player-eq i {
+  width: 3px;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: eq-bounce 0.8s ease-in-out infinite;
+  opacity: 0.55;
+}
+
+.mini-player-eq i:nth-child(1) { animation-delay: 0s; }
+.mini-player-eq i:nth-child(2) { animation-delay: 0.12s; }
+.mini-player-eq i:nth-child(3) { animation-delay: 0.24s; }
+.mini-player-eq i:nth-child(4) { animation-delay: 0.05s; }
+.mini-player-eq i:nth-child(5) { animation-delay: 0.18s; }
+
+.mini-player--active .mini-player-eq i {
+  opacity: 1;
+}
+
+.mini-player--active .mini-player-eq i {
+  animation-duration: 0.5s;
+}
+
+/* ============================================================
+   Splash de abertura (V2.16)
+   ============================================================ */
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg);
+  color: var(--text);
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
+.splash-screen--fading {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.splash-logo-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  border-radius: 26px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), 0 0 24px rgba(139, 92, 246, 0.18);
+  animation: splash-float 2.2s ease-in-out infinite;
+}
+
+.splash-logo-img {
+  width: 96px;
+  height: 96px;
+  border-radius: 14px;
+  object-fit: contain;
+}
+
+@keyframes splash-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.splash-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.splash-subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.splash-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 26px;
+  margin-top: 14px;
+  color: var(--accent);
+}
+
+.splash-eq i {
+  width: 4px;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: eq-bounce 0.9s ease-in-out infinite;
+}
+
+.splash-eq i:nth-child(1) { animation-delay: 0s; }
+.splash-eq i:nth-child(2) { animation-delay: 0.12s; }
+.splash-eq i:nth-child(3) { animation-delay: 0.24s; }
+.splash-eq i:nth-child(4) { animation-delay: 0.36s; }
+.splash-eq i:nth-child(5) { animation-delay: 0.18s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .eq-bar,
+  .mini-player-eq i,
+  .splash-eq i,
+  .splash-logo-img {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ============================================================
+   Estado de boas-vindas (tela vazia quando nada selecionado)
+   ============================================================ */
+.welcome-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 320px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text);
+}
+
+.welcome-logo {
+  color: var(--accent);
+  opacity: 0.55;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.28));
+}
+
+.welcome-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  margin: 0;
+}
+
+.welcome-title span {
+  color: var(--accent);
+}
+
+.welcome-hint {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0 0 12px;
+}
+
+.welcome-rooms {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.welcome-rooms-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.welcome-room-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.welcome-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+
+.welcome-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+.welcome-chip-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome-chip-live {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  animation: live-blink 1.8s ease-in-out infinite;
+}
+
+.welcome-chip--live {
+  border-color: var(--red);
 }
 
 ::selection {
@@ -237,6 +662,8 @@ body {
   flex-direction: column;
   height: 100%;
   overflow-x: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .app-header {
@@ -247,10 +674,29 @@ body {
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 20;
   min-width: 0;
   overflow: hidden;
+  /* V2.12 — vidro fosco: translúcido + blur, com fallback sólido */
+  background: var(--bg-glass);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02), 0 4px 18px rgba(0, 0, 0, 0.12);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-header {
+    background: var(--bg-elevated);
+  }
+}
+
+@supports not (color-mix(in srgb, red, transparent)) {
+  .app-header {
+    border-bottom: 1px solid var(--border);
+  }
 }
 
 .app-header h1 {
@@ -263,15 +709,28 @@ body {
   gap: 8px;
   min-width: 0;
   overflow: hidden;
+}
+
+.app-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  object-fit: contain;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px var(--border), 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.app-title {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.app-header h1::before {
-  content: '▮';
-  font-size: 13px;
+.app-title-freq {
   color: var(--accent);
-  margin-right: 2px;
+  font-weight: 800;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
 }
 
 .menu-toggle {
@@ -492,7 +951,8 @@ body {
   padding: 16px;
   overflow-y: auto;
   min-width: 0;
-  background: var(--bg);
+  /* V2.1 — translúcido para o fundo animado aparecer sutilmente nas bordas */
+  background: var(--bg-glass);
 }
 
 .panel {
@@ -900,7 +1360,7 @@ body {
 .room-item--featured-1 {
   background: var(--feat-1-bg) !important;
   border: 1px solid var(--feat-1-border) !important;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--feat-1-border) 20%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--feat-1-border) 12%, transparent);
 }
 
 .room-item--featured-1:hover {
@@ -1072,32 +1532,32 @@ body {
 }
 
 .room-item--live {
-  border: 1px solid var(--red) !important;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+  border-color: rgba(248, 113, 113, 0.5) !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.1);
 }
 
 .room-live-badge {
   margin-left: 8px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: var(--red);
-  color: #fff;
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  animation: live-blink 1.2s ease-in-out infinite;
+  animation: live-blink 1.8s ease-in-out infinite;
   vertical-align: middle;
   flex-shrink: 0;
 }
 
 @keyframes live-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
+  50% { opacity: 0.65; }
 }
 
 .room-live-user {
   margin-left: 4px;
-  color: #f87171;
+  color: #fca5a5;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1109,16 +1569,35 @@ body {
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.25);
 }
 
-.room-item--active-voice .room-name::after {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
+/* V2.4 — equalizer em miniatura nos cards com atividade de voz */
+.room-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
   margin-left: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: speaking-pulse 0.6s ease-in-out infinite alternate;
+  color: var(--green);
   vertical-align: middle;
+}
+
+.room-eq i {
+  width: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: eq-bounce 0.6s ease-in-out infinite;
+}
+
+.room-eq i:nth-child(1) { animation-delay: 0s; }
+.room-eq i:nth-child(2) { animation-delay: 0.1s; }
+.room-eq i:nth-child(3) { animation-delay: 0.2s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .room-eq i,
+  .vu-bar--active {
+    animation: none;
+    transform: none;
+  }
 }
 
 .room-creator {
@@ -1862,6 +2341,21 @@ body {
   background: var(--surface);
   transition: background 0.08s, box-shadow 0.08s;
   height: 100%;
+}
+
+/* V2.4 — barras ativas ganham movimento de equalizer */
+.vu-bar--active {
+  transform-origin: bottom;
+  animation: vu-eq 0.45s ease-in-out infinite;
+}
+
+.vu-bar--active:nth-child(2n) { animation-delay: 0.06s; }
+.vu-bar--active:nth-child(3n) { animation-delay: 0.03s; }
+.vu-bar--active:nth-child(5n) { animation-delay: 0.09s; }
+
+@keyframes vu-eq {
+  0%, 100% { transform: scaleY(0.55); }
+  50% { transform: scaleY(1); }
 }
 
 .vu-bar--active.vu-bar--low {
@@ -3251,7 +3745,7 @@ body {
 
   .app-header h1 {
     font-size: 16px;
-    text-align: center;
+    justify-content: center;
   }
 
   .status-pill {
@@ -3329,13 +3823,16 @@ body {
     border-radius: var(--radius-l) var(--radius-l) 0 0;
     box-shadow: var(--shadow-l);
     max-height: 70vh;
-    transform: translateY(110%);
-    transition: transform var(--transition-slow);
+    /* Fecha para baixo da tela: desce altura + folga, sem deixar sobra visível */
+    transform: translateY(calc(100% + 80px));
+    visibility: hidden;
+    transition: transform var(--transition-slow), visibility var(--transition-slow);
     overflow: hidden;
   }
 
   .mobile-sheet--open {
     transform: translateY(0);
+    visibility: visible;
   }
 
   .mobile-sheet-handle {

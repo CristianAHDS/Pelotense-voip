@@ -125,6 +125,11 @@ export function RoomList() {
                         LIVE
                       </span>
                     )}
+                    {isSpeaking && (
+                      <span className="room-eq" aria-hidden="true">
+                        <i /><i /><i />
+                      </span>
+                    )}
                   </span>
                   <div className="room-meta">
                     <span className="room-users">

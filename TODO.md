@@ -81,6 +81,63 @@ Modernização visual e melhorias de usabilidade em todo o client (tema escuro a
 
 ---
 
+## 🎨 Design & usabilidade — Fase 2 (identidade de rádio e polimento)
+
+Segunda rodada de melhorias visuais, com foco em dar **identidade de rádio** ao app e refinar a experiência do chat. Prioridade: 🔥 (alto) / ⚡ (médio) / ✨ (baixo). Todos respeitam `prefers-reduced-motion`.
+
+- [x] **V2.1. Fundo animado sutil (ondas de rádio)** 🔥 — Gradiente de fundo com ondas/aurora discretas na cor accent (violeta) + salas emissoras, animando lentamente para dar vida à tela sem poluir. Fica desligado com `prefers-reduced-motion` e no mobile fraco. ✅ Feito: camada `.app-bg` fixa com blobs desfocados derivando, `--bg-glass` translúcido no header e no `main-content`.
+- [x] **V2.2. Logo e identidade no header** 🔥 — Ícone SVG de ondas de rádio/transmissão + nome "Rádio Pelotense 99.5FM" estilizado (hoje é texto com um `▮`). Reaproveitar o ícone no favicon e no splash. ✅ Feito: logo oficial (`/img/radio-logo.png`) no header (com a frequência em accent), splash com a imagem, favicon + apple-touch-icon + ícones do manifest gerados a partir dela; título/manifest renomeados para "Rádio Pelotense 99.5 FM".
+- [x] **V2.3. Mini-player da emissora "no ar"** 🔥 — Card flutuante/collapsível mostrando a sala emissora em transmissão: nome, quem está falando, equalizer animado e acesso rápido ao volume. Posição: topo da sidebar esquerda ou flutuante no canto. ✅ Feito: `MiniPlayer` na sidebar esquerda, mostra o broadcaster atual com equalizer que acelera quando há fala.
+- [x] **V2.4. Equalizer animado nos cards de sala e VU meters** ⚡ — Substituir os "blocos estáticos" do VU por barras com animação (latência/rebound) quando há fala; mesma animação em miniatura nos cards de sala com atividade (reusa o store `speaking` do R11). ✅ Feito: `vu-bar--active` com `scaleY` escalonado; `.room-eq` (3 barras) nos cards `room-item--active-voice`.
+- [ ] **V2.5. Emoji picker no chat** ⚡ — Botão de emoji no input (salas e DMs) com busca e categorias, inserindo no campo e mantendo foco.
+- [ ] **V2.6. Markdown leve nos bubbles** ⚡ — Negrito, itálico, `código` e links clicáveis (com `rel="noopener noreferrer"` e confirmação de domínio) renderizados nos balões.
+- [ ] **V2.7. Lightbox de imagens** ⚡ — Clique em imagem amplia em modal com zoom (rodinha) e botão de download; animação de entrada.
+- [ ] **V2.8. Botão "rolar para baixo" no chat** ⚡ — Float no rodapé do chat com badge de novas mensagens quando o usuário não está no fim; ao clicar, rola suave e limpa a badge.
+- [x] **V2.9. Estados de envio nas mensagens** ⚡ — Indicador discreto por mensagem: "enviando…" → "✓" ao confirmar no servidor; falha mostra ícone de erro com re-tentar (hoje não há feedback de envio). ✅ Feito: texto otimista com id do cliente (servidor preserva o id), timeout de 8s marca `failed` com botão de reenviar (`.chat-bubble-retry`), ✓ nas mensagens próprias confirmadas; aplicado em salas e DMs.
+- [ ] **V2.10. Menu de contexto no chat** ⚡ — Clique direito/longo abre menu custom (copiar, responder, apagar — conforme permissão, fixar) com posicionamento junto ao item, em vez de botões sempre visíveis.
+- [ ] **V2.11. Respostas (reply) com quote** ⚡ — Responder uma mensagem insere um bloco citado com nome e texto no bubble, e ao clicar na citação rola até a mensagem original.
+- [x] **V2.12. Header sticky com glassmorphism** ✨ — `backdrop-filter` suave + borda translúcida no header ao rolar conteúdo, mantendo legibilidade; fallback para fundo sólido quando não suportado. ✅ Feito: `.app-header` sticky com `backdrop-filter: blur(14px)` + fundo `--bg-glass` e fallbacks via `@supports`.
+- [ ] **V2.13. Iconografia SVG consistente** ✨ — Trocar emojis de controles (⚙, 🛡, ☰, ✕, ▸, theme toggle) por ícones SVG com `stroke=currentColor`, alinhados com o accent; melhora percepção de qualidade e acessibilidade.
+- [x] **V2.14. Fonte customizada + hierarquia tipográfica** ✨ — Fonte Inter (auto-hospedada via `@font-face`, sem CDN) com fallback; revisar escala h1/h2/labels e `letter-spacing` nos títulos de painel. ✅ Feito: Inter (400/500/600/700/800) em `client/public/fonts` + `@font-face` no CSS; `--font` atualizado.
+- [ ] **V2.15. Tour de primeiro acesso** ✨ — Overlay guiado (3-4 passos) na primeira visita: como entrar numa sala, onde fica o microfone e o push-to-talk do botão de voz, e o tema claro/escuro. Dismissível e não reexibido depois.
+- [x] **V2.16. Splash/loading da app** ✨ — Tela de abertura com o logo da rádio e animação de ondas enquanto carrega; desaparece suave no primeiro render. ✅ Feito: `SplashScreen` (logo + equalizer), fade out automático.
+- [x] **B. Corretivo mobile: bottom sheet cortado** 🔥 — No mobile o sheet de abas (pessoas/salas/conexão) ficava com uma faixa visível cortada no rodapé. ✅ Feito: `translateY(calc(100% + 80px))` + `visibility:hidden` para fechar de verdade.
+- [x] **B. Estado vazio do app** 🔥 — Com nada selecionado a tela ficava vazia. ✅ Feito: `WelcomePanel` com o logo da rádio discreto, mensagem e atalhos de "acesso rápido" para entrar em salas.
+- [x] **B. Cores LIVE suavizadas** — Marcação de salas ao vivo era chamativa demais (borda/sombra vermelha forte). ✅ Feito: borda rosa suave, badge translúcido com texto vermelho-claro, blink mais lento e sutil.
+
+---
+
+## 🛡 Painel do admin — Fase Pro (interface + gestão do sistema)
+
+Melhorias para o `AdminPanel`. Hoje ele tem 2 abas: **Usuários** (editar nome/e-mail/senha/role/tags) e **Sistema** (placeholder vazio). Prioridade: 🔥 (alto) / ⚡ (médio) / ✨ (baixo).
+
+### Interface (atualização visual/UX)
+
+- [ ] **A1. Dashboard com métricas** 🔥 — Cards no topo: usuários online, salas ativas, salas ao vivo, mensagens enviadas hoje, DMs, uptime do servidor e latência (usar `GET /health` + novos endpoints). Substitui o painel estático.
+- [ ] **A2. Busca e filtros de usuários** 🔥 — Input de busca por nome/e-mail/tag + chips de filtro (online/offline/admin/tag). Hoje a lista é longa e sem busca.
+- [ ] **A3. Confirmação antes de ações destrutivas** ⚡ — Dialog de confirmação (com campo para digitar o nome) antes de excluir conta, banir ou deletar sala; feedback de sucesso/erro via toast.
+- [ ] **A4. Status enriquecido por usuário** ⚡ — Mostrar sala atual, tag, tempo online, avatar com anel de status (online/offline/mutado) e tooltip com detalhes no hover.
+- [ ] **A5. Histórico de ações do admin** ⚡ — Log interno (cliente ou servidor) das operações: quem promoveu/removeu admin, editou usuário, deletou sala etc., com data e autor.
+- [ ] **A6. Exportar usuários (CSV)** ✨ — Botão de download com a lista filtrada (nome, e-mail, tags, admin, online).
+- [ ] **A7. Layout do modal mais "dashboard"** ⚡ — Abas visuais com ícone, seções com agrupamento, lista virtualizada para muitas contas e skeleton loading.
+- [ ] **A8. Avatar e edição visual aprimorados** ✨ — Preview de avatar grande, remoção, mais categorias de tags com cores configuráveis.
+
+### Gestão do sistema (pro)
+
+- [ ] **A9. Gerenciar salas** 🔥 — Aba de salas: listar todas com ocupantes, renomear, fixar/desfixar, destacar (featured 1/2/3), limpar mensagens e deletar (com confirmação).
+- [ ] **A10. Banir usuários** 🔥 — Bloquear login por nome/e-mail/id com lista de banidos, motivo, data e opção de desbanir; servidor rejeita a conexão.
+- [ ] **A11. Desconectar/forçar logout** 🔥 — Botão para derrubar um usuário online (enviar `terminate`/kick com mensagem) — útil para expulsar da sala/live.
+- [ ] **A12. Mute e restrições por usuário** ⚡ — Silenciar mic/chat de um usuário (global ou por sala) e restringir envio de mídia.
+- [ ] **A13. Limites dinâmicos sem reiniciar** ⚡ — Editar em runtime: `MAX_USERS`, `MAX_ROOMS`, limites de payload (áudio/vídeo/imagem), cooldown de mensagens; refletir na sessão atual.
+- [ ] **A14. Anúncio global** ⚡ — Enviar mensagem do sistema (tag `SISTEMA`/bot) para todas as salas de uma vez.
+- [ ] **A15. Controle do bot da rádio** ⚡ — A partir da sala emissora: pausar/retomar o stream, mudar mensagem de boas-vindas e status "no ar".
+- [ ] **A16. Modo manutenção** ⚡ — Chave que bloqueia novos logins com aviso ("estamos em manutenção") mantendo os conectados; desbloqueio pelo painel.
+- [ ] **A17. Backup e restauração do banco** ⚡ — Exportar cópia do SQLite (download) e importar; indicar tamanho e data do último backup.
+- [ ] **A18. Limpeza e manutenção de dados** ⚡ — Apagar mensagens com mais de N dias, salas vazias temporárias e contas inativas; contagem do que seria removido antes de confirmar.
+- [ ] **A19. Diagnóstico em tempo real** ✨ — Painel de eventos do servidor (conexões, erros, picos de voz), ping médio e uso de memória.
+
+---
+
 ## Histórico de progresso
 
 | Data       | Item                                                                                                                                                                                                                                                                            | Status   |
@@ -98,3 +155,6 @@ Modernização visual e melhorias de usabilidade em todo o client (tema escuro a
 | 31/07/2026 | Download de mensagem de áudio em WAV (decodifica webm → WAV PCM via AudioContext); histórico local de mensagens (IndexedDB com fallback localStorage) para salas e DMs; avatar de imagem nos ocupantes/criador da sala; id fixo por conta (persistido em `accounts.id`, mantido no rename); chat em tela cheia volta ao tamanho padrão da janela com input embaixo; skeleton na sidebar (ConnectionPanel) para evitar flicker no reload; visibilidade dos botões de velocidade/download no balão roxo. Testes: 353 (113 server + 240 client) | ✅ Feito |
 | 31/07/2026 | README completo em português; admin por ID (`ADMIN_IDS`, ex: `7iz9enux`) além de por nome (`ADMIN_NAMES`). Testes: 354 (114 server + 240 client) | ✅ Feito |
 | 31/07/2026 | Conta com e-mail: campo de e-mail no login (obrigatório na criação), envio de código de confirmação via SMTP (`SMTP_*` no `.env`, `nodemailer`), login por nick OU e-mail, contas pendentes confirmadas por código (`email_required`/`confirm_required`). Testes: 372 (121 server + 251 client) | ✅ Feito |
+| 02/08/2026 | Sugestões de Design Fase 2 adicionadas ao TODO (V2.1–V2.16): fundo animado de rádio, logo no header, mini-player da emissora, equalizer animado, emoji picker, markdown nos bubbles, lightbox de imagem, botão "rolar para baixo", estados de envio, menu de contexto, replies com quote, header glass, ícones SVG, fonte Inter, tour de primeiro acesso e splash. | 📝 Sugerido |
+| 02/08/2026 | Design Fase 2 implementado (V2.1, V2.3, V2.4, V2.9, V2.12, V2.14, V2.16): fundo animado `.app-bg` + `--bg-glass`, mini-player "no ar" com equalizer, VU meters e cards de sala animados, estados de envio (enviando/✓/falha+reenviar, com id do cliente preservado no servidor), header sticky com glassmorphism, fonte Inter auto-hospedada, splash de abertura. Correções: bottom sheet mobile escondido de verdade, `WelcomePanel` para a tela não ficar vazia, cores LIVE suavizadas. Testes: client 267 ✓, server 135 ✓. | ✅ Feito |
+| 02/08/2026 | Sugestões do Painel Admin Fase Pro adicionadas ao TODO (A1–A19): dashboard com métricas, busca/filtros, confirmações, status enriquecido, log de ações, exportar CSV, layout dashboard; gestão de salas, banir usuários, kick/logout, mute/restrições, limites dinâmicos, anúncio global, controle do bot da rádio, modo manutenção, backup/restauração, limpeza de dados e diagnóstico. | 📝 Sugerido |

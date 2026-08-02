@@ -18,6 +18,33 @@ let intentionalDisconnect: boolean = false
 let voiceManager: VoiceManager | null = null
 let voiceCleanup: (() => void) | null = null
 
+// V2.9 — acompanha mensagens otimistas até o eco do servidor; se demorar,
+// marca como falha para o usuário poder reenviar.
+const SEND_TIMEOUT_MS = 8000
+const pendingSends = new Map<string, ReturnType<typeof setTimeout>>()
+
+function clearPending(id: string): void {
+  const t = pendingSends.get(id)
+  if (t) {
+    clearTimeout(t)
+    pendingSends.delete(id)
+  }
+}
+
+function trackSend(id: string): void {
+  clearPending(id)
+  pendingSends.set(id, setTimeout(() => {
+    if (!pendingSends.has(id)) return
+    pendingSends.delete(id)
+    useRoomStore.getState().markMessageFailed(id)
+    usePrivateChatStore.getState().markMessageFailed(id)
+  }, SEND_TIMEOUT_MS))
+}
+
+function confirmMessage(id: string | undefined): void {
+  if (id) clearPending(id)
+}
+
 export function getWsClient(): WsClient | null {
   return wsClient
 }
@@ -98,6 +125,7 @@ function messageBody(payload: ChatMsg): string {
 
 function onRoomChatMessage(payload: ChatMsg): void {
   useRoomStore.getState().addMessage(payload)
+  confirmMessage(payload.id)
   const roomId = useRoomStore.getState().currentRoom
   if (roomId) {
     void chatHistory.saveRoomMessages(roomId, useRoomStore.getState().messages)
@@ -344,6 +372,7 @@ function dmKey(payload: PrivateChatMsg): string {
   wsClient.on(WsMessageType.PrivateMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    confirmMessage(payload.id)
     persistDm(dmKey(payload))
     maybeNotifyPrivate(payload, payload.text ?? 'Nova mensagem')
   })
@@ -351,6 +380,7 @@ function dmKey(payload: PrivateChatMsg): string {
   wsClient.on(WsMessageType.PrivateAudioMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    confirmMessage(payload.id)
     persistDm(dmKey(payload))
     maybeNotifyPrivate(payload, '🎤 Mensagem de voz')
   })
@@ -358,6 +388,7 @@ function dmKey(payload: PrivateChatMsg): string {
   wsClient.on(WsMessageType.PrivateVideoMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    confirmMessage(payload.id)
     persistDm(dmKey(payload))
     maybeNotifyPrivate(payload, '🎬 Mensagem de vídeo')
   })
@@ -365,6 +396,7 @@ function dmKey(payload: PrivateChatMsg): string {
   wsClient.on(WsMessageType.PrivateImageMessage, (msg) => {
     const payload = msg.payload as PrivateChatMsg
     usePrivateChatStore.getState().addMessage(payload)
+    confirmMessage(payload.id)
     persistDm(dmKey(payload))
     maybeNotifyPrivate(payload, '🖼️ Imagem')
   })
@@ -429,9 +461,22 @@ export function deleteRoom(roomId: string): void {
   wsClient.send(WsMessageType.DeleteRoom, roomId)
 }
 
-export function sendChatMessage(text: string): void {
+export function sendChatMessage(text: string, id?: string): void {
   if (!wsClient) { console.error('sendChatMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.ChatMessage, { text })
+  // Mensagem otimista: aparece na hora como "enviando…", confirmada pelo eco.
+  const messageId = id ?? generateClientMessageId()
+  const myId = useConnectionStore.getState().id
+  const myName = useConnectionStore.getState().name
+  useRoomStore.getState().addMessage({
+    id: messageId,
+    userId: myId ?? '',
+    userName: myName ?? '',
+    text,
+    timestamp: Date.now(),
+    sending: true,
+  })
+  wsClient.send(WsMessageType.ChatMessage, { text, id: messageId })
+  trackSend(messageId)
 }
 
 export function generateClientMessageId(): string {
@@ -444,16 +489,19 @@ export function generateClientMessageId(): string {
 export function sendChatAudioMessage(id: string, audioData: string, duration: number): void {
   if (!wsClient) { console.error('sendChatAudioMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.ChatAudioMessage, { id, audioData, duration })
+  trackSend(id)
 }
 
 export function sendChatVideoMessage(id: string, videoData: string, duration: number): void {
   if (!wsClient) { console.error('sendChatVideoMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.ChatVideoMessage, { id, videoData, duration })
+  trackSend(id)
 }
 
 export function sendChatImageMessage(id: string, imageData: string): void {
   if (!wsClient) { console.error('sendChatImageMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.ChatImageMessage, { id, imageData })
+  trackSend(id)
 }
 
 export function sendMessageReaction(messageId: string, emoji: string): void {
@@ -473,22 +521,65 @@ export function deleteMessage(messageId: string): void {
 
 export function sendPrivateMessage(toUserId: string, text: string, id?: string): void {
   if (!wsClient) { console.error('sendPrivateMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.PrivateMessage, { toUserId, text, id })
+  const messageId = id ?? generateClientMessageId()
+  wsClient.send(WsMessageType.PrivateMessage, { toUserId, text, id: messageId })
+  trackSend(messageId)
 }
 
 export function sendPrivateAudioMessage(toUserId: string, id: string, audioData: string, duration: number): void {
   if (!wsClient) { console.error('sendPrivateAudioMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.PrivateAudioMessage, { toUserId, id, audioData, duration })
+  trackSend(id)
 }
 
 export function sendPrivateVideoMessage(toUserId: string, id: string, videoData: string, duration: number): void {
   if (!wsClient) { console.error('sendPrivateVideoMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.PrivateVideoMessage, { toUserId, id, videoData, duration })
+  trackSend(id)
 }
 
 export function sendPrivateImageMessage(toUserId: string, id: string, imageData: string): void {
   if (!wsClient) { console.error('sendPrivateImageMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.PrivateImageMessage, { toUserId, id, imageData })
+  trackSend(id)
+}
+
+export function resendMessage(messageId: string): void {
+  if (!wsClient) { console.error('resendMessage: wsClient is null'); return }
+  const msg = useRoomStore.getState().messages.find((m) => m.id === messageId)
+  if (!msg) return
+  useRoomStore.getState().addMessage({ ...msg, sending: true, failed: false })
+  if (msg.text) {
+    sendChatMessage(msg.text, messageId)
+  } else if (msg.audioData) {
+    sendChatAudioMessage(messageId, msg.audioData, msg.duration ?? 0)
+  } else if (msg.videoData) {
+    sendChatVideoMessage(messageId, msg.videoData, msg.duration ?? 0)
+  } else if (msg.imageData) {
+    sendChatImageMessage(messageId, msg.imageData)
+  }
+}
+
+export function resendPrivateMessage(messageId: string): void {
+  if (!wsClient) { console.error('resendPrivateMessage: wsClient is null'); return }
+  const myId = useConnectionStore.getState().id
+  let found: PrivateChatMsg | null = null
+  for (const list of Object.values(usePrivateChatStore.getState().messages)) {
+    const m = list.find((x) => x.id === messageId)
+    if (m) { found = m; break }
+  }
+  if (!found) return
+  const toUserId = found.toUserId && found.fromUserId === myId ? found.toUserId : found.fromUserId
+  usePrivateChatStore.getState().addMessage({ ...found, sending: true, failed: false })
+  if (found.text) {
+    sendPrivateMessage(toUserId, found.text, messageId)
+  } else if (found.audioData) {
+    sendPrivateAudioMessage(toUserId, messageId, found.audioData, found.duration ?? 0)
+  } else if (found.videoData) {
+    sendPrivateVideoMessage(toUserId, messageId, found.videoData, found.duration ?? 0)
+  } else if (found.imageData) {
+    sendPrivateImageMessage(toUserId, messageId, found.imageData)
+  }
 }
 
 export function deletePrivateMessage(messageId: string): void {

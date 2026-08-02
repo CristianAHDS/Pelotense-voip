@@ -4,7 +4,7 @@ import { usePrivateChatStore } from '../stores/privateChatStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
-import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, sendPrivateImageMessage, deletePrivateMessage, generateClientMessageId } from '../services/connectionService.ts'
+import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, sendPrivateImageMessage, deletePrivateMessage, generateClientMessageId, resendPrivateMessage } from '../services/connectionService.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { userColor, initials } from '../ui/avatar.ts'
@@ -227,8 +227,33 @@ export function PrivateChatPanel() {
               <div className={`chat-bubble chat-bubble--dm ${isSelf ? 'chat-bubble--self' : ''} ${msg.audioData ? 'chat-bubble--audio' : ''}`}>
                 <DmMediaBubble msg={msg} />
                 <div className="chat-bubble-footer">
-                  {msg.sending && (
-                    <span className="chat-bubble-sending">enviando…</span>
+                  {isSelf && msg.sending && (
+                    <span className="chat-bubble-status chat-bubble-status--sending" title={tStatic('sending')}>
+                      <span className="chat-status-dots" aria-hidden="true"><i /><i /><i /></span>
+                      {tStatic('sending')}
+                    </span>
+                  )}
+                  {isSelf && msg.failed && (
+                    <span className="chat-bubble-status chat-bubble-status--failed" title={tStatic('sendFailed')}>
+                      <button
+                        className="chat-bubble-retry"
+                        onClick={() => { if (msg.id) resendPrivateMessage(msg.id) }}
+                        title={tStatic('retry')}
+                        aria-label={tStatic('retry')}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="23 4 23 10 17 10" />
+                          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
+                      </button>
+                    </span>
+                  )}
+                  {isSelf && !msg.sending && !msg.failed && (
+                    <span className="chat-bubble-status chat-bubble-status--sent" title={tStatic('sent')}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
                   )}
                   {canDelete && msg.id && (
                     <button

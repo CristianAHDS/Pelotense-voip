@@ -38,6 +38,7 @@ interface PrivateChatStore {
   closeChat: () => void
   addMessage: (msg: PrivateChatMsg) => void
   removeMessage: (messageId: string) => void
+  markMessageFailed: (messageId: string) => void
   setMessages: (userId: string, msgs: PrivateChatMsg[]) => void
 }
 
@@ -63,6 +64,16 @@ export const usePrivateChatStore = create<PrivateChatStore>((set) => ({
     set((s) => {
       const messages = Object.fromEntries(
         Object.entries(s.messages).map(([k, list]) => [k, list.filter((m) => m.id !== messageId)])
+      )
+      return { messages }
+    }),
+  markMessageFailed: (messageId) =>
+    set((s) => {
+      const messages = Object.fromEntries(
+        Object.entries(s.messages).map(([k, list]) => [
+          k,
+          list.map((m) => (m.id === messageId ? { ...m, failed: true, sending: false } : m)),
+        ])
       )
       return { messages }
     }),

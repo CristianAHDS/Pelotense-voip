@@ -379,7 +379,7 @@ export class WsHandler {
         break
 
       case WsMessageType.ChatMessage:
-        this.handleChatMessage(client, msg.payload as { text: string })
+        this.handleChatMessage(client, msg.payload as { text: string; id?: string })
         break
 
       case WsMessageType.ChatAudioMessage:
@@ -471,7 +471,7 @@ export class WsHandler {
     }
   }
 
-  private handleChatMessage(client: Client, payload: { text: string }): void {
+  private handleChatMessage(client: Client, payload: { text: string; id?: string }): void {
     if (!client.room || !payload.text?.trim()) return
     if (payload.text.length > this.limits.maxTextLength) {
       logger.warn('WsHandler', `Chat message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
@@ -482,7 +482,9 @@ export class WsHandler {
     if (!room) return
 
     const chatMsg: ChatMessage = {
-      id: this.generateMessageId(),
+      // id do cliente (mensagem otimista) é preservado para o eco ser
+      // correlacionado no remetente; sem ele, gera um novo.
+      id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
       userId: client.id,
       userName: client.name,
       text: payload.text.trim(),

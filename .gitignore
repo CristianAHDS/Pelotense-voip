@@ -4,4 +4,4 @@ dist/
 *.log
 server/certs/
 server/data/
-e2e/artifacts/.last-run.json
+e2e/artifacts/

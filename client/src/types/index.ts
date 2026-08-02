@@ -121,6 +121,8 @@ export interface ChatMsg {
   reactions?: MessageReaction[]
   // apenas no cliente: marca mensagem otimista ainda não confirmada pelo servidor
   sending?: boolean
+  // apenas no cliente: envio falhou (timeout) e pode ser reenviado
+  failed?: boolean
 }
 
 export interface MessageReaction {
@@ -145,6 +147,8 @@ export interface PrivateChatMsg {
   timestamp: number
   // apenas no cliente: marca mensagem otimista ainda não confirmada pelo servidor
   sending?: boolean
+  // apenas no cliente: envio falhou (timeout) e pode ser reenviado
+  failed?: boolean
 }
 
 export interface RoomJoinedPayload {

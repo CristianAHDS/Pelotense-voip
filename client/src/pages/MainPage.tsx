@@ -10,6 +10,9 @@ import { AccountPrefsModal } from '../components/AccountPrefsModal.tsx';
 import { FullscreenChat } from '../components/FullscreenChat.tsx';
 import { FullscreenDm } from '../components/FullscreenDm.tsx';
 import { AdminPanel } from '../components/AdminPanel.tsx';
+import { MiniPlayer } from '../components/MiniPlayer.tsx';
+import { SplashScreen } from '../components/SplashScreen.tsx';
+import { WelcomePanel } from '../components/WelcomePanel.tsx';
 import { useConnectionStore } from '../stores/connectionStore.ts';
 import { useAccountStore } from '../stores/accountStore.ts';
 import { useRoomStore } from '../stores/roomStore.ts';
@@ -77,6 +80,8 @@ export function MainPage() {
 
   return (
     <div className="app-container">
+      <div className="app-bg" aria-hidden="true" />
+      <SplashScreen />
       <header className="app-header">
         <button
           className="menu-toggle"
@@ -85,7 +90,11 @@ export function MainPage() {
         >
           {sheetOpen ? '✕' : '☰'}
         </button>
-        <h1>VoIP Client Rádio Pelotense 99.5FM</h1>
+        <h1>
+          <img src="/img/radio-logo.png" alt="" className="app-logo" />
+          <span className="app-title">Rádio Pelotense</span>
+          <span className="app-title-freq">99.5 FM</span>
+        </h1>
         {currentRoomName && (
           <div
             className="current-room-indicator"
@@ -137,6 +146,7 @@ export function MainPage() {
 
       <div className="app-content">
         <aside className="sidebar sidebar-left">
+          <MiniPlayer />
           <ConnectionPanel />
           <VoiceControls />
           {connected && (
@@ -160,6 +170,7 @@ export function MainPage() {
         </aside>
         <main className="main-content">
           <RoomList />
+          <WelcomePanel />
           <ChatPanel />
           <PrivateChatPanel />
         </main>

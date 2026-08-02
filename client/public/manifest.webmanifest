@@ -1,6 +1,6 @@
 {
-  "name": "VoIP Client",
-  "short_name": "VoIP",
+  "name": "Rádio Pelotense 99.5 FM",
+  "short_name": "Rádio Pelotense",
   "description": "Chat e voz por salas com vídeo e transmissão ao vivo.",
   "start_url": "/",
   "scope": "/",
@@ -14,13 +14,19 @@
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
