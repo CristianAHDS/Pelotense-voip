@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws'
 import { createServer as createHttpsServer } from 'https'
 import { join, dirname, extname } from 'path'
 import { fileURLToPath } from 'url'
-import { createReadStream, existsSync, statSync } from 'fs'
+import { createReadStream, existsSync, statSync, writeFileSync } from 'fs'
 import { networkInterfaces } from 'os'
 import { spawn } from 'child_process'
 import { config, securityLimits } from './config/index.js'
@@ -75,6 +75,26 @@ function resolveBinary(cmd: string, fallbacks: string[]): string {
   return cmd
 }
 
+// Atualiza o config.json da raiz do projeto (ao lado do exe) com o túnel atual,
+// para o app desktop usar o link novo automaticamente.
+function writePublicConfig(url: string): void {
+  try {
+    const host = new URL(url).hostname
+    const dest = join(__dirname, '..', '..', 'config.json')
+    writeFileSync(dest, JSON.stringify({ host, wsPort: '3001', wssPort: '443' }, null, 2))
+    logger.info('Tunnel', `config.json atualizado: ${host} (porta 443)`)
+  } catch { /* ignore */ }
+}
+
+// Encerra túneis antigos antes de subir os novos (evita links obsoletos e
+// processos acumulados de execuções anteriores).
+function killOldTunnels(): void {
+  try {
+    spawn('taskkill', ['/IM', 'cloudflared.exe', '/F'], { stdio: 'ignore' })
+    spawn('taskkill', ['/IM', 'ngrok.exe', '/F'], { stdio: 'ignore' })
+  } catch { /* ignore */ }
+}
+
 function logAccessUrls(): void {
   const ips = getLocalIPs()
   if (ips.length > 0) logger.info('Network', `IPs locais desta máquina: ${ips.join(', ')}`)
@@ -118,6 +138,7 @@ function startNgrokTunnel(): void {
         if (url) {
           clearInterval(timer!)
           logger.info('Ngrok', `PÚBLICO (envie este link): ${url}`)
+          writePublicConfig(url)
         } else if (tries > 15) {
           clearInterval(timer!)
         }
@@ -158,6 +179,7 @@ function startCloudflareTunnel(): void {
       if (m && !found) {
         found = true
         logger.info('Cloudflare', `PÚBLICO (envie este link): ${m[0]}`)
+        writePublicConfig(m[0])
       }
     }
     child.stdout?.on('data', onData)
@@ -250,6 +272,7 @@ async function main(): Promise<void> {
   }
 
   logAccessUrls()
+  killOldTunnels()
   startNgrokTunnel()
   startCloudflareTunnel()
 
