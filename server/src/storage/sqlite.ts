@@ -135,6 +135,18 @@ export class SqliteStore {
         tags TEXT,
         createdAt INTEGER
       );
+      CREATE TABLE IF NOT EXISTS banned (
+        name TEXT,
+        email TEXT,
+        reason TEXT,
+        date INTEGER
+      );
+      CREATE TABLE IF NOT EXISTS devices (
+        id TEXT PRIMARY KEY,
+        userName TEXT,
+        onboarding INTEGER NOT NULL DEFAULT 0,
+        createdAt INTEGER
+      );
     `)
     // Migração: versões anteriores não tinham as colunas id/email/confirmação.
     const cols = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{ name: string }>
@@ -490,5 +502,116 @@ export class SqliteStore {
 
   deleteAccount(name: string): void {
     this.db.prepare('DELETE FROM accounts WHERE name = ?').run(name)
+  }
+
+  // ---- Banimento (A10) ----
+  addBan(entry: { name?: string; email?: string; reason?: string; date: number }): void {
+    this.db.prepare('INSERT INTO banned (name, email, reason, date) VALUES (?, ?, ?, ?)').run(
+      entry.name ?? null,
+      entry.email ?? null,
+      entry.reason ?? null,
+      entry.date,
+    )
+  }
+
+  removeBan(nameOrEmail: string): void {
+    const v = nameOrEmail.trim().toLowerCase()
+    this.db.prepare('DELETE FROM banned WHERE lower(name) = ? OR lower(email) = ?').run(v, v)
+  }
+
+  getBans(): Array<{ name?: string; email?: string; reason?: string; date: number }> {
+    const rows = this.db.prepare('SELECT * FROM banned ORDER BY date DESC').all() as Array<{
+      name: string | null
+      email: string | null
+      reason: string | null
+      date: number
+    }>
+    return rows.map((r) => ({
+      name: r.name ?? undefined,
+      email: r.email ?? undefined,
+      reason: r.reason ?? undefined,
+      date: r.date,
+    }))
+  }
+
+  isBanned(identifier: string): { reason?: string } | undefined {
+    const v = identifier.trim().toLowerCase()
+    const row = this.db.prepare('SELECT reason FROM banned WHERE lower(name) = ? OR lower(email) = ? LIMIT 1').get(v, v) as { reason: string | null } | undefined
+    if (!row) return undefined
+    return { reason: row.reason ?? undefined }
+  }
+
+  // ---- Limpeza / manutenção (A18) ----
+  clearRoomMessages(roomId: string): number {
+    const r = this.db.prepare('DELETE FROM messages WHERE roomId = ?').run(roomId)
+    return r.changes
+  }
+
+  deleteMessagesOlderThan(days: number): { roomMessages: number; privateMessages: number } {
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+    const room = this.db.prepare('DELETE FROM messages WHERE timestamp < ?').run(cutoff)
+    const priv = this.db.prepare('DELETE FROM private_messages WHERE timestamp < ?').run(cutoff)
+    return { roomMessages: room.changes, privateMessages: priv.changes }
+  }
+
+  getStats(): { accounts: number; rooms: number; messages: number; privateMessages: number; messagesToday: number; privateToday: number } {
+    const startOfDay = new Date().setHours(0, 0, 0, 0)
+    const accounts = (this.db.prepare('SELECT COUNT(*) AS n FROM accounts').get() as { n: number }).n
+    const rooms = (this.db.prepare('SELECT COUNT(*) AS n FROM rooms').get() as { n: number }).n
+    const messages = (this.db.prepare('SELECT COUNT(*) AS n FROM messages').get() as { n: number }).n
+    const privateMessages = (this.db.prepare('SELECT COUNT(*) AS n FROM private_messages').get() as { n: number }).n
+    const messagesToday = (this.db.prepare('SELECT COUNT(*) AS n FROM messages WHERE timestamp >= ?').get(startOfDay) as { n: number }).n
+    const privateToday = (this.db.prepare('SELECT COUNT(*) AS n FROM private_messages WHERE timestamp >= ?').get(startOfDay) as { n: number }).n
+    return { accounts, rooms, messages, privateMessages, messagesToday, privateToday }
+  }
+
+  // ---- Backup (A17) ----
+  backupTo(destPath: string): Promise<void> {
+    return this.db.backup(destPath).then(() => undefined)
+  }
+
+  // ---- Dispositivos / onboarding ----
+  getDevice(id: string): { id: string; userName?: string; onboarding: boolean; createdAt?: number } | undefined {
+    const row = this.db.prepare('SELECT * FROM devices WHERE id = ?').get(id) as {
+      id: string
+      userName: string | null
+      onboarding: number
+      createdAt: number | null
+    } | undefined
+    if (!row) return undefined
+    return {
+      id: row.id,
+      userName: row.userName ?? undefined,
+      onboarding: row.onboarding === 1,
+      createdAt: row.createdAt ?? undefined,
+    }
+  }
+
+  saveDevice(device: { id: string; userName?: string; onboarding?: boolean; createdAt?: number }): void {
+    this.db.prepare(`
+      INSERT INTO devices (id, userName, onboarding, createdAt)
+      VALUES (@id, @userName, @onboarding, @createdAt)
+      ON CONFLICT(id) DO UPDATE SET
+        userName = COALESCE(@userName, userName),
+        onboarding = COALESCE(@onboarding, onboarding)
+    `).run({
+      id: device.id,
+      userName: device.userName ?? null,
+      onboarding: device.onboarding ? 1 : 0,
+      createdAt: device.createdAt ?? Date.now(),
+    })
+  }
+
+  setDeviceOnboarding(id: string, onboarding: boolean): void {
+    this.db.prepare('UPDATE devices SET onboarding = ? WHERE id = ?').run(onboarding ? 1 : 0, id)
+  }
+
+  resetUserOnboarding(userName: string): number {
+    const r = this.db.prepare('UPDATE devices SET onboarding = 0 WHERE lower(userName) = lower(?)').run(userName)
+    return r.changes
+  }
+
+  countDevices(): number {
+    return (this.db.prepare('SELECT COUNT(*) AS n FROM devices').get() as { n: number }).n
   }
 }

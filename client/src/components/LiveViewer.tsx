@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import * as liveRtc from '../services/liveRtc.ts'
+import { attachMediaStream, markActive } from '../audio/audioMeter.ts'
 
 export function LiveViewer() {
   const broadcaster = useLiveStore((s) => s.broadcaster)
@@ -13,6 +14,8 @@ export function LiveViewer() {
     if (!video) return
     video.srcObject = stream
     if (stream) {
+      // VU reage ao áudio da live: roteia pelo medidor e silencia o elemento.
+      attachMediaStream(stream, 'live', video)
       video.play().catch(() => {
         // Autoplay com áudio pode ser bloqueado: retoma no primeiro gesto.
         const onGesture = () => {
@@ -21,6 +24,8 @@ export function LiveViewer() {
         }
         document.addEventListener('pointerdown', onGesture, { once: true })
       })
+    } else {
+      markActive('live', false)
     }
   }
 

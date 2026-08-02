@@ -95,23 +95,29 @@ afterEach(() => {
 })
 
 describe('connectionService', () => {
-  it('conecta ao servidor e envia login', () => {
+  it('conecta ao servidor e envia login (com deviceId)', () => {
     connectToServer('ws://192.168.8.94:3001', 'Reporter', 'segredo')
     expect(connectedUrl).toBe('ws://192.168.8.94:3001')
     ;(getWsClient() as any).emit('connected', { type: 'connected' })
-    expect(sent).toContainEqual({ type: WsMessageType.Login, payload: { name: 'Reporter', password: 'segredo' } })
+    const login = sent.find((m) => m.type === WsMessageType.Login)
+    expect(login?.payload).toMatchObject({ name: 'Reporter', password: 'segredo' })
+    expect(typeof (login?.payload as any)?.deviceId).toBe('string')
   })
 
   it('envia intent register com e-mail no login', () => {
     connectToServer('ws://192.168.8.94:3001', 'Novato', 'segredo', 'novo@test.com', 'register')
     ;(getWsClient() as any).emit('connected', { type: 'connected' })
-    expect(sent).toContainEqual({ type: WsMessageType.Login, payload: { name: 'Novato', password: 'segredo', email: 'novo@test.com', intent: 'register' } })
+    const login = sent.find((m) => m.type === WsMessageType.Login)
+    expect(login?.payload).toMatchObject({ name: 'Novato', password: 'segredo', email: 'novo@test.com', intent: 'register' })
+    expect(typeof (login?.payload as any)?.deviceId).toBe('string')
   })
 
   it('envia intent login no login', () => {
     connectToServer('ws://192.168.8.94:3001', 'Existente', 'segredo', undefined, 'login')
     ;(getWsClient() as any).emit('connected', { type: 'connected' })
-    expect(sent).toContainEqual({ type: WsMessageType.Login, payload: { name: 'Existente', password: 'segredo', intent: 'login' } })
+    const login = sent.find((m) => m.type === WsMessageType.Login)
+    expect(login?.payload).toMatchObject({ name: 'Existente', password: 'segredo', intent: 'login' })
+    expect(typeof (login?.payload as any)?.deviceId).toBe('string')
   })
 
   it('processa Welcome e marca conexão estabelecida', () => {

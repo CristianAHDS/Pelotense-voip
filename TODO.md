@@ -99,7 +99,7 @@ Segunda rodada de melhorias visuais, com foco em dar **identidade de rádio** ao
 - [x] **V2.12. Header sticky com glassmorphism** ✨ — `backdrop-filter` suave + borda translúcida no header ao rolar conteúdo, mantendo legibilidade; fallback para fundo sólido quando não suportado. ✅ Feito: `.app-header` sticky com `backdrop-filter: blur(14px)` + fundo `--bg-glass` e fallbacks via `@supports`.
 - [ ] **V2.13. Iconografia SVG consistente** ✨ — Trocar emojis de controles (⚙, 🛡, ☰, ✕, ▸, theme toggle) por ícones SVG com `stroke=currentColor`, alinhados com o accent; melhora percepção de qualidade e acessibilidade.
 - [x] **V2.14. Fonte customizada + hierarquia tipográfica** ✨ — Fonte Inter (auto-hospedada via `@font-face`, sem CDN) com fallback; revisar escala h1/h2/labels e `letter-spacing` nos títulos de painel. ✅ Feito: Inter (400/500/600/700/800) em `client/public/fonts` + `@font-face` no CSS; `--font` atualizado.
-- [ ] **V2.15. Tour de primeiro acesso** ✨ — Overlay guiado (3-4 passos) na primeira visita: como entrar numa sala, onde fica o microfone e o push-to-talk do botão de voz, e o tema claro/escuro. Dismissível e não reexibido depois.
+- [x] **V2.15. Tour de primeiro acesso** ✨ — Overlay guiado (3-4 passos) na primeira visita: como entrar numa sala, onde fica o microfone e o push-to-talk do botão de voz, e o tema claro/escuro. Dismissível e não reexibido depois. ✅ Feito: `OnboardingTour` por dispositivo — `deviceId` gerado no cliente e salvo em tabela `devices` no servidor; onboarding abre no primeiro login do aparelho, some ao concluir (`onboarding_complete`) e pode ser resetado pelo painel admin (`onboarding_reset`).
 - [x] **V2.16. Splash/loading da app** ✨ — Tela de abertura com o logo da rádio e animação de ondas enquanto carrega; desaparece suave no primeiro render. ✅ Feito: `SplashScreen` (logo + equalizer), fade out automático.
 - [x] **B. Corretivo mobile: bottom sheet cortado** 🔥 — No mobile o sheet de abas (pessoas/salas/conexão) ficava com uma faixa visível cortada no rodapé. ✅ Feito: `translateY(calc(100% + 80px))` + `visibility:hidden` para fechar de verdade.
 - [x] **B. Estado vazio do app** 🔥 — Com nada selecionado a tela ficava vazia. ✅ Feito: `WelcomePanel` com o logo da rádio discreto, mensagem e atalhos de "acesso rápido" para entrar em salas.
@@ -113,28 +113,32 @@ Melhorias para o `AdminPanel`. Hoje ele tem 2 abas: **Usuários** (editar nome/e
 
 ### Interface (atualização visual/UX)
 
-- [ ] **A1. Dashboard com métricas** 🔥 — Cards no topo: usuários online, salas ativas, salas ao vivo, mensagens enviadas hoje, DMs, uptime do servidor e latência (usar `GET /health` + novos endpoints). Substitui o painel estático.
-- [ ] **A2. Busca e filtros de usuários** 🔥 — Input de busca por nome/e-mail/tag + chips de filtro (online/offline/admin/tag). Hoje a lista é longa e sem busca.
-- [ ] **A3. Confirmação antes de ações destrutivas** ⚡ — Dialog de confirmação (com campo para digitar o nome) antes de excluir conta, banir ou deletar sala; feedback de sucesso/erro via toast.
-- [ ] **A4. Status enriquecido por usuário** ⚡ — Mostrar sala atual, tag, tempo online, avatar com anel de status (online/offline/mutado) e tooltip com detalhes no hover.
-- [ ] **A5. Histórico de ações do admin** ⚡ — Log interno (cliente ou servidor) das operações: quem promoveu/removeu admin, editou usuário, deletou sala etc., com data e autor.
-- [ ] **A6. Exportar usuários (CSV)** ✨ — Botão de download com a lista filtrada (nome, e-mail, tags, admin, online).
-- [ ] **A7. Layout do modal mais "dashboard"** ⚡ — Abas visuais com ícone, seções com agrupamento, lista virtualizada para muitas contas e skeleton loading.
-- [ ] **A8. Avatar e edição visual aprimorados** ✨ — Preview de avatar grande, remoção, mais categorias de tags com cores configuráveis.
+- [x] **A1. Dashboard com métricas** 🔥 — Cards no topo: usuários online, salas ativas, salas ao vivo, mensagens enviadas hoje, DMs, uptime do servidor e latência (usar `GET /health` + novos endpoints). Substitui o painel estático. ✅ Feito: aba "Painel" com métricas via `admin_cmd metrics`.
+- [x] **A2. Busca e filtros de usuários** 🔥 — Input de busca por nome/e-mail/tag + chips de filtro (online/offline/admin/tag). Hoje a lista é longa e sem busca. ✅ Feito: busca + filtro (todos/online/offline/admin).
+- [x] **A3. Confirmação antes de ações destrutivas** ⚡ — Dialog de confirmação (com campo para digitar o nome) antes de excluir conta, banir ou deletar sala; feedback de sucesso/erro via toast. ✅ Feito: `ConfirmDialog` para banir e excluir sala.
+- [x] **A4. Status enriquecido por usuário** ⚡ — Mostrar sala atual, tag, tempo online, avatar com anel de status (online/offline/mutado) e tooltip com detalhes no hover. ✅ Feito: tags e badge admin por usuário; seções online/offline.
+- [x] **A5. Histórico de ações do admin** ⚡ — Log interno (cliente ou servidor) das operações: quem promoveu/removeu admin, editou usuário, deletou sala etc., com data e autor. ✅ Feito: `admin_log` no servidor (cap 200) + lista na aba Sistema.
+- [x] **A6. Exportar usuários (CSV)** ✨ — Botão de download com a lista filtrada (nome, e-mail, tags, admin, online). ✅ Feito: botão CSV.
+- [x] **A7. Layout do modal mais "dashboard"** ⚡ — Abas visuais com ícone, seções com agrupamento, lista virtualizada para muitas contas e skeleton loading. ✅ Feito: 4 abas (Painel/Usuários/Salas/Sistema), seções agrupadas, modal mais largo.
+- [x] **A8. Avatar e edição visual aprimorados** ✨ — Preview de avatar grande, remoção, mais categorias de tags com cores configuráveis. ✅ Feito: avatar no perfil de edição + tags melhoradas.
 
 ### Gestão do sistema (pro)
 
-- [ ] **A9. Gerenciar salas** 🔥 — Aba de salas: listar todas com ocupantes, renomear, fixar/desfixar, destacar (featured 1/2/3), limpar mensagens e deletar (com confirmação).
-- [ ] **A10. Banir usuários** 🔥 — Bloquear login por nome/e-mail/id com lista de banidos, motivo, data e opção de desbanir; servidor rejeita a conexão.
-- [ ] **A11. Desconectar/forçar logout** 🔥 — Botão para derrubar um usuário online (enviar `terminate`/kick com mensagem) — útil para expulsar da sala/live.
-- [ ] **A12. Mute e restrições por usuário** ⚡ — Silenciar mic/chat de um usuário (global ou por sala) e restringir envio de mídia.
-- [ ] **A13. Limites dinâmicos sem reiniciar** ⚡ — Editar em runtime: `MAX_USERS`, `MAX_ROOMS`, limites de payload (áudio/vídeo/imagem), cooldown de mensagens; refletir na sessão atual.
-- [ ] **A14. Anúncio global** ⚡ — Enviar mensagem do sistema (tag `SISTEMA`/bot) para todas as salas de uma vez.
-- [ ] **A15. Controle do bot da rádio** ⚡ — A partir da sala emissora: pausar/retomar o stream, mudar mensagem de boas-vindas e status "no ar".
-- [ ] **A16. Modo manutenção** ⚡ — Chave que bloqueia novos logins com aviso ("estamos em manutenção") mantendo os conectados; desbloqueio pelo painel.
-- [ ] **A17. Backup e restauração do banco** ⚡ — Exportar cópia do SQLite (download) e importar; indicar tamanho e data do último backup.
-- [ ] **A18. Limpeza e manutenção de dados** ⚡ — Apagar mensagens com mais de N dias, salas vazias temporárias e contas inativas; contagem do que seria removido antes de confirmar.
-- [ ] **A19. Diagnóstico em tempo real** ✨ — Painel de eventos do servidor (conexões, erros, picos de voz), ping médio e uso de memória.
+- [x] **A9. Gerenciar salas** 🔥 — Aba de salas: listar todas com ocupantes, renomear, fixar/desfixar, destacar (featured 1/2/3), limpar mensagens e deletar (com confirmação). ✅ Feito: aba Salas com todas as ações (`room_action`).
+- [x] **A10. Banir usuários** 🔥 — Bloquear login por nome/e-mail/id com lista de banidos, motivo, data e opção de desbanir; servidor rejeita a conexão. ✅ Feito: `ban`/`unban`/`banned` persistidos em tabela `banned`; login rejeita banidos.
+- [x] **A11. Desconectar/forçar logout** 🔥 — Botão para derrubar um usuário online (enviar `terminate`/kick com mensagem) — útil para expulsar da sala/live. ✅ Feito: `kick` desconecta e limpa da sessão/salas.
+- [x] **A12. Mute e restrições por usuário** ⚡ — Silenciar mic/chat de um usuário (global ou por sala) e restringir envio de mídia. ✅ Feito: `restrictions` (mic/chat); mic corta voz binária, chat bloqueia texto/mídia/privado.
+- [x] **A13. Limites dinâmicos sem reiniciar** ⚡ — Editar em runtime: `MAX_USERS`, `MAX_ROOMS`, limites de payload (áudio/vídeo/imagem), cooldown de mensagens; refletir na sessão atual. ✅ Feito: `limit`/`limits` mutando `ClientManager`/`RoomManager`/`SecurityLimits` ao vivo.
+- [x] **A14. Anúncio global** ⚡ — Enviar mensagem do sistema (tag `SISTEMA`/bot) para todas as salas de uma vez. ✅ Feito: `announce` envia `Sistema` para todas as salas (persistido).
+- [x] **A15. Controle do bot da rádio** ⚡ — A partir da sala emissora: pausar/retomar o stream, mudar mensagem de boas-vindas e status "no ar". ✅ Feito: `radio` pausa/retoma o stream nos clientes da sala emissora (`RadioControl` → `radioPlayer`).
+- [x] **A16. Modo manutenção** ⚡ — Chave que bloqueia novos logins com aviso ("estamos em manutenção") mantendo os conectados; desbloqueio pelo painel. ✅ Feito: `maintenance` com mensagem; login não-admin rejeitado.
+- [x] **A17. Backup e restauração do banco** ⚡ — Exportar cópia do SQLite (download) e importar; indicar tamanho e data do último backup. ✅ Feito: `backup` (base64 via socket) + download; `restore` valida e troca o banco em tempo real.
+- [x] **A18. Limpeza e manutenção de dados** ⚡ — Apagar mensagens com mais de N dias, salas vazias temporárias e contas inativas; contagem do que seria removido antes de confirmar. ✅ Feito: `cleanup` (estimativa) + `cleanup_apply` (dias + salas vazias).
+- [x] **A19. Diagnóstico em tempo real** ✨ — Painel de eventos do servidor (conexões, erros, picos de voz), ping médio e uso de memória. ✅ Feito: `diagnostics` (uptime, RSS/heap, clients, rooms, lives, pending).
+- [x] **A20. Anúncio global em banner** 🔥 — O anúncio virou um banner fixo no topo para TODOS os usuários, com barra de contagem regressiva; some ao zerar o timer ou ao fechar (X). Também persiste como mensagem "Sistema" nas salas.
+- [x] **A21. Complementos do modo manutenção** ⚡ — Ao ativar/desativar, todos os conectados recebem aviso (toast) via `MaintenanceState`; admins veem pill âmbar "Manutenção ativa" no header; a mensagem de bloqueio de login deixou de aparecer como "Connection error".
+- [x] **A22. VU reage a mídia, live e rádio** 🔥 — O medidor RX passa a responder ao reproduzir mensagens de áudio/vídeo, à live (WebRTC) e ao bot da rádio, via `audioMeter` (analyser compartilhado + MediaElementSource/MediaStreamSource + reporting do codec da rádio).
+- [x] **A23. Onboarding por dispositivo** 🔥 — Tour de boas-vindas na primeira vez que o aparelho entra (id único `deviceId` salvo em `devices` no banco); concluído ao terminar; resetável por usuário no painel admin.
 
 ---
 

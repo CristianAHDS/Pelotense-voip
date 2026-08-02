@@ -13,6 +13,8 @@ import { AdminPanel } from '../components/AdminPanel.tsx';
 import { MiniPlayer } from '../components/MiniPlayer.tsx';
 import { SplashScreen } from '../components/SplashScreen.tsx';
 import { WelcomePanel } from '../components/WelcomePanel.tsx';
+import { GlobalAnnouncement } from '../components/GlobalAnnouncement.tsx';
+import { OnboardingTour } from '../components/OnboardingTour.tsx';
 import { useConnectionStore } from '../stores/connectionStore.ts';
 import { useAccountStore } from '../stores/accountStore.ts';
 import { useRoomStore } from '../stores/roomStore.ts';
@@ -27,6 +29,8 @@ export function MainPage() {
   const reconnecting = useConnectionStore((s) => s.reconnecting);
   const connectedName = useConnectionStore((s) => s.name);
   const isAdmin = useConnectionStore((s) => s.admin);
+  const maintenance = useConnectionStore((s) => s.maintenance);
+  const maintenanceMessage = useConnectionStore((s) => s.maintenanceMessage);
   const currentRoomName = useRoomStore((s) => s.currentRoomName);
   const unreadCount = usePrivateChatStore((s) => Object.keys(s.unread).length);
   const theme = useSettingsStore((s) => s.theme);
@@ -116,6 +120,17 @@ export function MainPage() {
           <span className="status-pill-dot" />
           <span>{statusLabel}</span>
         </div>
+        {connected && isAdmin && maintenance && (
+          <div
+            className="maintenance-pill"
+            role="status"
+            aria-live="polite"
+            title={maintenanceMessage || t('statusMaintenance')}
+          >
+            <span className="maintenance-pill-dot" aria-hidden="true" />
+            <span>{maintenanceMessage || t('statusMaintenance')}</span>
+          </div>
+        )}
         <button
           className="theme-toggle"
           onClick={cycleTheme}
@@ -219,6 +234,8 @@ export function MainPage() {
       </div>
 
       <Toasts />
+      <GlobalAnnouncement />
+      <OnboardingTour />
       <AccountPrefsModal />
       <FullscreenChat />
       <FullscreenDm />

@@ -60,4 +60,12 @@ export class ClientManager {
     }
     return undefined
   }
+
+  setMaxUsers(n: number): void {
+    this.maxUsers = Math.max(1, Math.floor(n))
+  }
+
+  getMaxUsers(): number {
+    return this.maxUsers
+  }
 }

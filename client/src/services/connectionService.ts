@@ -1,5 +1,5 @@
 import { WsClient } from '../network/wsClient.ts'
-import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg, PrivateChatMsg } from '../types/index.ts'
+import { WsMessageType, LoginPayload, WelcomePayload, ChatMsg, PrivateChatMsg, AdminResult } from '../types/index.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
@@ -8,6 +8,11 @@ import { VoiceManager } from '../voice/index.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
+import { useAdminStore } from '../stores/adminStore.ts'
+import { useAnnouncementStore } from '../stores/announcementStore.ts'
+import { useOnboardingStore } from '../stores/onboardingStore.ts'
+import { getDeviceId } from '../utils/device.ts'
+import { radioPlayer } from './radioStream.ts'
 import { notifyNewMessage, requestNotificationPermission } from './notifications.ts'
 import { chatHistory } from './historyStore.ts'
 import * as liveRtc from './liveRtc.ts'
@@ -164,7 +169,7 @@ export function connectToServer(address: string, name: string, password: string,
 
   wsClient.on('connected', () => {
     const avatar = useAccountStore.getState().avatar
-    const payload: LoginPayload = { name, password, email: email || undefined, avatar: avatar || undefined, intent }
+    const payload: LoginPayload = { name, password, email: email || undefined, avatar: avatar || undefined, intent, deviceId: getDeviceId() }
     wsClient?.send(WsMessageType.Login, payload)
   })
   wsClient.on('disconnected', () => {
@@ -184,6 +189,13 @@ export function connectToServer(address: string, name: string, password: string,
     reconnecting = false
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
+    if (payload.maintenance !== undefined) {
+      useConnectionStore.getState().setMaintenance(payload.maintenance, payload.maintenanceMessage ?? '')
+    }
+    // Primeira vez deste aparelho no sistema: abre o onboarding.
+    if (payload.onboarding) {
+      useOnboardingStore.getState().show()
+    }
     if (payload.avatar) {
       useAccountStore.getState().setPrefs({ avatar: payload.avatar })
     }
@@ -357,6 +369,20 @@ export function connectToServer(address: string, name: string, password: string,
     }
   })
 
+  wsClient.on(WsMessageType.AdminResult, (msg) => {
+    const p = msg.payload as AdminResult
+    useAdminStore.getState().handleResult(p.cmd, p.ok, p.data, p.error)
+  })
+
+  wsClient.on(WsMessageType.RadioControl, (msg) => {
+    const p = msg.payload as { action: string }
+    if (p.action === 'pause') {
+      radioPlayer.pause()
+    } else if (p.action === 'play') {
+      void radioPlayer.play().catch(() => { /* autoplay pode bloquear */ })
+    }
+  })
+
 function persistDm(peerUserId: string): void {
   const msgs = usePrivateChatStore.getState().messages[peerUserId] ?? []
   void chatHistory.saveDmMessages(peerUserId, msgs)
@@ -431,9 +457,34 @@ function dmKey(payload: PrivateChatMsg): string {
   })
 
   wsClient.on(WsMessageType.Error, (msg) => {
-    const error = String(msg.payload ?? 'Unknown error')
+    const raw = msg.payload as unknown
+    let error = 'Unknown error'
+    let notice = false
+    if (raw && typeof raw === 'object' && 'code' in raw && 'message' in raw) {
+      const obj = raw as { code: string; message: string }
+      error = obj.message
+      notice = obj.code === 'maintenance' || obj.code === 'banned'
+    } else {
+      error = String(raw ?? 'Unknown error')
+    }
     useConnectionStore.getState().setDisconnected()
-    useToastStore.getState().show('error', `Connection error: ${error}`)
+    useToastStore.getState().show(notice ? 'info' : 'error', notice ? error : `Connection error: ${error}`)
+  })
+
+  wsClient.on(WsMessageType.MaintenanceState, (msg) => {
+    const p = msg.payload as { enabled: boolean; message: string }
+    useConnectionStore.getState().setMaintenance(p.enabled, p.message)
+    useToastStore.getState().show(
+      p.enabled ? 'info' : 'success',
+      p.enabled
+        ? p.message || 'Servidor em manutenção — novos acessos bloqueados'
+        : 'Manutenção encerrada — novos acessos liberados'
+    )
+  })
+
+  wsClient.on(WsMessageType.GlobalAnnouncement, (msg) => {
+    const p = msg.payload as { id: string; text: string; durationMs: number }
+    useAnnouncementStore.getState().show(p.id, p.text, p.durationMs)
   })
 
   wsClient.connect(address)
@@ -618,6 +669,7 @@ export function disconnectFromServer(): void {
   cleanupVoice()
   intentionalDisconnect = true
   reconnecting = false
+  useAdminStore.getState().clear()
   wsClient?.disconnect()
   wsClient = null
   useConnectionStore.getState().setDisconnected()
@@ -670,6 +722,15 @@ export function sendLiveChunk(chunk: string, duration: number): void {
 
 export function sendLiveRequestCancel(): void {
   wsClient?.send(WsMessageType.LiveRequestCancel)
+}
+
+export function sendAdminCmd(cmd: string, payload: Record<string, unknown> = {}): void {
+  if (!wsClient) { console.error('sendAdminCmd: wsClient is null'); return }
+  wsClient.send(WsMessageType.AdminCmd, { cmd, ...payload })
+}
+
+export function completeOnboarding(): void {
+  wsClient?.send(WsMessageType.OnboardingComplete, { deviceId: getDeviceId() })
 }
 
 export function sendLiveRequestResponse(allow: boolean, requesterId: string): void {

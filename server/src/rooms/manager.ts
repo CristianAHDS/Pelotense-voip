@@ -230,4 +230,77 @@ export class RoomManager {
   private generateId(): string {
     return Math.random().toString(36).substring(2, 10)
   }
+
+  setMaxRooms(n: number): void {
+    this.maxRooms = Math.max(1, Math.floor(n))
+  }
+
+  getMaxRooms(): number {
+    return this.maxRooms
+  }
+
+  setStorage(storage?: SqliteStore): void {
+    this.storage = storage
+  }
+
+  // ---- Gestão de salas pelo admin (A9) ----
+  rename(roomId: string, newName: string): boolean {
+    const room = this.rooms.get(roomId)
+    if (!room) return false
+    if (this.findByName(newName) && this.findByName(newName)!.id !== roomId) return false
+    room.name = newName
+    this.storage?.saveRoom(room)
+    return true
+  }
+
+  setFixed(roomId: string, fixed: boolean): boolean {
+    const room = this.rooms.get(roomId)
+    if (!room) return false
+    room.fixed = fixed
+    this.storage?.saveRoom(room)
+    return true
+  }
+
+  setFeatured(roomId: string, featured: number | undefined): boolean {
+    const room = this.rooms.get(roomId)
+    if (!room) return false
+    room.featured = featured
+    this.storage?.saveRoom(room)
+    return true
+  }
+
+  clearMessages(roomId: string): number {
+    const room = this.rooms.get(roomId)
+    if (!room) return 0
+    const count = room.messages.length
+    room.messages = []
+    this.storage?.clearRoomMessages(roomId)
+    return count
+  }
+
+  listRoomsDetailed(): Array<{
+    id: string
+    name: string
+    fixed: boolean
+    featured?: number
+    users: number
+    messages: number
+    occupants: string[]
+    live?: { userId: string; userName: string } | null
+    createdByName?: string
+  }> {
+    // Ordem estável (inserção) para o painel do admin: fixar/destacar não
+    // deve "mover" as salas na lista.
+    return Array.from(this.rooms.values()).map((room) => ({
+      id: room.id,
+      name: room.name,
+      fixed: room.fixed,
+      featured: room.featured,
+      users: room.clients.size,
+      messages: room.messages.length,
+      occupants: Array.from(room.clients.values()).map((c) => c.name),
+      live: this.getLiveBroadcast(room.id) ? { userId: this.getLiveBroadcast(room.id)!.userId, userName: this.getLiveBroadcast(room.id)!.userName } : null,
+      createdByName: room.createdByName,
+    }))
+  }
 }

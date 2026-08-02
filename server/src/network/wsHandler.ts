@@ -6,10 +6,16 @@ import { logger } from '../utils/logger.js'
 import { eventBus } from '../utils/events.js'
 import { EventType } from '../types/index.js'
 import { SqliteStore } from '../storage/index.js'
+import { config } from '../config/index.js'
+import Database from 'better-sqlite3'
+import { readFileSync, writeFileSync, copyFileSync, unlinkSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
 
 const MASTER_USER_ID = process.env.MASTER_USER_ID || 'fc2su3qi'
 const MASTER_NAME = process.env.MASTER_NAME || 'Cris'
 const MASTER_EMAIL = process.env.MASTER_EMAIL || 'admin@ahoradosul.com.br'
+const RADIO_ROOM_NAME = process.env.RADIO_ROOM_NAME || 'Retorno ao vivo'
 
 // Sempre master: pelo id configurado OU pelo nome OU pelo e-mail.
 function isMaster(u: { id?: string; name: string; email?: string }): boolean {
@@ -29,6 +35,13 @@ export class WsHandler {
   private storage?: SqliteStore
   private pendingClients = new Map<WebSocket, { ip: string }>()
   private deadConnectionTimer: ReturnType<typeof setInterval> | null = null
+
+  // Estado de gestão do sistema (painel admin)
+  private maintenanceMode = false
+  private maintenanceMessage = ''
+  private guestMode = false
+  private readonly adminLog: Array<{ at: number; by: string; action: string; detail?: string }> = []
+  private readonly startedAt = Date.now()
 
   constructor(
     wss: WebSocketServer,
@@ -74,7 +87,7 @@ export class WsHandler {
           const msg: WsMessage = JSON.parse(data.toString())
           if (msg.type === WsMessageType.Login) {
             armLoginTimer()
-            this.handleLogin(ws, msg.payload as { name: string; email?: string; password: string; avatar?: string })
+            this.handleLogin(ws, msg.payload as { name: string; email?: string; password: string; avatar?: string; deviceId?: string })
           } else {
             this.send(ws, { type: WsMessageType.Error, payload: 'Login first' })
             ws.close()
@@ -118,7 +131,7 @@ export class WsHandler {
     }
   }
 
-  private handleLogin(ws: WebSocket, payload: { name: string; email?: string; password: string; avatar?: string; intent?: string }): void {
+  private handleLogin(ws: WebSocket, payload: { name: string; email?: string; password: string; avatar?: string; intent?: string; deviceId?: string }): void {
     const pending = this.pendingClients.get(ws)
     if (!pending) return
 
@@ -151,6 +164,23 @@ export class WsHandler {
       this.send(ws, { type: WsMessageType.Error, payload: 'Invalid email' })
       ws.close()
       return
+    }
+
+    // Modo manutenção: bloqueia novos logins (admin continua podendo entrar).
+    if (this.maintenanceMode && !isMaster({ name, email }) && !this.adminNames.includes(name)) {
+      this.send(ws, { type: WsMessageType.Error, payload: { code: 'maintenance', message: this.maintenanceMessage || 'Manutenção em andamento. Tente novamente mais tarde.' } })
+      ws.close()
+      return
+    }
+
+    // Usuário banido?
+    if (this.storage) {
+      const ban = this.storage.isBanned(identifier) || (email ? this.storage.isBanned(email) : undefined)
+      if (ban) {
+        this.send(ws, { type: WsMessageType.Error, payload: { code: 'banned', message: ban.reason ? `Banido: ${ban.reason}` : 'Você foi banido' } })
+        ws.close()
+        return
+      }
     }
 
     const intent = typeof payload.intent === 'string' ? payload.intent : ''
@@ -267,25 +297,39 @@ export class WsHandler {
     this.pendingClients.delete(ws)
     ws.removeAllListeners('message')
 
-      ws.on('message', (data, isBinary) => {
-        try {
-          if (isBinary) {
-            this.handleBinaryMessage(client, data as Buffer)
-            return
-          }
-          const msg: WsMessage = JSON.parse((data as Buffer).toString())
-          this.handleMessage(client, msg)
-        } catch (e) {
-          logger.warn('WsHandler', `Invalid message from ${client.id}: ${(e as Error).message}`)
+    // Onboarding por dispositivo: na primeira vez que este aparelho entra no
+    // sistema, o Welcome sinaliza onboarding para o cliente mostrar o tour.
+    const deviceId = typeof payload.deviceId === 'string' && payload.deviceId ? payload.deviceId : ''
+    let onboarding = false
+    if (deviceId && this.storage) {
+      const dev = this.storage.getDevice(deviceId)
+      if (!dev || !dev.onboarding) {
+        onboarding = true
+        this.storage.saveDevice({ id: deviceId, userName: client.name, onboarding: false })
+      } else {
+        this.storage.saveDevice({ id: deviceId, userName: client.name, onboarding: true })
+      }
+    }
+
+    ws.on('message', (data, isBinary) => {
+      try {
+        if (isBinary) {
+          this.handleBinaryMessage(client, data as Buffer)
+          return
         }
-      })
+        const msg: WsMessage = JSON.parse((data as Buffer).toString())
+        this.handleMessage(client, msg)
+      } catch (e) {
+        logger.warn('WsHandler', `Invalid message from ${client.id}: ${(e as Error).message}`)
+      }
+    })
 
     ws.on('close', () => this.handleDisconnect(client))
     ws.on('error', () => this.handleDisconnect(client))
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email },
+      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding },
     })
 
     if (this.storage) {
@@ -466,13 +510,429 @@ export class WsHandler {
         this.handleLiveRequestCancel(client)
         break
 
+      case WsMessageType.AdminCmd:
+        this.handleAdminCmd(client, msg.payload as { cmd: string; [k: string]: unknown })
+        break
+
+      case WsMessageType.OnboardingComplete:
+        this.handleOnboardingComplete(client, msg.payload as { deviceId?: string })
+        break
+
       default:
         logger.warn('WsHandler', `Unknown message type: ${msg.type}`)
     }
   }
 
+  private handleOnboardingComplete(client: Client, payload: { deviceId?: string }): void {
+    if (!this.storage) return
+    const deviceId = typeof payload.deviceId === 'string' && payload.deviceId ? payload.deviceId : ''
+    if (deviceId) this.storage.setDeviceOnboarding(deviceId, true)
+  }
+
+  private adminResult(ws: WebSocket, cmd: string, ok: boolean, data?: unknown, error?: string): void {
+    this.send(ws, { type: WsMessageType.AdminResult, payload: { cmd, ok, data, error } })
+  }
+
+  private adminLogAdd(by: string, action: string, detail?: string): void {
+    this.adminLog.unshift({ at: Date.now(), by, action, detail })
+    if (this.adminLog.length > 200) this.adminLog.length = 200
+  }
+
+  private handleAdminCmd(client: Client, payload: { cmd: string; [k: string]: unknown }): void {
+    if (!client.admin) {
+      this.adminResult(client.ws, String(payload.cmd ?? ''), false, undefined, 'Not allowed')
+      return
+    }
+    const cmd = String(payload.cmd ?? '')
+
+    switch (cmd) {
+      case 'metrics': {
+        const online = this.clients.size()
+        const rooms = this.rooms.getAll()
+        const live = rooms.filter((r) => this.rooms.getLiveBroadcast(r.id)).length
+        const stats = this.storage?.getStats()
+        const mem = process.memoryUsage()
+        this.adminResult(client.ws, cmd, true, {
+          usersOnline: online,
+          maxUsers: this.clients.getMaxUsers(),
+          rooms: rooms.length,
+          maxRooms: this.rooms.getMaxRooms(),
+          liveCount: live,
+          accounts: stats?.accounts ?? 0,
+          devices: this.storage?.countDevices() ?? 0,
+          messages: stats?.messages ?? 0,
+          privateMessages: stats?.privateMessages ?? 0,
+          messagesToday: stats?.messagesToday ?? 0,
+          privateToday: stats?.privateToday ?? 0,
+          uptimeSeconds: Math.round((Date.now() - this.startedAt) / 1000),
+          memoryMB: Math.round(mem.rss / 1024 / 1024),
+          heapMB: Math.round(mem.heapUsed / 1024 / 1024),
+          maintenance: this.maintenanceMode,
+        })
+        break
+      }
+
+      case 'diagnostics': {
+        const mem = process.memoryUsage()
+        this.adminResult(client.ws, cmd, true, {
+          uptimeSeconds: Math.round((Date.now() - this.startedAt) / 1000),
+          memoryMB: Math.round(mem.rss / 1024 / 1024),
+          heapMB: Math.round(mem.heapUsed / 1024 / 1024),
+          clients: this.clients.size(),
+          rooms: this.rooms.getAll().length,
+          liveCount: this.rooms.getAll().filter((r) => this.rooms.getLiveBroadcast(r.id)).length,
+          pendingConnections: this.pendingClients.size,
+          maintenance: this.maintenanceMode,
+        })
+        break
+      }
+
+      case 'onboarding_reset': {
+        const name = String(payload.name ?? '').trim()
+        if (!name) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Informe o usuário')
+          break
+        }
+        const n = this.storage?.resetUserOnboarding(name) ?? 0
+        this.adminLogAdd(client.name, 'onboarding_reset', `${name} (${n} dispositivos)`)
+        this.adminResult(client.ws, cmd, true, { reset: n })
+        break
+      }
+
+      case 'rooms':
+        this.adminResult(client.ws, cmd, true, this.rooms.listRoomsDetailed())
+        break
+
+      case 'room_action': {
+        const roomId = String(payload.roomId ?? '')
+        const action = String(payload.action ?? '')
+        const room = this.rooms.get(roomId)
+        if (!room) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Room not found')
+          break
+        }
+        let detail = ''
+        if (action === 'rename') {
+          const newName = String(payload.value ?? '').trim()
+          if (!newName || newName.length > this.limits.maxRoomNameLength) {
+            this.adminResult(client.ws, cmd, false, undefined, 'Invalid name')
+            break
+          }
+          if (!this.rooms.rename(roomId, newName)) {
+            this.adminResult(client.ws, cmd, false, undefined, 'Name in use')
+            break
+          }
+          detail = `renomeada para ${newName}`
+        } else if (action === 'fixed') {
+          this.rooms.setFixed(roomId, payload.value === true)
+          detail = `fixed=${payload.value === true}`
+        } else if (action === 'featured') {
+          const v = payload.value === null ? undefined : Number(payload.value)
+          const f = v !== undefined && Number.isFinite(v) ? v : undefined
+          this.rooms.setFeatured(roomId, f)
+          detail = `featured=${f ?? 'nenhum'}`
+        } else if (action === 'clear') {
+          const n = this.rooms.clearMessages(roomId)
+          detail = `${n} mensagens apagadas`
+          this.broadcastToRoom(roomId, { type: WsMessageType.RoomDeleted, payload: { roomId } }, '')
+        } else if (action === 'delete') {
+          if (room.fixed) {
+            this.adminResult(client.ws, cmd, false, undefined, 'Fixed room cannot be deleted')
+            break
+          }
+          this.handleDeleteRoom(client, roomId)
+          this.adminLogAdd(client.name, 'delete_room', room.name)
+          this.adminResult(client.ws, cmd, true, this.rooms.listRoomsDetailed(), undefined)
+          break
+        } else {
+          this.adminResult(client.ws, cmd, false, undefined, 'Unknown action')
+          break
+        }
+        this.broadcast({ type: WsMessageType.RoomList, payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)) })
+        this.adminLogAdd(client.name, `room_${action}`, room.name + (detail ? ` — ${detail}` : ''))
+        this.adminResult(client.ws, cmd, true, this.rooms.listRoomsDetailed(), undefined)
+        break
+      }
+
+      case 'ban': {
+        const name = typeof payload.name === 'string' ? payload.name.trim() : ''
+        const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : ''
+        const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
+        if (!name && !email) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Informe nome ou e-mail')
+          break
+        }
+        this.storage?.addBan({ name: name || undefined, email: email || undefined, reason: reason || undefined, date: Date.now() })
+        // Expulsa online
+        const target = name ? this.clients.findByName(name) : this.clients.getAll().find((c) => c.email === email)
+        if (target) this.kickClient(target, `Banido${reason ? `: ${reason}` : ''}`)
+        this.adminLogAdd(client.name, 'ban', name || email)
+        this.adminResult(client.ws, cmd, true, this.storage?.getBans() ?? [])
+        break
+      }
+
+      case 'unban': {
+        const key = String(payload.value ?? '').trim()
+        this.storage?.removeBan(key)
+        this.adminLogAdd(client.name, 'unban', key)
+        this.adminResult(client.ws, cmd, true, this.storage?.getBans() ?? [])
+        break
+      }
+
+      case 'banned':
+        this.adminResult(client.ws, cmd, true, this.storage?.getBans() ?? [])
+        break
+
+      case 'kick': {
+        const userId = typeof payload.userId === 'string' ? payload.userId : ''
+        const name = typeof payload.name === 'string' ? payload.name : ''
+        const target = userId ? this.clients.get(userId) : name ? this.clients.findByName(name) : undefined
+        if (!target) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Usuário não está online')
+          break
+        }
+        this.kickClient(target, 'Desconectado pelo administrador')
+        this.adminLogAdd(client.name, 'kick', target.name)
+        this.adminResult(client.ws, cmd, true)
+        break
+      }
+
+      case 'restrictions': {
+        const userId = typeof payload.userId === 'string' ? payload.userId : ''
+        const name = typeof payload.name === 'string' ? payload.name : ''
+        const target = userId ? this.clients.get(userId) : name ? this.clients.findByName(name) : undefined
+        if (!target) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Usuário não está online')
+          break
+        }
+        target.restrictions = {
+          mic: typeof payload.mic === 'boolean' ? payload.mic : target.restrictions?.mic,
+          chat: typeof payload.chat === 'boolean' ? payload.chat : target.restrictions?.chat,
+        }
+        if (target.restrictions.chat) this.send(target.ws, { type: WsMessageType.Error, payload: 'Você foi silenciado pelo administrador' })
+        this.adminLogAdd(client.name, 'restrictions', `${target.name} mic=${target.restrictions.mic} chat=${target.restrictions.chat}`)
+        this.adminResult(client.ws, cmd, true, { id: target.id, name: target.name, restrictions: target.restrictions })
+        break
+      }
+
+      case 'limit': {
+        const key = String(payload.key ?? '')
+        const value = Number(payload.value)
+        if (!Number.isFinite(value) || value < 1) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Valor inválido')
+          break
+        }
+        const n = Math.floor(value)
+        if (key === 'maxUsers') {
+          this.clients.setMaxUsers(n)
+        } else if (key === 'maxRooms') {
+          this.rooms.setMaxRooms(n)
+        } else if (key in this.limits) {
+          ;(this.limits as unknown as Record<string, number>)[key] = n
+        } else {
+          this.adminResult(client.ws, cmd, false, undefined, 'Chave desconhecida')
+          break
+        }
+        this.adminLogAdd(client.name, 'limit', `${key}=${n}`)
+        this.adminResult(client.ws, cmd, true, this.getLimitsSnapshot())
+        break
+      }
+
+      case 'limits':
+        this.adminResult(client.ws, cmd, true, this.getLimitsSnapshot())
+        break
+
+      case 'announce': {
+        const text = String(payload.text ?? '').trim().slice(0, this.limits.maxTextLength)
+        if (!text) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Texto vazio')
+          break
+        }
+        // Banner global: aparece na tela de TODOS os conectados, com timer.
+        const id = this.generateMessageId()
+        const durationMs = Math.max(3000, Math.min(60000, Number(payload.durationMs) || 15000))
+        this.clients.getAll().forEach((c) => {
+          this.send(c.ws, { type: WsMessageType.GlobalAnnouncement, payload: { id, text, durationMs } })
+        })
+        // Também registra como mensagem do Sistema nas salas (histórico).
+        const sysMsg: ChatMessage = {
+          id,
+          userId: 'system',
+          userName: 'Sistema',
+          text,
+          timestamp: Date.now(),
+        }
+        for (const room of this.rooms.getAll()) {
+          this.rooms.addMessage(room.id, sysMsg)
+          this.broadcastToRoom(room.id, { type: WsMessageType.ChatMessage, payload: sysMsg }, '')
+        }
+        this.adminLogAdd(client.name, 'announce', text)
+        this.adminResult(client.ws, cmd, true)
+        break
+      }
+
+      case 'maintenance': {
+        this.maintenanceMode = payload.enabled === true
+        this.maintenanceMessage = typeof payload.message === 'string' ? payload.message.slice(0, 200) : ''
+        this.adminLogAdd(client.name, 'maintenance', String(this.maintenanceMode) + (this.maintenanceMessage ? ` — ${this.maintenanceMessage}` : ''))
+        // Avisa todos os conectados (inclusive o admin que ativou).
+        this.clients.getAll().forEach((c) => {
+          this.send(c.ws, {
+            type: WsMessageType.MaintenanceState,
+            payload: { enabled: this.maintenanceMode, message: this.maintenanceMessage },
+          })
+        })
+        this.adminResult(client.ws, cmd, true, { enabled: this.maintenanceMode, message: this.maintenanceMessage })
+        break
+      }
+
+      case 'backup': {
+        if (!this.storage) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Storage unavailable')
+          break
+        }
+        try {
+          const dest = join(tmpdir(), `voip-backup-${Date.now()}.db`)
+          this.storage.backupTo(dest).then(() => {
+            const buf = readFileSync(dest)
+            try { unlinkSync(dest) } catch { /* ignore */ }
+            if (buf.length > this.limits.maxVideoMessageBytes * 12) {
+              this.adminResult(client.ws, cmd, false, undefined, 'Backup muito grande para enviar pelo socket')
+              return
+            }
+            this.adminResult(client.ws, cmd, true, { base64: buf.toString('base64'), size: buf.length, date: Date.now() })
+          }).catch((e) => {
+            logger.error('WsHandler', 'Backup failed', e)
+            this.adminResult(client.ws, cmd, false, undefined, 'Falha no backup')
+          })
+        } catch (e) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Falha no backup')
+        }
+        break
+      }
+
+      case 'restore': {
+        const base64 = typeof payload.base64 === 'string' ? payload.base64 : ''
+        if (!base64) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Payload vazio')
+          break
+        }
+        const buf = Buffer.from(base64, 'base64')
+        if (buf.length < 100 || buf.length > 64 * 1024 * 1024) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Arquivo inválido ou grande demais')
+          break
+        }
+        const tmp = join(tmpdir(), `voip-restore-${Date.now()}.db`)
+        writeFileSync(tmp, buf)
+        try {
+          const check = new Database(tmp, { readonly: true })
+          check.prepare('SELECT COUNT(*) AS n FROM accounts').get()
+          check.close()
+        } catch {
+          try { unlinkSync(tmp) } catch { /* ignore */ }
+          this.adminResult(client.ws, cmd, false, undefined, 'Arquivo de backup inválido')
+          break
+        }
+        this.storage?.close()
+        this.storage = new SqliteStore(tmp)
+        this.rooms.setStorage(this.storage)
+        try { copyFileSync(tmp, config.dbPath) } catch { /* ignore */ }
+        this.adminLogAdd(client.name, 'restore', 'banco restaurado')
+        this.adminResult(client.ws, cmd, true, { note: 'Banco restaurado' })
+        break
+      }
+
+      case 'cleanup': {
+        if (!this.storage) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Storage unavailable')
+          break
+        }
+        const stats = this.storage.getStats()
+        const emptyRooms = this.rooms.getAll().filter((r) => !r.fixed && r.clients.size === 0)
+        this.adminResult(client.ws, cmd, true, {
+          messages: stats.messages,
+          privateMessages: stats.privateMessages,
+          accounts: stats.accounts,
+          emptyRooms: emptyRooms.map((r) => r.name),
+        })
+        break
+      }
+
+      case 'cleanup_apply': {
+        if (!this.storage) {
+          this.adminResult(client.ws, cmd, false, undefined, 'Storage unavailable')
+          break
+        }
+        const days = Math.max(1, Math.min(365, Number(payload.days) || 30))
+        const removeEmptyRooms = payload.emptyRooms === true
+        const del = this.storage.deleteMessagesOlderThan(days)
+        let roomsRemoved = 0
+        if (removeEmptyRooms) {
+          for (const r of this.rooms.getAll()) {
+            if (!r.fixed && r.clients.size === 0 && this.rooms.delete(r.id)) roomsRemoved++
+          }
+        }
+        this.adminLogAdd(client.name, 'cleanup', `${del.roomMessages} msgs sala, ${del.privateMessages} msgs privadas, ${roomsRemoved} salas vazias`)
+        this.adminResult(client.ws, cmd, true, { ...del, roomsRemoved })
+        break
+      }
+
+      case 'log':
+        this.adminResult(client.ws, cmd, true, this.adminLog)
+        break
+
+      case 'radio': {
+        const action = String(payload.action ?? '')
+        if (action !== 'pause' && action !== 'play') {
+          this.adminResult(client.ws, cmd, false, undefined, 'Ação inválida')
+          break
+        }
+        // Avisa todos os clientes que estão na sala emissora.
+        const radioRoom = this.rooms.findByName(RADIO_ROOM_NAME)
+        const targets = radioRoom ? Array.from(radioRoom.clients.values()) : this.clients.getAll()
+        targets.forEach((c) => this.send(c.ws, { type: WsMessageType.RadioControl, payload: { action } }))
+        this.adminLogAdd(client.name, 'radio', action)
+        this.adminResult(client.ws, cmd, true)
+        break
+      }
+
+      default:
+        this.adminResult(client.ws, cmd, false, undefined, 'Comando desconhecido')
+    }
+  }
+
+  private getLimitsSnapshot(): Record<string, number> {
+    return {
+      maxUsers: this.clients.getMaxUsers(),
+      maxRooms: this.rooms.getMaxRooms(),
+      maxNameLength: this.limits.maxNameLength,
+      maxPasswordLength: this.limits.maxPasswordLength,
+      maxRoomNameLength: this.limits.maxRoomNameLength,
+      maxTextLength: this.limits.maxTextLength,
+      maxAudioMessageBytes: this.limits.maxAudioMessageBytes,
+      maxVideoMessageBytes: this.limits.maxVideoMessageBytes,
+      maxImageMessageBytes: this.limits.maxImageMessageBytes,
+      maxLiveChunkBytes: this.limits.maxLiveChunkBytes,
+      maxVoiceFrameBytes: this.limits.maxVoiceFrameBytes,
+      maxAvatarBytes: this.limits.maxAvatarBytes,
+    }
+  }
+
+  private kickClient(target: Client, message: string): void {
+    try {
+      this.send(target.ws, { type: WsMessageType.Error, payload: message })
+      target.ws.close()
+    } catch { /* ignore */ }
+    // Remove da sessão, se estiver em uma sala.
+    if (target.room) this.rooms.leave(target.room, target)
+    this.clients.remove(target.id)
+    this.broadcast({ type: WsMessageType.UserList, payload: this.clients.getAll().map((c) => this.toUserPayload(c)) })
+    this.broadcast({ type: WsMessageType.RoomList, payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)) })
+  }
+
   private handleChatMessage(client: Client, payload: { text: string; id?: string }): void {
     if (!client.room || !payload.text?.trim()) return
+    if (client.restrictions?.chat) return
     if (payload.text.length > this.limits.maxTextLength) {
       logger.warn('WsHandler', `Chat message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
       return
@@ -501,6 +961,7 @@ export class WsHandler {
 
   private handleChatAudioMessage(client: Client, payload: { id?: string; audioData: string; duration: number }): void {
     if (!client.room || !payload.audioData) return
+    if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
       logger.warn('WsHandler', `Audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
       return
@@ -530,6 +991,7 @@ export class WsHandler {
 
   private handleChatVideoMessage(client: Client, payload: { id?: string; videoData: string; duration: number }): void {
     if (!client.room || !payload.videoData) return
+    if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
       logger.warn('WsHandler', `Video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
       return
@@ -557,6 +1019,7 @@ export class WsHandler {
 
   private handleChatImageMessage(client: Client, payload: { id?: string; imageData: string }): void {
     if (!client.room || !payload.imageData) return
+    if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.imageData, this.limits.maxImageMessageBytes)) {
       logger.warn('WsHandler', `Image message from ${client.id} exceeds ${this.limits.maxImageMessageBytes} bytes, dropped`)
       return
@@ -654,6 +1117,8 @@ export class WsHandler {
   private handleBinaryMessage(client: Client, data: Buffer): void {
     const roomId = client.room
     if (!roomId || data.length < 1) return
+    // Mic silenciado pelo admin: descarta os frames de voz.
+    if (client.restrictions?.mic) return
     if (data.length > this.limits.maxVoiceFrameBytes) {
       logger.warn('WsHandler', `Voice frame from ${client.id} exceeds ${this.limits.maxVoiceFrameBytes} bytes, dropped`)
       return
@@ -680,6 +1145,7 @@ export class WsHandler {
 
   private handlePrivateMessage(client: Client, payload: { toUserId: string; text: string; id?: string }): void {
     if (!payload.toUserId || !payload.text?.trim()) return
+    if (client.restrictions?.chat) return
     if (payload.text.length > this.limits.maxTextLength) {
       logger.warn('WsHandler', `Private message from ${client.id} exceeds ${this.limits.maxTextLength} chars, dropped`)
       return
@@ -709,6 +1175,7 @@ export class WsHandler {
 
   private handlePrivateAudioMessage(client: Client, payload: { toUserId: string; id?: string; audioData: string; duration: number }): void {
     if (!payload.toUserId || !payload.audioData) return
+    if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
       logger.warn('WsHandler', `Private audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
       return
@@ -739,6 +1206,7 @@ export class WsHandler {
 
   private handlePrivateVideoMessage(client: Client, payload: { toUserId: string; id?: string; videoData: string; duration: number }): void {
     if (!payload.toUserId || !payload.videoData) return
+    if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
       logger.warn('WsHandler', `Private video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
       return
@@ -769,6 +1237,7 @@ export class WsHandler {
 
   private handlePrivateImageMessage(client: Client, payload: { toUserId: string; id?: string; imageData: string }): void {
     if (!payload.toUserId || !payload.imageData) return
+    if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.imageData, this.limits.maxImageMessageBytes)) {
       logger.warn('WsHandler', `Private image message from ${client.id} exceeds ${this.limits.maxImageMessageBytes} bytes, dropped`)
       return

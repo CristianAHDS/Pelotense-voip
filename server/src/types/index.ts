@@ -12,6 +12,8 @@ export interface Client {
   avatar?: string
   email?: string
   tags?: string[]
+  // Restrições aplicadas pelo admin (runtime): mic/chat silenciados.
+  restrictions?: { mic?: boolean; chat?: boolean }
   ws: WsWebSocket
 }
 
@@ -128,6 +130,15 @@ export enum WsMessageType {
   PrivateHistory = 'private_history',
   UpdateProfile = 'update_profile',
   ProfileUpdated = 'profile_updated',
+  // Canal genérico de comandos do admin (dashboard/sistema).
+  AdminCmd = 'admin_cmd',
+  AdminResult = 'admin_result',
+  AdminLog = 'admin_log',
+  RadioControl = 'radio_control',
+  GlobalAnnouncement = 'global_announcement',
+  MaintenanceState = 'maintenance_state',
+  GuestState = 'guest_state',
+  OnboardingComplete = 'onboarding_complete',
 }
 
 export interface WsMessage {

@@ -1,3 +1,5 @@
+import { attachMediaElement, reportExternal, markActive } from '../audio/audioMeter.ts'
+
 export const RADIO_STREAM_URL = 'https://servidor38-5.brlogic.com:7094/live'
 
 export type RadioState = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
@@ -63,6 +65,10 @@ class CodecRadioPlayer implements RadioPlayer {
   private failed = false
   private _state: RadioState = 'idle'
   private stateCbs: Set<(s: RadioState) => void> = new Set()
+  // VU do RX: mede o nível da rádio para o medidor reagir.
+  private analyser: AnalyserNode | null = null
+  private levelData: Uint8Array<ArrayBuffer> | null = null
+  private meterRaf = 0
 
   play = async (): Promise<void> => {
     this.wantPlaying = true
@@ -86,12 +92,14 @@ class CodecRadioPlayer implements RadioPlayer {
 
   pause = (): void => {
     this.wantPlaying = false
+    this.stopMeter()
     this.stopStream()
     this.setState('paused')
   }
 
   stop = (): void => {
     this.wantPlaying = false
+    this.stopMeter()
     this.stopStream()
     if (this.ctx) {
       this.ctx.close().catch(() => {})
@@ -249,10 +257,43 @@ class CodecRadioPlayer implements RadioPlayer {
     }
     const node = ctx.createBufferSource()
     node.buffer = buffer
-    node.connect(ctx.destination)
+    // Roteia pelo analyser para o VU reagir ao som da rádio.
+    if (!this.analyser) {
+      this.analyser = ctx.createAnalyser()
+      this.analyser.fftSize = 512
+      this.analyser.smoothingTimeConstant = 0.6
+      this.analyser.connect(ctx.destination)
+      this.levelData = new Uint8Array(this.analyser.frequencyBinCount)
+    }
+    node.connect(this.analyser)
     node.start(this.scheduledUntil)
     this.scheduledUntil += buffer.duration
     if (this._state !== 'playing') this.setState('playing')
+    this.startMeter()
+  }
+
+  private startMeter(): void {
+    if (this.meterRaf) return
+    const loop = () => {
+      if (!this.wantPlaying || !this.analyser || !this.levelData) {
+        this.stopMeter()
+        return
+      }
+      this.analyser.getByteFrequencyData(this.levelData)
+      let sum = 0
+      for (let i = 0; i < this.levelData.length; i++) sum += this.levelData[i]
+      reportExternal('radio-codec', Math.min(1, (sum / this.levelData.length / 255) * 1.8))
+      this.meterRaf = requestAnimationFrame(loop)
+    }
+    this.meterRaf = requestAnimationFrame(loop)
+  }
+
+  private stopMeter(): void {
+    if (this.meterRaf) {
+      cancelAnimationFrame(this.meterRaf)
+      this.meterRaf = 0
+    }
+    markActive('radio-codec', false)
   }
 
   private stopStream(): void {
@@ -287,6 +328,7 @@ class AudioElementRadioPlayer implements RadioPlayer {
     const audio = document.createElement('audio')
     audio.preload = 'none'
     audio.src = RADIO_STREAM_URL
+    attachMediaElement(audio, 'radio-element')
     audio.addEventListener('playing', () => this.setState('playing'))
     audio.addEventListener('pause', () => this.setState('paused'))
     audio.addEventListener('waiting', () => this.setState('loading'))

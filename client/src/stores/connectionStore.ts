@@ -10,10 +10,13 @@ interface ConnectionStore {
   admin: boolean;
   loginStep: LoginStep;
   loginError: string;
+  maintenance: boolean;
+  maintenanceMessage: string;
   setConnected: (id: string, name: string, admin?: boolean) => void;
   setDisconnected: () => void;
   setReconnecting: (reconnecting: boolean) => void;
   setLoginStep: (step: LoginStep, error?: string) => void;
+  setMaintenance: (enabled: boolean, message?: string) => void;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set) => ({
@@ -24,10 +27,13 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   admin: false,
   loginStep: 'none',
   loginError: '',
+  maintenance: false,
+  maintenanceMessage: '',
   setConnected: (id, name, admin = false) =>
     set({ connected: true, id, name, admin, reconnecting: false, loginStep: 'none', loginError: '' }),
   setDisconnected: () =>
-    set({ connected: false, id: null, name: null, admin: false, reconnecting: false, loginStep: 'none', loginError: '' }),
+    set({ connected: false, id: null, name: null, admin: false, reconnecting: false, loginStep: 'none', loginError: '', maintenance: false, maintenanceMessage: '' }),
   setReconnecting: (reconnecting) => set({ reconnecting }),
   setLoginStep: (step, error = '') => set({ loginStep: step, loginError: error }),
+  setMaintenance: (enabled, message = '') => set({ maintenance: enabled, maintenanceMessage: message }),
 }));

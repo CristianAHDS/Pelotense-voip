@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { tStatic } from '../i18n/index.ts'
 import { downloadAudioAsWav, audioMessageFilename } from '../utils/download.ts'
+import { attachMediaElement } from '../audio/audioMeter.ts'
 
 const RATES = [0.5, 1, 1.5, 2]
 
@@ -16,6 +17,7 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -58,6 +60,12 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = rate
   }, [rate])
+
+  // Roteia o elemento pelo medidor de nível (VU reage ao reproduzir a mídia).
+  useEffect(() => {
+    if (audioRef.current) attachMediaElement(audioRef.current, 'media-audio')
+    if (videoRef.current) attachMediaElement(videoRef.current, 'media-video')
+  }, [audioUrl, videoUrl])
 
   function togglePlay() {
     if (!audioRef.current) return
@@ -122,6 +130,7 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
       <div className="chat-bubble-video">
         {videoUrl && (
           <video
+            ref={videoRef}
             src={videoUrl}
             controls
             className="chat-video-player"

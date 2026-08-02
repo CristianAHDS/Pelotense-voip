@@ -82,6 +82,76 @@ export enum WsMessageType {
   PrivateHistory = 'private_history',
   UpdateProfile = 'update_profile',
   ProfileUpdated = 'profile_updated',
+  AdminCmd = 'admin_cmd',
+  AdminResult = 'admin_result',
+  AdminLog = 'admin_log',
+  RadioControl = 'radio_control',
+  GlobalAnnouncement = 'global_announcement',
+  MaintenanceState = 'maintenance_state',
+  GuestState = 'guest_state',
+  OnboardingComplete = 'onboarding_complete',
+}
+
+export interface AdminMetrics {
+  usersOnline: number
+  maxUsers: number
+  rooms: number
+  maxRooms: number
+  liveCount: number
+  accounts: number
+  devices: number
+  messages: number
+  privateMessages: number
+  messagesToday: number
+  privateToday: number
+  uptimeSeconds: number
+  memoryMB: number
+  heapMB: number
+  maintenance: boolean
+}
+
+export interface AdminRoomInfo {
+  id: string
+  name: string
+  fixed: boolean
+  featured?: number
+  users: number
+  messages: number
+  occupants: string[]
+  live?: { userId: string; userName: string } | null
+  createdByName?: string
+}
+
+export interface AdminBan {
+  name?: string
+  email?: string
+  reason?: string
+  date: number
+}
+
+export interface AdminLogEntry {
+  at: number
+  by: string
+  action: string
+  detail?: string
+}
+
+export interface AdminDiagnostics {
+  uptimeSeconds: number
+  memoryMB: number
+  heapMB: number
+  clients: number
+  rooms: number
+  liveCount: number
+  pendingConnections: number
+  maintenance: boolean
+}
+
+export interface AdminResult {
+  cmd: string
+  ok: boolean
+  data?: unknown
+  error?: string
 }
 
 export interface WsMessage {
@@ -95,6 +165,7 @@ export interface LoginPayload {
   password: string
   avatar?: string
   intent?: 'login' | 'register'
+  deviceId?: string
 }
 
 export interface WelcomePayload {
@@ -105,6 +176,9 @@ export interface WelcomePayload {
   avatar?: string
   email?: string
   tags?: string[]
+  maintenance?: boolean
+  maintenanceMessage?: string
+  onboarding?: boolean
 }
 
 export interface ChatMsg {
