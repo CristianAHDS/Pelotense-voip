@@ -113,9 +113,9 @@ function startNgrokTunnel(): void {
     return
   }
   try {
-    const args = ['http', String(config.wssPort)]
+    const args = ['http', String(config.serverPort)]
     if (process.env.NGROK_DOMAIN) args.push('--domain', process.env.NGROK_DOMAIN)
-    logger.info('Ngrok', `Iniciando ngrok → porta ${config.wssPort}...`)
+    logger.info('Ngrok', `Iniciando ngrok → porta ${config.serverPort}...`)
     const bin = resolveBinary('ngrok', [
       'C:\\Program Files (x86)\\ngrok\\ngrok.exe',
       'C:\\Program Files\\ngrok\\ngrok.exe',
@@ -159,13 +159,13 @@ function startCloudflareTunnel(): void {
     return
   }
   try {
-    logger.info('Cloudflare', `Iniciando cloudflared → porta ${config.wssPort}...`)
+    logger.info('Cloudflare', `Iniciando cloudflared → porta ${config.serverPort}...`)
     const bin = resolveBinary('cloudflared', [
       'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
       'C:\\Program Files\\cloudflared\\cloudflared.exe',
       join(process.env.USERPROFILE ?? '', 'scoop', 'shims', 'cloudflared.exe'),
     ])
-    const child = spawn(bin, ['tunnel', '--url', `http://localhost:${config.wssPort}`], {
+    const child = spawn(bin, ['tunnel', '--url', `http://localhost:${config.serverPort}`], {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
@@ -248,6 +248,12 @@ async function main(): Promise<void> {
   const wss = new WebSocketServer({ port: config.wsPort, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WS) on port ${config.wsPort}`)
   new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
+
+  // WebSocket "puro" na mesma porta do app HTTP (3000): é por onde os túneis
+  // (ngrok/cloudflared) fazem o upgrade, já que eles terminam o TLS na borda
+  // e encaminham HTTP/WS simples para cá.
+  const plainWs = new WebSocketServer({ server: httpServer.server, maxPayload: config.maxWsPayload })
+  new WsHandler(plainWs, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
 
   const httpsServer = createHttpsServer({ key: ssl.key, cert: ssl.cert }, serveClientDist)
   const wssServer = new WebSocketServer({ server: httpsServer, maxPayload: config.maxWsPayload })
