@@ -83,27 +83,32 @@ function startNgrokTunnel(): void {
     const args = ['http', String(config.wssPort)]
     if (process.env.NGROK_DOMAIN) args.push('--domain', process.env.NGROK_DOMAIN)
     logger.info('Ngrok', `Iniciando ngrok → porta ${config.wssPort}...`)
-    const child = spawn('ngrok', args, { stdio: 'ignore', detached: true, windowsHide: true })
-    child.unref()
     let tries = 0
-    const timer = setInterval(async () => {
+    let timer: ReturnType<typeof setInterval> | undefined
+    const child = spawn('ngrok', args, { stdio: 'ignore', detached: true, windowsHide: true })
+    child.on('error', (err) => {
+      if (timer) clearInterval(timer)
+      logger.warn('Ngrok', `ngrok não pôde ser iniciado (${(err as Error).message}). Instale com: winget install ngrok.ngrok (ou baixe em https://ngrok.com/download)`)
+    })
+    child.unref()
+    timer = setInterval(async () => {
       tries++
       try {
         const res = await fetch('http://127.0.0.1:4040/api/tunnels')
         const data = await res.json() as { tunnels?: Array<{ public_url?: string }> }
         const url = data.tunnels?.find((t) => t.public_url)?.public_url
         if (url) {
-          clearInterval(timer)
+          clearInterval(timer!)
           logger.info('Ngrok', `PÚBLICO (envie este link): ${url}`)
         } else if (tries > 15) {
-          clearInterval(timer)
+          clearInterval(timer!)
         }
       } catch {
-        if (tries > 15) clearInterval(timer)
+        if (tries > 15) clearInterval(timer!)
       }
     }, 2000)
   } catch (e) {
-    logger.warn('Ngrok', 'Não foi possível iniciar o ngrok (instale o ngrok e rode: ngrok config add-authtoken <token>)')
+    logger.warn('Ngrok', 'Não foi possível iniciar o ngrok. Instale com: winget install ngrok.ngrok')
   }
 }
 
