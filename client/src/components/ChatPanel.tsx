@@ -15,6 +15,7 @@ import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
 import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
+import { isMobileDevice } from '../utils/device.ts'
 import { useT, tStatic } from '../i18n/index.ts'
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -361,10 +362,13 @@ export function ChatPanel() {
     setIsLiveBroadcasting(false)
     setCameraPickerOpen(false)
     sendLiveStop()
-    // Não para a câmera aqui: no mobile (iOS) re-adquirir o getUserMedia logo
-    // após parar é instável (câmera ainda ocupada), então a stream fica quente
-    // para a próxima live. A câmera é liberada ao sair da sala "Ao vivo".
-    // videoRec.cancelRecording()
+    // No mobile (iOS), re-adquirir o getUserMedia logo após parar é instável
+    // (câmera ainda ocupada), então a stream fica quente para a próxima live e é
+    // liberada ao sair da sala "Ao vivo". No desktop o preview de gravação deve
+    // fechar normalmente ao encerrar a live.
+    if (!isMobileDevice()) {
+      videoRec.cancelRecording()
+    }
   }
 
   function handleAcceptTakeover() {
@@ -409,9 +413,11 @@ export function ChatPanel() {
         }
         setIsLiveBroadcasting(false)
         setCameraPickerOpen(false)
-        // Mantém a câmera quente (ver handleStopLiveBroadcast); a stream só é
-        // liberada ao sair da sala "Ao vivo", para a próxima live iniciar na hora.
-        // videoRec.cancelRecording()
+        // No mobile mantém a câmera quente (ver handleStopLiveBroadcast); no
+        // desktop encerra o preview de gravação junto com a live.
+        if (!isMobileDevice()) {
+          videoRec.cancelRecording()
+        }
       }
     }
   }, [broadcaster])
