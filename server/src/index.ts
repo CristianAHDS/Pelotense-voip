@@ -112,6 +112,39 @@ function startNgrokTunnel(): void {
   }
 }
 
+// Expõe o servidor via Cloudflare Tunnel (cloudflared) — URL pública sem aviso
+// de navegador (diferente do ngrok-free). Ative com CLOUDFLARED=true no .env.
+function startCloudflareTunnel(): void {
+  if (process.env.CLOUDFLARED !== 'true') {
+    logger.info('Cloudflare', 'Para expor via cloudflared, defina CLOUDFLARED=true no server/.env')
+    return
+  }
+  try {
+    logger.info('Cloudflare', `Iniciando cloudflared → porta ${config.wssPort}...`)
+    const child = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${config.wssPort}`], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    child.on('error', (err) => {
+      logger.warn('Cloudflare', `cloudflared não pôde ser iniciado (${(err as Error).message}). Instale com: winget install cloudflare.cloudflared`)
+    })
+    let found = false
+    const onData = (buf: Buffer) => {
+      const text = buf.toString()
+      const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)
+      if (m && !found) {
+        found = true
+        logger.info('Cloudflare', `PÚBLICO (envie este link): ${m[0]}`)
+      }
+    }
+    child.stdout?.on('data', onData)
+    child.stderr?.on('data', onData)
+    child.on('exit', () => logger.info('Cloudflare', 'Túnel cloudflared encerrado'))
+  } catch (e) {
+    logger.warn('Cloudflare', 'Não foi possível iniciar o cloudflared. Instale com: winget install cloudflare.cloudflared')
+  }
+}
+
 async function main(): Promise<void> {
   logger.info('Server', 'Starting VoIP server...')
 
@@ -195,6 +228,7 @@ async function main(): Promise<void> {
 
   logAccessUrls()
   startNgrokTunnel()
+  startCloudflareTunnel()
 
   process.on('SIGTERM', () => shutdown())
   process.on('SIGINT', () => shutdown())
