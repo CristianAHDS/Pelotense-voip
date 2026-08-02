@@ -107,8 +107,12 @@ export function MainPage() {
             title={t('youAreIn', { room: currentRoomName })}
           >
             <span className="current-room-indicator-dot" />
-            <span className="current-room-indicator-label">{t('statusIn')}</span>
-            <span className="current-room-indicator-name">{currentRoomName}</span>
+            <span className="current-room-indicator-label">
+              {t('statusIn')}
+            </span>
+            <span className="current-room-indicator-name">
+              {currentRoomName}
+            </span>
           </div>
         )}
         <div
