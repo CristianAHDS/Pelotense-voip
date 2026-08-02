@@ -14,6 +14,8 @@ export class VoiceManager {
   private smoothRxLevel: number = 0;
   private micDeviceId: string | null = null;
   private startPromise: Promise<boolean> | null = null;
+  // Flag de backpressure do encode (evita rajadas de frames).
+  private encoding = false;
 
   constructor() {
     this.microphone = new Microphone();
@@ -72,6 +74,14 @@ export class VoiceManager {
         return;
       }
 
+      // Backpressure: se o encode anterior ainda não terminou, descarta este
+      // chunk em vez de empilhar frames que sairiam em rajada (causa de áudio
+      // "rasgado/embolado" no receptor).
+      if (this.encoding) {
+        return;
+      }
+      this.encoding = true;
+
       let sum = 0;
       for (let i = 0; i < data.length; i++) {
         sum += data[i] * data[i];
@@ -85,6 +95,7 @@ export class VoiceManager {
       store.setLevel(this.smoothLevel);
 
       void this.audioCodec.encode(data).then((frame) => {
+        this.encoding = false;
         this.onSendAudio?.(frame);
       });
     });

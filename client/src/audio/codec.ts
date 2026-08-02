@@ -72,7 +72,7 @@ class OpusCodec {
         this.pendingEncode.clear()
       },
     })
-    this.encoder.configure({ codec: 'opus', sampleRate: this.sampleRate, numberOfChannels: 1, bitrate: 32000 })
+    this.encoder.configure({ codec: 'opus', sampleRate: this.sampleRate, numberOfChannels: 1, bitrate: 64000 })
   }
 
   private ensureDecoder(): void {

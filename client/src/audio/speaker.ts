@@ -14,10 +14,15 @@ export class Speaker {
   // Fontes agendadas, para poder pará-las num flush
   private activeSources = new Set<AudioBufferSourceNode>();
 
+  // Fontes pendentes (ainda não começaram) por falante, para interrompê-las
+  // quando o agendador "zera" — sem isso, o áudio novo toca POR CIMA do antigo
+  // (embolado/rasgado ao entrar na sala ou em rajadas).
+  private pendingByUser = new Map<string, Set<AudioBufferSourceNode>>();
+
   // Teto de quanto áudio pode ficar agendado à frente por falante; acima disso
   // o excesso é descartado para manter a reprodução quase em tempo real
   // (jitter buffer). O corte afeta apenas o falante atrasado, não os demais.
-  private static readonly MAX_LOOKAHEAD_SECONDS = 0.15;
+  private static readonly MAX_LOOKAHEAD_SECONDS = 0.3;
 
   private ensureContext(): AudioContext | null {
     if (!this.context) {
@@ -84,12 +89,15 @@ export class Speaker {
     // fila dele para não acumular latência.
     if (nextPlayTime < now) {
       nextPlayTime = now;
+      this.stopUserSources(userId);
     }
 
     // Excesso de áudio agendado à frente: descarta e ressincroniza (mantém no
-    // máximo ~150ms de buffer), mas apenas para este falante.
+    // máximo ~300ms de buffer), mas apenas para este falante. Antes de
+    // ressincronizar, para as fontes pendentes para não tocar por cima.
     if (nextPlayTime - now > Speaker.MAX_LOOKAHEAD_SECONDS) {
       nextPlayTime = now;
+      this.stopUserSources(userId);
     }
 
     const buffer = ctx.createBuffer(1, audioData.length, 48000);
@@ -99,7 +107,14 @@ export class Speaker {
     source.buffer = buffer;
     source.connect(this.gainNode);
     this.activeSources.add(source);
+    let pending = this.pendingByUser.get(userId);
+    if (!pending) {
+      pending = new Set();
+      this.pendingByUser.set(userId, pending);
+    }
+    pending.add(source);
     source.onended = () => {
+      pending?.delete(source);
       this.activeSources.delete(source);
     };
 
@@ -124,6 +139,7 @@ export class Speaker {
       }
     }
     this.activeSources.clear();
+    this.pendingByUser.clear();
     this.nextPlayTimeByUser.clear();
 
     if (this.gainNode) {
@@ -149,6 +165,23 @@ export class Speaker {
     if (this.gainNode) {
       this.gainNode.gain.value = this.pendingVolume;
     }
+  }
+
+  // Interrompe as fontes ainda não iniciadas de um falante (evita o áudio novo
+  // tocar por cima do pendente — a "embolada").
+  private stopUserSources(userId: string): void {
+    const pending = this.pendingByUser.get(userId);
+    if (!pending) return;
+    for (const source of pending) {
+      try {
+        source.stop();
+      } catch {
+        /* já iniciada/finalizada */
+      }
+      this.activeSources.delete(source);
+    }
+    pending.clear();
+    this.pendingByUser.delete(userId);
   }
 
   destroy(): void {
