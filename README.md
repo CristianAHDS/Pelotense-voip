@@ -26,6 +26,69 @@ O cliente (frontend) está publicado no Netlify:
 
 ---
 
+## Expondo o servidor local (túneis: ngrok / Cloudflare)
+
+Se você quiser rodar o **servidor na sua máquina** e deixar que **outras pessoas acessem pela internet** (sem abrir portas no roteador), use um túnel. O projeto já integra **ngrok** e **Cloudflare Tunnel (`cloudflared`)** automaticamente.
+
+### Como funciona
+
+- O servidor expõe o app (HTML/JS) na porta **3000** e o WebSocket na porta **3001** (WS puro) e **3003** (WSS/TLS).
+- O túnel (ngrok/cloudflared) cria uma URL pública `https://…` e encaminha o tráfego para a sua máquina.
+- O túnel **termina o TLS na borda dele** e repassa HTTP/WebSocket **puro** para o servidor — por isso os túneis apontam para a **porta 3000**, que serve o app **e** tem WebSocket próprio.
+- Ao iniciar, o servidor:
+  1. **Encerra túneis antigos** (evita links obsoletos).
+  2. **Inicia o túnel** (ngrok e/ou cloudflared).
+  3. **Loga a URL pública** (o link muda a cada execução).
+  4. **Atualiza o `config.json` da raiz** automaticamente com o link novo — o app desktop usa esse arquivo.
+
+### Como ativar
+
+1. Instale o túnel que preferir:
+   ```powershell
+   winget install Cloudflare.cloudflared   # Cloudflare (recomendado, sem aviso no navegador)
+   winget install ngrok.ngrok               # ou ngrok
+   ```
+2. No arquivo `server/.env`, configure:
+   ```ini
+   # Cloudflare Tunnel — URL pública sem aviso de navegador
+   CLOUDFLARED=true
+
+   # Ngrok — requer o token da sua conta
+   NGROK_AUTHTOKEN=seu_token_aqui
+   # NGROK_DOMAIN=meu-subdominio.ngrok.io   # (opcional) endereço fixo (pago)
+   ```
+3. Rode o servidor:
+   ```bash
+   npm run server:dev
+   ```
+4. No log, veja o link público:
+   ```
+   [Cloudflare] PÚBLICO (envie este link): https://xxx.trycloudflare.com
+   ```
+
+### Como as pessoas acessam
+
+- **Pelo navegador:** abrem `https://xxx.trycloudflare.com` — o app detecta que veio do túnel e conecta sozinho (sem configurar nada).
+- **Pelo app desktop:** o servidor já gravou o link no `config.json` (ao lado do `Radio-Pelotense.exe`); é só abrir o exe.
+
+### Rodando em OUTRA máquina
+
+1. Instale o **Node.js** (18+) e as dependências:
+   ```bash
+   git clone <repositorio> && cd <pasta>
+   npm install --prefix server
+   ```
+2. Configure o `server/.env` (portas, admin, `CLOUDFLARED=true` e/ou `NGROK_AUTHTOKEN`).
+3. Rode o servidor:
+   ```bash
+   npm run server:dev
+   ```
+4. Compartilhe a URL pública que apareceu no log. O app web/desktop conecta nela.
+
+> **Atenção:** como as URLs dos túneis gratuitos mudam a cada reinício, o `config.json` é atualizado automaticamente pelo servidor — no app desktop basta abrir o exe de novo. Para um endereço **fixo**, use `NGROK_DOMAIN` (ngrok pago) ou um túnel Cloudflare nomeado (com conta).
+
+---
+
 ## Telas
 
 ### Modo claro
@@ -108,11 +171,14 @@ npm run dev
 | `UDP_PORT`              | `3002`            | Porta UDP de voz                             |
 | `MAX_USERS`             | `100`             | Máximo de clientes conectados                |
 | `MAX_ROOMS`             | `20`              | Máximo de salas                              |
-| `MAX_WS_PAYLOAD`        | `8MB`             | Tamanho máximo de payload do WebSocket       |
+| `MAX_WS_PAYLOAD`        | `2GB`             | Tamanho máximo de payload do WebSocket       |
 | `DB_PATH`               | `./data/voip.db`  | Caminho do banco SQLite (persistência)       |
 | `ADMIN_NAMES`           | *(vazio)*          | Nomes de usuários com papel de admin (lista separada por vírgula) |
 | `ADMIN_IDS`             | *(vazio)*          | IDs de usuários com papel de admin (lista separada por vírgula) |
 | `LOG_LEVEL`             | `INFO`            | Nível de log: `DEBUG`/`INFO`/`WARN`/`ERROR`  |
+| `NGROK_AUTHTOKEN`       | *(vazio)*          | Token do ngrok — inicia o túnel ngrok automaticamente |
+| `NGROK_DOMAIN`          | *(vazio)*          | Subdomínio fixo do ngrok (pago)             |
+| `CLOUDFLARED`           | *(vazio)*          | `true` para iniciar o Cloudflare Tunnel automaticamente |
 | `SMTP_HOST`             | *(vazio)*          | Host SMTP para envio de e-mail de confirmação de conta |
 | `SMTP_PORT`             | `587`             | Porta SMTP                                  |
 | `SMTP_SECURE`           | `false`           | Usa TLS/SSL no SMTP (`true`/`false`)        |
