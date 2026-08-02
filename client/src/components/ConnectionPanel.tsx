@@ -8,9 +8,38 @@ import { isTauri } from '../utils/isTauri.ts'
 
 const STORAGE_KEY = 'voip_credentials'
 const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
-const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || '192.168.8.94'
-const DEFAULT_WS_PORT = (import.meta.env.VITE_WS_PORT as string | undefined) || '3001'
-const DEFAULT_WSS_PORT = (import.meta.env.VITE_WSS_PORT as string | undefined) || '3003'
+
+// Quando o app é servido de um host público (ex: ngrok, domínio), o cliente usa
+// automaticamente esse mesmo host/porta (túnel único serve app + WSS). Para
+// local/LAN/desktop mantém o padrão configurado (192.168.8.94:3003).
+function isPrivateHost(host: string): boolean {
+  return host === 'localhost'
+    || host === '127.0.0.1'
+    || host.startsWith('192.168.')
+    || host.startsWith('10.')
+    || host.startsWith('172.')
+    || /^(\d{1,3}\.){3}\d{1,3}$/.test(host)
+}
+
+function resolveDefaults(): { host: string; wsPort: string; wssPort: string } {
+  const envHost = import.meta.env.VITE_SERVER_HOST as string | undefined
+  const envWs = import.meta.env.VITE_WS_PORT as string | undefined
+  const envWss = import.meta.env.VITE_WSS_PORT as string | undefined
+  if (!isTauri() && typeof window !== 'undefined') {
+    const servedHost = window.location.hostname || ''
+    const isPublicServed = servedHost !== '' && !isPrivateHost(servedHost)
+    if (isPublicServed) {
+      return {
+        host: envHost || servedHost,
+        wsPort: envWs || window.location.port || '3001',
+        wssPort: envWss || window.location.port || '443',
+      }
+    }
+  }
+  return { host: envHost || '192.168.8.94', wsPort: envWs || '3001', wssPort: envWss || '3003' }
+}
+
+const DEFAULTS = resolveDefaults()
 
 type AuthMode = 'login' | 'register'
 
@@ -20,16 +49,16 @@ function loadStored() {
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
-        host: parsed.host ?? DEFAULT_HOST,
-        wsPort: parsed.wsPort ?? DEFAULT_WS_PORT,
-        wssPort: parsed.wssPort ?? DEFAULT_WSS_PORT,
+        host: parsed.host ?? DEFAULTS.host,
+        wsPort: parsed.wsPort ?? DEFAULTS.wsPort,
+        wssPort: parsed.wssPort ?? DEFAULTS.wssPort,
         name: parsed.name ?? '',
         email: parsed.email ?? '',
         password: parsed.password ?? '',
       }
     }
   } catch { /* ignore */ }
-  return { host: DEFAULT_HOST, wsPort: DEFAULT_WS_PORT, wssPort: DEFAULT_WSS_PORT, name: '', email: '', password: '' }
+  return { host: DEFAULTS.host, wsPort: DEFAULTS.wsPort, wssPort: DEFAULTS.wssPort, name: '', email: '', password: '' }
 }
 
 function saveStored(host: string, wsPort: string, wssPort: string, name: string, email: string, password: string): void {
@@ -45,9 +74,9 @@ function clearStoredCredentials(): void {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     saveStored(
-      parsed.host ?? DEFAULT_HOST,
-      parsed.wsPort ?? DEFAULT_WS_PORT,
-      parsed.wssPort ?? DEFAULT_WSS_PORT,
+      parsed.host ?? DEFAULTS.host,
+      parsed.wsPort ?? DEFAULTS.wsPort,
+      parsed.wssPort ?? DEFAULTS.wssPort,
       '',
       '',
       '',
@@ -211,11 +240,11 @@ export function ConnectionPanel() {
       : 'disconnected'
 
   function fillDefault() {
-    const v = DEFAULT_HOST
+    const v = DEFAULTS.host
     setHost(v)
-    setWsPort(DEFAULT_WS_PORT)
-    setWssPort(DEFAULT_WSS_PORT)
-    saveStored(v, DEFAULT_WS_PORT, DEFAULT_WSS_PORT, nickname, email, password)
+    setWsPort(DEFAULTS.wsPort)
+    setWssPort(DEFAULTS.wssPort)
+    saveStored(v, DEFAULTS.wsPort, DEFAULTS.wssPort, nickname, email, password)
   }
 
   const authError = localError || loginError
@@ -365,7 +394,7 @@ export function ConnectionPanel() {
                   </div>
                 </div>
                 <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
-                  Preencher padrão ({DEFAULT_HOST})
+                  Preencher padrão ({DEFAULTS.host})
                 </button>
               </details>
 

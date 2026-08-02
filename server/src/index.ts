@@ -2,8 +2,11 @@ import Fastify from 'fastify'
 import fastifyStatic from '@fastify/static'
 import { WebSocketServer } from 'ws'
 import { createServer as createHttpsServer } from 'https'
-import { join, dirname } from 'path'
+import { join, dirname, extname } from 'path'
 import { fileURLToPath } from 'url'
+import { createReadStream, existsSync, statSync } from 'fs'
+import { networkInterfaces } from 'os'
+import { spawn } from 'child_process'
 import { config, securityLimits } from './config/index.js'
 import { logger } from './utils/logger.js'
 import { ClientManager } from './clients/index.js'
@@ -16,6 +19,93 @@ import { SqliteStore } from './storage/index.js'
 import { mkdirSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+const STATIC_MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json',
+  '.txt': 'text/plain; charset=utf-8',
+}
+
+function serveClientDist(req: import('http').IncomingMessage, res: import('http').ServerResponse): void {
+  const clientDist = join(__dirname, '..', '..', 'client', 'dist')
+  let pathname = decodeURIComponent((req.url ?? '/').split('?')[0])
+  if (pathname === '/') pathname = '/index.html'
+  const filePath = join(clientDist, pathname)
+  if (!filePath.startsWith(clientDist)) {
+    res.writeHead(403); res.end('Forbidden'); return
+  }
+  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    // SPA: fallback para o index.html
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+    createReadStream(join(clientDist, 'index.html')).pipe(res)
+    return
+  }
+  res.writeHead(200, { 'Content-Type': STATIC_MIME[extname(filePath)] ?? 'application/octet-stream' })
+  createReadStream(filePath).pipe(res)
+}
+
+function getLocalIPs(): string[] {
+  const nets = networkInterfaces()
+  const ips: string[] = []
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] ?? []) {
+      if (net.family === 'IPv4' && !net.internal) ips.push(net.address)
+    }
+  }
+  return ips
+}
+
+function logAccessUrls(): void {
+  const ips = getLocalIPs()
+  if (ips.length > 0) logger.info('Network', `IPs locais desta máquina: ${ips.join(', ')}`)
+  logger.info('Network', `App (HTTP):  http://localhost:${config.serverPort}  |  App (HTTPS): https://localhost:${config.httpsClientPort}`)
+  if (ips.length > 0) {
+    logger.info('Network', `WSS para outros na rede: ${ips.map((ip) => `wss://${ip}:${config.wssPort}`).join('  |  ')}`)
+  }
+}
+
+// Expõe o servidor via ngrok (URL pública muda a cada execução). Para ativar,
+// defina NGROK_AUTHTOKEN no .env (e opcionalmente NGROK_DOMAIN p/ endereço fixo).
+function startNgrokTunnel(): void {
+  const authtoken = process.env.NGROK_AUTHTOKEN
+  if (!authtoken) {
+    logger.info('Ngrok', 'Para expor via ngrok, configure NGROK_AUTHTOKEN no server/.env')
+    return
+  }
+  try {
+    const args = ['http', String(config.wssPort)]
+    if (process.env.NGROK_DOMAIN) args.push('--domain', process.env.NGROK_DOMAIN)
+    logger.info('Ngrok', `Iniciando ngrok → porta ${config.wssPort}...`)
+    const child = spawn('ngrok', args, { stdio: 'ignore', detached: true, windowsHide: true })
+    child.unref()
+    let tries = 0
+    const timer = setInterval(async () => {
+      tries++
+      try {
+        const res = await fetch('http://127.0.0.1:4040/api/tunnels')
+        const data = await res.json() as { tunnels?: Array<{ public_url?: string }> }
+        const url = data.tunnels?.find((t) => t.public_url)?.public_url
+        if (url) {
+          clearInterval(timer)
+          logger.info('Ngrok', `PÚBLICO (envie este link): ${url}`)
+        } else if (tries > 15) {
+          clearInterval(timer)
+        }
+      } catch {
+        if (tries > 15) clearInterval(timer)
+      }
+    }, 2000)
+  } catch (e) {
+    logger.warn('Ngrok', 'Não foi possível iniciar o ngrok (instale o ngrok e rode: ngrok config add-authtoken <token>)')
+  }
+}
 
 async function main(): Promise<void> {
   logger.info('Server', 'Starting VoIP server...')
@@ -76,10 +166,7 @@ async function main(): Promise<void> {
   logger.info('Server', `WebSocket server (WS) on port ${config.wsPort}`)
   new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
 
-  const httpsServer = createHttpsServer({ key: ssl.key, cert: ssl.cert }, (req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html' })
-    res.end('<!DOCTYPE html><html><body><h1>WSS Server</h1><p>Cert accepted. You can close this tab and connect in the app.</p></body></html>')
-  })
+  const httpsServer = createHttpsServer({ key: ssl.key, cert: ssl.cert }, serveClientDist)
   const wssServer = new WebSocketServer({ server: httpsServer, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WSS) on port ${config.wssPort}`)
   new WsHandler(wssServer, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
@@ -100,6 +187,9 @@ async function main(): Promise<void> {
     logger.error('Server', 'Failed to start HTTPS client server', err)
     process.exit(1)
   }
+
+  logAccessUrls()
+  startNgrokTunnel()
 
   process.on('SIGTERM', () => shutdown())
   process.on('SIGINT', () => shutdown())
