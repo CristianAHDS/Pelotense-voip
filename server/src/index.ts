@@ -62,6 +62,19 @@ function getLocalIPs(): string[] {
   return ips
 }
 
+// Localiza um executável no PATH ou em caminhos padrão de instalação (Windows).
+function resolveBinary(cmd: string, fallbacks: string[]): string {
+  const exe = cmd + (process.platform === 'win32' ? '.exe' : '')
+  const candidates = (process.env.PATH ?? '').split(';').filter(Boolean).map((p) => join(p, exe))
+  candidates.push(...fallbacks)
+  for (const c of candidates) {
+    try {
+      if (existsSync(c)) return c
+    } catch { /* ignore */ }
+  }
+  return cmd
+}
+
 function logAccessUrls(): void {
   const ips = getLocalIPs()
   if (ips.length > 0) logger.info('Network', `IPs locais desta máquina: ${ips.join(', ')}`)
@@ -83,9 +96,14 @@ function startNgrokTunnel(): void {
     const args = ['http', String(config.wssPort)]
     if (process.env.NGROK_DOMAIN) args.push('--domain', process.env.NGROK_DOMAIN)
     logger.info('Ngrok', `Iniciando ngrok → porta ${config.wssPort}...`)
+    const bin = resolveBinary('ngrok', [
+      'C:\\Program Files (x86)\\ngrok\\ngrok.exe',
+      'C:\\Program Files\\ngrok\\ngrok.exe',
+      join(process.env.USERPROFILE ?? '', 'scoop', 'shims', 'ngrok.exe'),
+    ])
     let tries = 0
     let timer: ReturnType<typeof setInterval> | undefined
-    const child = spawn('ngrok', args, { stdio: 'ignore', detached: true, windowsHide: true })
+    const child = spawn(bin, args, { stdio: 'ignore', detached: true, windowsHide: true })
     child.on('error', (err) => {
       if (timer) clearInterval(timer)
       logger.warn('Ngrok', `ngrok não pôde ser iniciado (${(err as Error).message}). Instale com: winget install ngrok.ngrok (ou baixe em https://ngrok.com/download)`)
@@ -121,7 +139,12 @@ function startCloudflareTunnel(): void {
   }
   try {
     logger.info('Cloudflare', `Iniciando cloudflared → porta ${config.wssPort}...`)
-    const child = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${config.wssPort}`], {
+    const bin = resolveBinary('cloudflared', [
+      'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
+      'C:\\Program Files\\cloudflared\\cloudflared.exe',
+      join(process.env.USERPROFILE ?? '', 'scoop', 'shims', 'cloudflared.exe'),
+    ])
+    const child = spawn(bin, ['tunnel', '--url', `http://localhost:${config.wssPort}`], {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
