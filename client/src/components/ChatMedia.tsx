@@ -5,7 +5,7 @@ import { attachMediaElement } from '../audio/audioMeter.ts'
 
 const RATES = [0.5, 1, 1.5, 2]
 
-export function ChatMedia({ audioData, videoData, imageData, duration, userName, timestamp, onLightbox }: {
+export function ChatMedia({ audioData, videoData, imageData, duration, userName, timestamp, onLightbox, mime }: {
   audioData?: string
   videoData?: string
   imageData?: string
@@ -13,6 +13,7 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
   userName: string
   timestamp: number
   onLightbox?: (src: string) => void
+  mime?: string
 }) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
@@ -37,7 +38,7 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
       const url = URL.createObjectURL(
         new Blob(
           [Uint8Array.from(atob(audioData), (c) => c.charCodeAt(0))],
-          { type: 'audio/webm' }
+          { type: mime ?? 'audio/webm' }
         )
       )
       setAudioUrl(url)
@@ -46,7 +47,7 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
       const url = URL.createObjectURL(
         new Blob(
           [Uint8Array.from(atob(videoData), (c) => c.charCodeAt(0))],
-          { type: 'video/webm' }
+          { type: mime ?? 'video/webm' }
         )
       )
       setVideoUrl(url)

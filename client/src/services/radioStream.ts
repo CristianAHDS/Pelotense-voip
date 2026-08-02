@@ -69,6 +69,9 @@ class CodecRadioPlayer implements RadioPlayer {
   private analyser: AnalyserNode | null = null
   private levelData: Uint8Array<ArrayBuffer> | null = null
   private meterRaf = 0
+  // Fontes agendadas: para parar o som IMEDIATAMENTE (sem esperar o ctx fechar)
+  // e evitar dois "players" sobrepostos num stop/start rápido.
+  private activeSources = new Set<AudioBufferSourceNode>()
 
   play = async (): Promise<void> => {
     this.wantPlaying = true
@@ -105,6 +108,10 @@ class CodecRadioPlayer implements RadioPlayer {
       this.ctx.close().catch(() => {})
       this.ctx = null
     }
+    // O analyser pertencia ao contexto fechado; sem reset, o próximo play
+    // conectaria o áudio num nó de um contexto morto (som nunca voltava).
+    this.analyser = null
+    this.levelData = null
     this.setState('idle')
   }
 
@@ -178,7 +185,12 @@ class CodecRadioPlayer implements RadioPlayer {
         if (!this.tryConfigure(hdr)) return
       }
       if (this.failed || !this.decoder) return
-      if (this.decoder.decodeQueueSize > 32) continue
+      if (this.decoder.decodeQueueSize > 64) {
+        // Sobrecarga do decoder: descarta o frame mas mantém a contagem de
+        // timestamps coerente (sem "rolar para trás" na reprodução).
+        this.frameIndex++
+        continue
+      }
       const ts = Math.round((this.frameIndex * 1024 * 1e6) / this.sampleRate)
       this.frameIndex++
       try {
@@ -266,6 +278,8 @@ class CodecRadioPlayer implements RadioPlayer {
       this.levelData = new Uint8Array(this.analyser.frequencyBinCount)
     }
     node.connect(this.analyser)
+    this.activeSources.add(node)
+    node.onended = () => this.activeSources.delete(node)
     node.start(this.scheduledUntil)
     this.scheduledUntil += buffer.duration
     if (this._state !== 'playing') this.setState('playing')
@@ -279,10 +293,14 @@ class CodecRadioPlayer implements RadioPlayer {
         this.stopMeter()
         return
       }
-      this.analyser.getByteFrequencyData(this.levelData)
-      let sum = 0
-      for (let i = 0; i < this.levelData.length; i++) sum += this.levelData[i]
-      reportExternal('radio-codec', Math.min(1, (sum / this.levelData.length / 255) * 1.8))
+      // Só mede com o contexto rodando (aba visível); senão reportaria 0 e
+      // apagaria o VU (alt-tab / aba em segundo plano).
+      if (this.ctx && this.ctx.state === 'running') {
+        this.analyser.getByteFrequencyData(this.levelData)
+        let sum = 0
+        for (let i = 0; i < this.levelData.length; i++) sum += this.levelData[i]
+        reportExternal('radio-codec', Math.min(1, (sum / this.levelData.length / 255) * 1.8))
+      }
       this.meterRaf = requestAnimationFrame(loop)
     }
     this.meterRaf = requestAnimationFrame(loop)
@@ -296,7 +314,31 @@ class CodecRadioPlayer implements RadioPlayer {
     markActive('radio-codec', false)
   }
 
+  // Ao voltar para a aba, retoma o contexto (suspenso em segundo plano) para
+  // o áudio e o medidor voltarem a funcionar.
+  private onVisibility = (): void => {
+    if (document.visibilityState === 'visible') {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        void this.ctx.resume()
+      }
+      if (this.wantPlaying && this._state === 'playing') {
+        this.startMeter()
+      }
+    }
+  }
+
+  constructor() {
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.onVisibility)
+    }
+  }
+
   private stopStream(): void {
+    // Para o som na hora (fontes agendadas), sem esperar o contexto fechar.
+    for (const source of this.activeSources) {
+      try { source.stop() } catch { /* já finalizada/não iniciada */ }
+    }
+    this.activeSources.clear()
     if (this.abortCtrl) {
       this.abortCtrl.abort()
       this.abortCtrl = null
@@ -360,6 +402,8 @@ class AudioElementRadioPlayer implements RadioPlayer {
   stop = (): void => {
     this.stopStream()
     this.setState('idle')
+    // Recria o elemento no próximo play (o src foi removido no stopStream).
+    this.audio = null
   }
 
   onStateChange = (cb: (s: RadioState) => void): (() => void) => {

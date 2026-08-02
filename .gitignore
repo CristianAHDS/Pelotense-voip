@@ -5,3 +5,4 @@ dist/
 server/certs/
 server/data/
 e2e/artifacts/
+client/src-tauri/target/

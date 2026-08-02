@@ -23,6 +23,7 @@ export interface StoredPrivateMessage {
   videoData?: string
   imageData?: string
   duration?: number
+  mime?: string
   timestamp: number
 }
 
@@ -105,6 +106,7 @@ export class SqliteStore {
         videoData TEXT,
         imageData TEXT,
         duration INTEGER,
+        mime TEXT,
         timestamp INTEGER NOT NULL,
         forwarded INTEGER NOT NULL DEFAULT 0,
         reactions TEXT
@@ -121,6 +123,7 @@ export class SqliteStore {
         videoData TEXT,
         imageData TEXT,
         duration INTEGER,
+        mime TEXT,
         timestamp INTEGER NOT NULL
       );
       CREATE TABLE IF NOT EXISTS accounts (
@@ -195,6 +198,16 @@ export class SqliteStore {
       }
     }
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_private_pair ON private_messages(fromUserName, toUserName)')
+
+    // Coluna mime para áudio/vídeo de arquivos enviados (formatos variados).
+    const msgCols = this.db.prepare('PRAGMA table_info(messages)').all() as Array<{ name: string }>
+    if (!msgCols.some((c) => c.name === 'mime')) {
+      this.db.exec('ALTER TABLE messages ADD COLUMN mime TEXT')
+    }
+    const pmCols2 = this.db.prepare('PRAGMA table_info(private_messages)').all() as Array<{ name: string }>
+    if (!pmCols2.some((c) => c.name === 'mime')) {
+      this.db.exec('ALTER TABLE private_messages ADD COLUMN mime TEXT')
+    }
   }
 
   close(): void {
@@ -250,14 +263,15 @@ export class SqliteStore {
 
   saveMessage(roomId: string, msg: ChatMessage): void {
     this.db.prepare(`
-      INSERT INTO messages (id, roomId, userId, userName, text, audioData, videoData, imageData, duration, timestamp, forwarded, reactions)
-      VALUES (@id, @roomId, @userId, @userName, @text, @audioData, @videoData, @imageData, @duration, @timestamp, @forwarded, @reactions)
+      INSERT INTO messages (id, roomId, userId, userName, text, audioData, videoData, imageData, duration, mime, timestamp, forwarded, reactions)
+      VALUES (@id, @roomId, @userId, @userName, @text, @audioData, @videoData, @imageData, @duration, @mime, @timestamp, @forwarded, @reactions)
       ON CONFLICT(id) DO UPDATE SET
         text = @text,
         audioData = @audioData,
         videoData = @videoData,
         imageData = @imageData,
         duration = @duration,
+        mime = @mime,
         reactions = @reactions
     `).run({
       id: msg.id ?? '',
@@ -269,6 +283,7 @@ export class SqliteStore {
       videoData: msg.videoData ?? null,
       imageData: msg.imageData ?? null,
       duration: msg.duration ?? null,
+      mime: msg.mime ?? null,
       timestamp: msg.timestamp,
       forwarded: msg.forwarded ? 1 : 0,
       reactions: msg.reactions ? JSON.stringify(msg.reactions) : null,
@@ -289,6 +304,7 @@ export class SqliteStore {
       videoData: string | null
       imageData: string | null
       duration: number | null
+      mime: string | null
       timestamp: number
       forwarded: number
       reactions: string | null
@@ -302,6 +318,7 @@ export class SqliteStore {
       videoData: r.videoData ?? undefined,
       imageData: r.imageData ?? undefined,
       duration: r.duration ?? undefined,
+      mime: r.mime ?? undefined,
       timestamp: r.timestamp,
       forwarded: r.forwarded === 1,
       reactions: r.reactions ? JSON.parse(r.reactions) : undefined,
@@ -310,14 +327,15 @@ export class SqliteStore {
 
   savePrivateMessage(msg: StoredPrivateMessage): void {
     this.db.prepare(`
-      INSERT INTO private_messages (id, fromUserId, fromUserName, toUserId, toUserName, text, audioData, videoData, imageData, duration, timestamp)
-      VALUES (@id, @fromUserId, @fromUserName, @toUserId, @toUserName, @text, @audioData, @videoData, @imageData, @duration, @timestamp)
+      INSERT INTO private_messages (id, fromUserId, fromUserName, toUserId, toUserName, text, audioData, videoData, imageData, duration, mime, timestamp)
+      VALUES (@id, @fromUserId, @fromUserName, @toUserId, @toUserName, @text, @audioData, @videoData, @imageData, @duration, @mime, @timestamp)
       ON CONFLICT(id) DO UPDATE SET
         text = @text,
         audioData = @audioData,
         videoData = @videoData,
         imageData = @imageData,
-        duration = @duration
+        duration = @duration,
+        mime = @mime
     `).run({
       id: msg.id ?? '',
       fromUserId: msg.fromUserId,
@@ -329,6 +347,7 @@ export class SqliteStore {
       videoData: msg.videoData ?? null,
       imageData: msg.imageData ?? null,
       duration: msg.duration ?? null,
+      mime: msg.mime ?? null,
       timestamp: msg.timestamp,
     })
   }
@@ -383,6 +402,7 @@ export class SqliteStore {
       videoData: string | null
       imageData: string | null
       duration: number | null
+      mime: string | null
       timestamp: number
     }>
     return rows.map((r) => ({
@@ -396,6 +416,7 @@ export class SqliteStore {
       videoData: r.videoData ?? undefined,
       imageData: r.imageData ?? undefined,
       duration: r.duration ?? undefined,
+      mime: r.mime ?? undefined,
       timestamp: r.timestamp,
     }))
   }

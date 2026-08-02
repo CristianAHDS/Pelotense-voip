@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App.tsx'
+import { isTauri } from './utils/isTauri.ts'
 
 const root = document.getElementById('root')
 if (root) {
@@ -11,7 +12,8 @@ if (root) {
   )
 }
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+// No desktop (Tauri) não há service worker; só no navegador.
+if (!isTauri() && 'serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
       console.error('Service worker registration failed', err)

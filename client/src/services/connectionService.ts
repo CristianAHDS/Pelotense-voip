@@ -547,15 +547,15 @@ export function generateClientMessageId(): string {
   return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8)
 }
 
-export function sendChatAudioMessage(id: string, audioData: string, duration: number): void {
+export function sendChatAudioMessage(id: string, audioData: string, duration: number, mime?: string): void {
   if (!wsClient) { console.error('sendChatAudioMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.ChatAudioMessage, { id, audioData, duration })
+  wsClient.send(WsMessageType.ChatAudioMessage, { id, audioData, duration, mime: mime || undefined })
   trackSend(id)
 }
 
-export function sendChatVideoMessage(id: string, videoData: string, duration: number): void {
+export function sendChatVideoMessage(id: string, videoData: string, duration: number, mime?: string): void {
   if (!wsClient) { console.error('sendChatVideoMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.ChatVideoMessage, { id, videoData, duration })
+  wsClient.send(WsMessageType.ChatVideoMessage, { id, videoData, duration, mime: mime || undefined })
   trackSend(id)
 }
 
@@ -587,15 +587,15 @@ export function sendPrivateMessage(toUserId: string, text: string, id?: string):
   trackSend(messageId)
 }
 
-export function sendPrivateAudioMessage(toUserId: string, id: string, audioData: string, duration: number): void {
+export function sendPrivateAudioMessage(toUserId: string, id: string, audioData: string, duration: number, mime?: string): void {
   if (!wsClient) { console.error('sendPrivateAudioMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.PrivateAudioMessage, { toUserId, id, audioData, duration })
+  wsClient.send(WsMessageType.PrivateAudioMessage, { toUserId, id, audioData, duration, mime: mime || undefined })
   trackSend(id)
 }
 
-export function sendPrivateVideoMessage(toUserId: string, id: string, videoData: string, duration: number): void {
+export function sendPrivateVideoMessage(toUserId: string, id: string, videoData: string, duration: number, mime?: string): void {
   if (!wsClient) { console.error('sendPrivateVideoMessage: wsClient is null'); return }
-  wsClient.send(WsMessageType.PrivateVideoMessage, { toUserId, id, videoData, duration })
+  wsClient.send(WsMessageType.PrivateVideoMessage, { toUserId, id, videoData, duration, mime: mime || undefined })
   trackSend(id)
 }
 
@@ -613,9 +613,9 @@ export function resendMessage(messageId: string): void {
   if (msg.text) {
     sendChatMessage(msg.text, messageId)
   } else if (msg.audioData) {
-    sendChatAudioMessage(messageId, msg.audioData, msg.duration ?? 0)
+    sendChatAudioMessage(messageId, msg.audioData, msg.duration ?? 0, msg.mime)
   } else if (msg.videoData) {
-    sendChatVideoMessage(messageId, msg.videoData, msg.duration ?? 0)
+    sendChatVideoMessage(messageId, msg.videoData, msg.duration ?? 0, msg.mime)
   } else if (msg.imageData) {
     sendChatImageMessage(messageId, msg.imageData)
   }
@@ -635,9 +635,9 @@ export function resendPrivateMessage(messageId: string): void {
   if (found.text) {
     sendPrivateMessage(toUserId, found.text, messageId)
   } else if (found.audioData) {
-    sendPrivateAudioMessage(toUserId, messageId, found.audioData, found.duration ?? 0)
+    sendPrivateAudioMessage(toUserId, messageId, found.audioData, found.duration ?? 0, found.mime)
   } else if (found.videoData) {
-    sendPrivateVideoMessage(toUserId, messageId, found.videoData, found.duration ?? 0)
+    sendPrivateVideoMessage(toUserId, messageId, found.videoData, found.duration ?? 0, found.mime)
   } else if (found.imageData) {
     sendPrivateImageMessage(toUserId, messageId, found.imageData)
   }

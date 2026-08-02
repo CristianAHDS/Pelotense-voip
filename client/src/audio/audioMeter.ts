@@ -34,7 +34,9 @@ function ensure(): { ctx: AudioContext; analyser: AnalyserNode } | null {
 
 function loop(): void {
   if (!running) return
-  if (analyser && freq && active.size > 0) {
+  // Só alimenta o RX com o contexto rodando: se estiver suspenso (aba em
+  // segundo plano/alt-tab) o analyser devolve 0 e "apaga" o medidor.
+  if (analyser && freq && active.size > 0 && ctx && ctx.state === 'running') {
     analyser.getByteFrequencyData(freq)
     let sum = 0
     for (let i = 0; i < freq.length; i++) sum += freq[i]
@@ -48,6 +50,24 @@ function start(): void {
   if (running) return
   running = true
   raf = requestAnimationFrame(loop)
+}
+
+// Ao voltar para a aba/janela (alt-tab), o AudioContext pode ter ficado
+// suspenso e o medidor "apaga"; retomamos o contexto e o loop.
+function resumeIfNeeded(): void {
+  void ensure()?.ctx.resume()
+  if (active.size > 0 && !running) start()
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') resumeIfNeeded()
+  })
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', resumeIfNeeded)
+  window.addEventListener('pageshow', resumeIfNeeded)
 }
 
 function stop(): void {

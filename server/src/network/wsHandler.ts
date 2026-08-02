@@ -784,24 +784,13 @@ export class WsHandler {
           this.adminResult(client.ws, cmd, false, undefined, 'Texto vazio')
           break
         }
-        // Banner global: aparece na tela de TODOS os conectados, com timer.
+        // Banner global: aparece na tela de TODOS os conectados no momento,
+        // com timer. Não entra no histórico dos chats de sala.
         const id = this.generateMessageId()
         const durationMs = Math.max(3000, Math.min(60000, Number(payload.durationMs) || 15000))
         this.clients.getAll().forEach((c) => {
           this.send(c.ws, { type: WsMessageType.GlobalAnnouncement, payload: { id, text, durationMs } })
         })
-        // Também registra como mensagem do Sistema nas salas (histórico).
-        const sysMsg: ChatMessage = {
-          id,
-          userId: 'system',
-          userName: 'Sistema',
-          text,
-          timestamp: Date.now(),
-        }
-        for (const room of this.rooms.getAll()) {
-          this.rooms.addMessage(room.id, sysMsg)
-          this.broadcastToRoom(room.id, { type: WsMessageType.ChatMessage, payload: sysMsg }, '')
-        }
         this.adminLogAdd(client.name, 'announce', text)
         this.adminResult(client.ws, cmd, true)
         break
@@ -1005,7 +994,7 @@ export class WsHandler {
     }, '')
   }
 
-  private handleChatAudioMessage(client: Client, payload: { id?: string; audioData: string; duration: number }): void {
+  private handleChatAudioMessage(client: Client, payload: { id?: string; audioData: string; duration: number; mime?: string }): void {
     if (!client.room || !payload.audioData) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
@@ -1024,6 +1013,7 @@ export class WsHandler {
       userName: client.name,
       audioData: payload.audioData,
       duration: payload.duration,
+      mime: typeof payload.mime === 'string' ? payload.mime : undefined,
       timestamp: Date.now(),
     }
 
@@ -1035,7 +1025,7 @@ export class WsHandler {
     }, '')
   }
 
-  private handleChatVideoMessage(client: Client, payload: { id?: string; videoData: string; duration: number }): void {
+  private handleChatVideoMessage(client: Client, payload: { id?: string; videoData: string; duration: number; mime?: string }): void {
     if (!client.room || !payload.videoData) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
@@ -1052,6 +1042,7 @@ export class WsHandler {
       userName: client.name,
       videoData: payload.videoData,
       duration: payload.duration,
+      mime: typeof payload.mime === 'string' ? payload.mime : undefined,
       timestamp: Date.now(),
     }
 
@@ -1221,7 +1212,7 @@ export class WsHandler {
     this.send(client.ws, msg)
   }
 
-  private handlePrivateAudioMessage(client: Client, payload: { toUserId: string; id?: string; audioData: string; duration: number }): void {
+  private handlePrivateAudioMessage(client: Client, payload: { toUserId: string; id?: string; audioData: string; duration: number; mime?: string }): void {
     if (!payload.toUserId || !payload.audioData) return
     if (client.isGuest) return
     if (client.restrictions?.chat) return
@@ -1243,6 +1234,7 @@ export class WsHandler {
         toUserName: resolved.name,
         audioData: payload.audioData,
         duration: payload.duration,
+        mime: typeof payload.mime === 'string' ? payload.mime : undefined,
         timestamp: Date.now(),
       },
     }
@@ -1253,7 +1245,7 @@ export class WsHandler {
     this.send(client.ws, msg)
   }
 
-  private handlePrivateVideoMessage(client: Client, payload: { toUserId: string; id?: string; videoData: string; duration: number }): void {
+  private handlePrivateVideoMessage(client: Client, payload: { toUserId: string; id?: string; videoData: string; duration: number; mime?: string }): void {
     if (!payload.toUserId || !payload.videoData) return
     if (client.isGuest) return
     if (client.restrictions?.chat) return
@@ -1275,6 +1267,7 @@ export class WsHandler {
         toUserName: resolved.name,
         videoData: payload.videoData,
         duration: payload.duration,
+        mime: typeof payload.mime === 'string' ? payload.mime : undefined,
         timestamp: Date.now(),
       },
     }

@@ -28,6 +28,7 @@ export interface ChatMessage {
   videoData?: string
   imageData?: string
   duration?: number
+  mime?: string
   timestamp: number
   forwarded?: boolean
   reactions?: MessageReaction[]
@@ -47,6 +48,7 @@ export interface PrivateMessage {
   audioData?: string
   videoData?: string
   duration?: number
+  mime?: string
   timestamp: number
 }
 

@@ -46,3 +46,44 @@ export async function fileToResizedBase64(file: File): Promise<string | null> {
 export function imageBase64ExceedsLimit(base64: string): boolean {
   return base64.length > MAX_IMAGE_BASE64_LENGTH
 }
+
+// ---- Arquivos de áudio/vídeo (upload) ----
+export const MAX_AUDIO_FILE_BYTES = 512 * 1024
+export const MAX_VIDEO_FILE_BYTES = 5 * 1024 * 1024
+
+export function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const comma = result.indexOf(',')
+      resolve(comma >= 0 ? result.slice(comma + 1) : result)
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+// Duração (segundos) de um arquivo de mídia, via elemento <audio>/<video>.
+export function getMediaDuration(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const el = document.createElement(file.type.startsWith('video') ? 'video' : 'audio')
+    el.preload = 'metadata'
+    let settled = false
+    const done = (duration: number) => {
+      if (settled) return
+      settled = true
+      URL.revokeObjectURL(url)
+      resolve(duration)
+    }
+    el.onloadedmetadata = () => done(Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0)
+    el.onerror = () => done(0)
+    el.src = url
+  })
+}
+
+export function fileBase64ExceedsLimit(file: File, base64: string): boolean {
+  if (file.type.startsWith('video')) return file.size > MAX_VIDEO_FILE_BYTES
+  return file.size > MAX_AUDIO_FILE_BYTES || base64.length > Math.ceil((MAX_AUDIO_FILE_BYTES * 4) / 3) + 4
+}

@@ -3034,7 +3034,8 @@ body {
 
 .chat-mic-btn,
 .chat-cam-btn,
-.chat-live-btn {
+.chat-live-btn,
+.chat-file-btn {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-s);
@@ -3050,14 +3051,16 @@ body {
 }
 
 .chat-mic-btn:hover,
-.chat-cam-btn:hover {
+.chat-cam-btn:hover,
+.chat-file-btn:hover {
   color: var(--text);
   background: var(--surface);
 }
 
 .chat-mic-btn:active,
 .chat-cam-btn:active,
-.chat-live-btn:active {
+.chat-live-btn:active,
+.chat-file-btn:active {
   transform: scale(0.92);
 }
 

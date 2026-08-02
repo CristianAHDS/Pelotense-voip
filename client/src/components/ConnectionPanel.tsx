@@ -4,9 +4,10 @@ import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore, clearAccountPrefs } from '../stores/accountStore.ts'
 import { connectToServer } from '../services/connectionService.ts'
 import { useT } from '../i18n/index.ts'
+import { isTauri } from '../utils/isTauri.ts'
 
 const STORAGE_KEY = 'voip_credentials'
-const IS_HTTPS = window.location.protocol === 'https:'
+const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
 const DEFAULT_HOST = (import.meta.env.VITE_SERVER_HOST as string | undefined) || 'pelotense-voip.fly.dev'
 
 type AuthMode = 'login' | 'register'

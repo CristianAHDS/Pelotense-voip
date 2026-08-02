@@ -14,7 +14,7 @@ import { ChatMedia } from './ChatMedia.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
 import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
-import { fileToResizedBase64, imageBase64ExceedsLimit } from '../utils/image.ts'
+import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration, fileBase64ExceedsLimit } from '../utils/image.ts'
 import { useT, tStatic } from '../i18n/index.ts'
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -153,6 +153,7 @@ export function ChatPanel() {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const [forwardMsg, setForwardMsg] = useState<ChatMsg | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const toggleFullscreen = useAccountStore((s) => s.toggleFullscreen)
   const t = useT()
 
@@ -237,6 +238,51 @@ export function ChatPanel() {
       sending: true,
     })
     sendChatImageMessage(id, base64)
+  }
+
+  // Envia um arquivo de áudio ou vídeo (upload) para a sala.
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const isAudio = file.type.startsWith('audio')
+    const isVideo = file.type.startsWith('video')
+    if (!isAudio && !isVideo) {
+      useToastStore.getState().show('error', t('fileInvalid'))
+      return
+    }
+    const base64 = await readFileAsBase64(file)
+    if (!base64 || fileBase64ExceedsLimit(file, base64)) {
+      useToastStore.getState().show('error', t('fileTooLarge'))
+      return
+    }
+    const duration = Math.round(await getMediaDuration(file))
+    const id = generateClientMessageId()
+    if (isAudio) {
+      useRoomStore.getState().addMessage({
+        id,
+        userId: myId ?? '',
+        userName: myName ?? '',
+        audioData: base64,
+        duration,
+        mime: file.type,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendChatAudioMessage(id, base64, duration, file.type)
+    } else {
+      useRoomStore.getState().addMessage({
+        id,
+        userId: myId ?? '',
+        userName: myName ?? '',
+        videoData: base64,
+        duration,
+        mime: file.type,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendChatVideoMessage(id, base64, duration, file.type)
+    }
   }
 
   async function handleBeginRecording() {
@@ -727,6 +773,22 @@ export function ChatPanel() {
                   </svg>
                 </button>
               )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="chat-file-btn"
+                title={t('sendFile')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*,video/*"
+                style={{ display: 'none' }}
+                onChange={handleFileSelected}
+              />
               {!isGuest && (
                 <button
                   onClick={() => imageInputRef.current?.click()}
@@ -830,6 +892,7 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onF
             duration={msg.duration}
             userName={msg.userName}
             timestamp={msg.timestamp}
+            mime={msg.mime}
             onLightbox={onLightbox}
           />
         ) : (

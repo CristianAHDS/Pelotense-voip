@@ -8,7 +8,7 @@ import { sendPrivateMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, s
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { userColor, initials } from '../ui/avatar.ts'
-import { fileToResizedBase64, imageBase64ExceedsLimit } from '../utils/image.ts'
+import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration, fileBase64ExceedsLimit } from '../utils/image.ts'
 import { ChatMedia } from './ChatMedia.tsx'
 import { useT, tStatic } from '../i18n/index.ts'
 
@@ -22,6 +22,7 @@ function DmMediaBubble({ msg }: { msg: PrivateChatMsg }) {
         duration={msg.duration}
         userName={msg.fromUserName}
         timestamp={msg.timestamp}
+        mime={msg.mime}
       />
     )
   }
@@ -44,6 +45,7 @@ export function PrivateChatPanel() {
   const [cameraPickerOpen, setCameraPickerOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const audioRec = useAudioRecorder()
   const videoRec = useVideoRecorder()
@@ -184,6 +186,53 @@ export function PrivateChatPanel() {
       sending: true,
     })
     sendPrivateImageMessage(activeUserId, id, base64)
+  }
+
+  // Envia um arquivo de áudio ou vídeo (upload) no chat privado.
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !activeUserId) return
+    const isAudio = file.type.startsWith('audio')
+    const isVideo = file.type.startsWith('video')
+    if (!isAudio && !isVideo) {
+      useToastStore.getState().show('error', tStatic('fileInvalid'))
+      return
+    }
+    const base64 = await readFileAsBase64(file)
+    if (!base64 || fileBase64ExceedsLimit(file, base64)) {
+      useToastStore.getState().show('error', tStatic('fileTooLarge'))
+      return
+    }
+    const duration = Math.round(await getMediaDuration(file))
+    const id = generateClientMessageId()
+    if (isAudio) {
+      usePrivateChatStore.getState().addMessage({
+        id,
+        fromUserId: myId ?? '',
+        fromUserName: myName ?? '',
+        toUserId: activeUserId,
+        audioData: base64,
+        duration,
+        mime: file.type,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendPrivateAudioMessage(activeUserId, id, base64, duration, file.type)
+    } else {
+      usePrivateChatStore.getState().addMessage({
+        id,
+        fromUserId: myId ?? '',
+        fromUserName: myName ?? '',
+        toUserId: activeUserId,
+        videoData: base64,
+        duration,
+        mime: file.type,
+        timestamp: Date.now(),
+        sending: true,
+      })
+      sendPrivateVideoMessage(activeUserId, id, base64, duration, file.type)
+    }
   }
 
   function handleDelete(messageId: string | undefined) {
@@ -423,6 +472,22 @@ export function PrivateChatPanel() {
                   <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
               </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="chat-file-btn"
+                title={tStatic('sendFile')}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*,video/*"
+                style={{ display: 'none' }}
+                onChange={handleFileSelected}
+              />
               <button
                 onClick={() => imageInputRef.current?.click()}
                 className="chat-img-btn"

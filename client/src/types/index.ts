@@ -192,6 +192,7 @@ export interface ChatMsg {
   videoData?: string
   imageData?: string
   duration?: number
+  mime?: string
   timestamp: number
   forwarded?: boolean
   reactions?: MessageReaction[]
@@ -220,6 +221,7 @@ export interface PrivateChatMsg {
   videoData?: string
   imageData?: string
   duration?: number
+  mime?: string
   timestamp: number
   // apenas no cliente: marca mensagem otimista ainda não confirmada pelo servidor
   sending?: boolean
