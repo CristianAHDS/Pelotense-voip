@@ -11,7 +11,7 @@ import { useT } from '../i18n/index.ts'
 import { RadioBot } from './RadioBot.tsx'
 import { UserInfoPopup, TooltipUser } from './UserInfoPopup.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
-import { isMasterUser, tagColor } from '../ui/admin.ts'
+import { isMasterUser, tagColor, tagLabel } from '../ui/admin.ts'
 
 interface PopoverState {
   user: TooltipUser
@@ -143,26 +143,26 @@ export function UserList() {
               >
                 <Avatar id={user.id} name={user.name} avatar={user.avatar} />
                 <span className="user-name">
-                  {user.name}{isMe ? ' (you)' : ''}
+                  {user.name}{isMe ? t('youSuffix') : ''}
                   {user.admin ? (
-                    <span className={`user-admin-badge ${isMasterUser(user) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(user) ? 'Master Admin' : 'Admin'}>
-                      {isMasterUser(user) ? 'Master' : 'Admin'}
+                    <span className={`user-admin-badge ${isMasterUser(user) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(user) ? t('masterAdmin') : t('adminBadge')}>
+                      {isMasterUser(user) ? t('adminMaster') : t('adminBadge')}
                     </span>
                   ) : user.tags?.[0] ? (
-                    <span className="user-tag" style={{ background: tagColor(user.tags[0]), borderColor: tagColor(user.tags[0]) }}>{user.tags[0]}</span>
+                    <span className="user-tag" style={{ background: tagColor(user.tags[0]), borderColor: tagColor(user.tags[0]) }}>{tagLabel(user.tags[0], t)}</span>
                   ) : null}
                 </span>
-                {isSpeaking && <span className="user-speaking-dot" title="Speaking" />}
+                {isSpeaking && <span className="user-speaking-dot" title={t('speaking')} />}
                 {canStopLive && (
                   <button
                     className="user-stop-live-btn"
-                    title="Stop live broadcast"
+                    title={t('stopLiveTitle')}
                     onClick={(e) => {
                       e.stopPropagation()
                       sendLiveForceStop(user.id)
                     }}
                   >
-                    Stop live
+                    {t('stopLive')}
                   </button>
                 )}
                 {hasUnread && <span className="user-unread-dot" />}
@@ -202,11 +202,11 @@ export function UserList() {
                 <span className="user-name">
                   {acc.name}
                   {acc.admin ? (
-                    <span className={`user-admin-badge ${isMasterUser(acc) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(acc) ? 'Master Admin' : 'Admin'}>
-                      {isMasterUser(acc) ? 'Master' : 'Admin'}
+                    <span className={`user-admin-badge ${isMasterUser(acc) ? 'user-admin-badge--master' : ''}`} title={isMasterUser(acc) ? t('masterAdmin') : t('adminBadge')}>
+                      {isMasterUser(acc) ? t('adminMaster') : t('adminBadge')}
                     </span>
                   ) : acc.tags?.[0] ? (
-                    <span className="user-tag" style={{ background: tagColor(acc.tags[0]), borderColor: tagColor(acc.tags[0]) }}>{acc.tags[0]}</span>
+                    <span className="user-tag" style={{ background: tagColor(acc.tags[0]), borderColor: tagColor(acc.tags[0]) }}>{tagLabel(acc.tags[0], t)}</span>
                   ) : null}
                 </span>
                 {acc.id && <span className="user-offline-dot" title={t('offline')} />}

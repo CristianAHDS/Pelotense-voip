@@ -4,7 +4,7 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { sendRequestLivePreview } from '../services/connectionService.ts'
 import * as liveRtc from '../services/liveRtc.ts'
-import { isMasterUser, tagColor } from '../ui/admin.ts'
+import { isMasterUser, tagColor, tagLabel } from '../ui/admin.ts'
 import { useT } from '../i18n/index.ts'
 
 export interface TooltipUser {
@@ -68,7 +68,7 @@ export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
     >
       {isLive && (
         <div className="live-preview">
-          <span className="live-preview-label">🔴 LIVE</span>
+          <span className="live-preview-label">🔴 {t('liveBadge')}</span>
           <video ref={videoRef} autoPlay playsInline muted className="live-preview-video" />
         </div>
       )}
@@ -85,8 +85,8 @@ export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
         <div className="admin-user-edit-admin-text">
           <span className="admin-user-edit-admin-label">
             {t('userType')}
-            {isMaster && <span className="user-admin-badge user-admin-badge--master">Master</span>}
-            {!isMaster && isAdmin && <span className="user-admin-badge">Admin</span>}
+            {isMaster && <span className="user-admin-badge user-admin-badge--master">{t('adminMaster')}</span>}
+            {!isMaster && isAdmin && <span className="user-admin-badge">{t('adminBadge')}</span>}
           </span>
           <span className="admin-user-edit-admin-hint">
             {isMaster ? t('masterUserHint') : isAdmin ? t('adminRoleActive') : t('adminRoleInactive')}
@@ -99,7 +99,7 @@ export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
         {user.tags && user.tags.length > 0 ? (
           <div className="admin-tag-list">
             {user.tags.map((tag) => (
-              <span key={tag} className="user-tag" style={{ background: tagColor(tag), borderColor: tagColor(tag) }}>{tag}</span>
+              <span key={tag} className="user-tag" style={{ background: tagColor(tag), borderColor: tagColor(tag) }}>{tagLabel(tag, t)}</span>
             ))}
           </div>
         ) : (

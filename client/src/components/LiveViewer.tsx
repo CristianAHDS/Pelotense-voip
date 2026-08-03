@@ -72,7 +72,7 @@ export function LiveViewer() {
       <div className="live-viewer-header">
         <span className="live-viewer-indicator" />
         <span className="live-viewer-name">{broadcaster.userName}</span>
-        <span className="live-viewer-label">LIVE</span>
+        <span className="live-viewer-label">{t('liveBadge')}</span>
         <button
           className="live-viewer-fullscreen-btn"
           onClick={toggleFullscreen}

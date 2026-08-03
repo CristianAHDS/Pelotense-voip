@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { AdminMetrics, AdminRoomInfo, AdminBan, AdminLogEntry, AdminDiagnostics } from '../types/index.ts'
 import { sendAdminCmd } from '../services/connectionService.ts'
 import { useToastStore } from './toastStore.ts'
+import { tStatic } from '../i18n/index.ts'
 
 interface AdminStore {
   metrics: AdminMetrics | null
@@ -60,7 +61,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     delete pending[cmd]
     const base: Partial<AdminStore> = { pending, lastError: ok ? null : (error ?? null) }
     if (!ok) {
-      if (error) useToastStore.getState().show('error', `Admin: ${error}`)
+      if (error) useToastStore.getState().show('error', tStatic('adminErrorToast', { error }))
       set({ ...base, pending })
       return
     }
@@ -97,7 +98,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       case 'restrictions':
       case 'onboarding_reset':
       case 'video_settings':
-        useToastStore.getState().show('success', `Admin: ${cmd} OK`)
+        useToastStore.getState().show('success', tStatic('adminOkToast', { cmd }))
         set({ ...base })
         break
       case 'cleanup':
@@ -105,7 +106,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         break
       case 'cleanup_apply': {
         const d = data as { roomMessages: number; privateMessages: number; roomsRemoved: number }
-        useToastStore.getState().show('success', `Limpeza: ${d.roomMessages} msgs de sala, ${d.privateMessages} privadas, ${d.roomsRemoved} salas`)
+        useToastStore.getState().show('success', tStatic('cleanupToast', { room: d.roomMessages, private: d.privateMessages, rooms: d.roomsRemoved }))
         set({ ...base, cleanup: null })
         get().run('metrics')
         get().run('rooms')

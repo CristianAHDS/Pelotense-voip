@@ -5,7 +5,7 @@ import { useAdminStore } from '../stores/adminStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { requestAccounts, sendAdminUpdateAccount } from '../services/connectionService.ts'
 import { Avatar } from '../ui/Avatar.tsx'
-import { isMasterUser, USER_TAGS, tagColor } from '../ui/admin.ts'
+import { isMasterUser, USER_TAGS, tagColor, tagLabel } from '../ui/admin.ts'
 import { useT, tStatic } from '../i18n/index.ts'
 
 type AdminTab = 'dashboard' | 'users' | 'rooms' | 'system'
@@ -19,18 +19,18 @@ interface EditState {
 }
 
 const LIMIT_LABELS: Record<string, string> = {
-  maxUsers: 'Máx. usuários',
-  maxRooms: 'Máx. salas',
-  maxNameLength: 'Nome (chars)',
-  maxPasswordLength: 'Senha (chars)',
-  maxRoomNameLength: 'Nome de sala (chars)',
-  maxTextLength: 'Texto (chars)',
-  maxAudioMessageBytes: 'Áudio (bytes)',
-  maxVideoMessageBytes: 'Vídeo (bytes)',
-  maxImageMessageBytes: 'Imagem (bytes)',
-  maxLiveChunkBytes: 'Live chunk (bytes)',
-  maxVoiceFrameBytes: 'Frame voz (bytes)',
-  maxAvatarBytes: 'Avatar (bytes)',
+  maxUsers: 'adminMaxUsers',
+  maxRooms: 'adminMaxRooms',
+  maxNameLength: 'adminNameChars',
+  maxPasswordLength: 'adminPasswordChars',
+  maxRoomNameLength: 'adminRoomNameChars',
+  maxTextLength: 'adminTextChars',
+  maxAudioMessageBytes: 'adminAudioBytes',
+  maxVideoMessageBytes: 'adminVideoBytes',
+  maxImageMessageBytes: 'adminImageBytes',
+  maxLiveChunkBytes: 'adminLiveChunkBytes',
+  maxVoiceFrameBytes: 'adminVoiceFrameBytes',
+  maxAvatarBytes: 'adminAvatarBytes',
 }
 
 function fmtDuration(sec: number): string {
@@ -157,12 +157,12 @@ function AdminDashboard() {
           <h4 className="admin-section-title">{t('adminDiagnostics')}</h4>
           <div className="admin-diagnostics-grid">
             <span>{t('adminUptime')}: <strong>{fmtDuration(d.uptimeSeconds)}</strong></span>
-            <span>RSS: <strong>{d.memoryMB} MB</strong></span>
-            <span>Heap: <strong>{d.heapMB} MB</strong></span>
-            <span>Clients: <strong>{d.clients}</strong></span>
-            <span>Rooms: <strong>{d.rooms}</strong></span>
+            <span>{t('diagRss')}: <strong>{d.memoryMB} MB</strong></span>
+            <span>{t('diagHeap')}: <strong>{d.heapMB} MB</strong></span>
+            <span>{t('diagClients')}: <strong>{d.clients}</strong></span>
+            <span>{t('diagRooms')}: <strong>{d.rooms}</strong></span>
             <span>{t('live')}: <strong>{d.liveCount}</strong></span>
-            <span>Pending: <strong>{d.pendingConnections}</strong></span>
+            <span>{t('diagPending')}: <strong>{d.pendingConnections}</strong></span>
           </div>
         </div>
       )}
@@ -197,8 +197,8 @@ function AdminUsers({ onEdit }: { onEdit: (a: EditState['account']) => void }) {
 
   function exportCsv() {
     const rows = [
-      ['nome', 'email', 'tags', 'admin', 'online'].join(','),
-      ...filtered.map((a) => [a.name, a.email ?? '', (a.tags ?? []).join('|'), a.admin ? 'sim' : 'não', a.online ? 'sim' : 'não'].join(',')),
+      [t('csvName'), t('csvEmail'), t('csvTags'), t('csvAdmin'), t('csvOnline')].join(','),
+      ...filtered.map((a) => [a.name, a.email ?? '', (a.tags ?? []).join('|'), a.admin ? t('csvYes') : t('csvNo'), a.online ? t('csvYes') : t('csvNo')].join(',')),
     ]
     const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -221,11 +221,11 @@ function AdminUsers({ onEdit }: { onEdit: (a: EditState['account']) => void }) {
             {a.name}
             {a.admin && (
               <span className={`user-admin-badge ${isMasterUser(a) ? 'user-admin-badge--master' : ''}`}>
-                {isMasterUser(a) ? 'Master' : 'Admin'}
+                {isMasterUser(a) ? t('adminMaster') : t('adminBadge')}
               </span>
             )}
             {a.tags?.map((tag) => (
-              <span key={tag} className="user-tag" style={{ background: tagColor(tag), borderColor: tagColor(tag) }}>{tag}</span>
+              <span key={tag} className="user-tag" style={{ background: tagColor(tag), borderColor: tagColor(tag) }}>{tagLabel(tag, t)}</span>
             ))}
           </span>
           <span
@@ -314,7 +314,7 @@ function AdminUsers({ onEdit }: { onEdit: (a: EditState['account']) => void }) {
       {confirmBan && (
         <ConfirmDialog
           title={t('adminBan')}
-          text={`Banir ${confirmBan.name}?`}
+          text={t('adminBanConfirm', { name: confirmBan.name })}
           onClose={() => setConfirmBan(null)}
           onConfirm={() => {
             store.run('ban', { name: confirmBan.name, email: confirmBan.email, reason: banReason })
@@ -352,9 +352,9 @@ function AdminRooms() {
             <div className="admin-room-info">
               <span className="admin-room-name">
                 {r.name}
-                {r.fixed && <span className="admin-room-fixed">FIXA</span>}
+                {r.fixed && <span className="admin-room-fixed">{t('adminFixed')}</span>}
                 {r.featured !== undefined && <span className="admin-room-featured">★{r.featured}</span>}
-                {r.live && <span className="admin-room-live">LIVE</span>}
+                {r.live && <span className="admin-room-live">{t('liveBadge')}</span>}
               </span>
               <span className="admin-room-meta">
                 <span className="admin-room-stat">
@@ -383,12 +383,12 @@ function AdminRooms() {
               </span>
             </div>
             <div className="admin-room-actions">
-              <button type="button" className="btn btn-sm" onClick={() => setRenaming({ id: r.id, name: r.name })}>Renomear</button>
+              <button type="button" className="btn btn-sm" onClick={() => setRenaming({ id: r.id, name: r.name })}>{t('adminRename')}</button>
               <button type="button" className="btn btn-sm" onClick={() => store.run('room_action', { roomId: r.id, action: 'fixed', value: !r.fixed })}>
-                {r.fixed ? 'Desfixar' : 'Fixar'}
+                {t(r.fixed ? 'adminUnfix' : 'adminFix')}
               </button>
               <label className="admin-room-featured-field">
-                <span className="admin-room-featured-label">Destaque</span>
+                <span className="admin-room-featured-label">{t('adminFeatured')}</span>
                 <select
                   className="input admin-room-featured-select"
                   value={r.featured ?? 0}
@@ -396,17 +396,17 @@ function AdminRooms() {
                     const v = Number(e.target.value)
                     store.run('room_action', { roomId: r.id, action: 'featured', value: v === 0 ? null : v })
                   }}
-                  aria-label={`Destaque de ${r.name}`}
+                  aria-label={t('adminFeaturedOf', { name: r.name })}
                 >
-                  <option value={0}>Sem destaque</option>
-                  <option value={1}>★ 1 (ouro)</option>
-                  <option value={2}>★ 2 (azul)</option>
-                  <option value={3}>★ 3 (vermelho)</option>
+                  <option value={0}>{t('adminFeatureNone')}</option>
+                  <option value={1}>{t('adminFeatureGold')}</option>
+                  <option value={2}>{t('adminFeatureBlue')}</option>
+                  <option value={3}>{t('adminFeatureRed')}</option>
                 </select>
               </label>
-              <button type="button" className="btn btn-sm" onClick={() => store.run('room_action', { roomId: r.id, action: 'clear' })}>Limpar</button>
+              <button type="button" className="btn btn-sm" onClick={() => store.run('room_action', { roomId: r.id, action: 'clear' })}>{t('adminCleanNow')}</button>
               {!r.fixed && (
-                <button type="button" className="btn btn-sm btn-danger" onClick={() => setConfirmDel(r.id)}>Excluir</button>
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => setConfirmDel(r.id)}>{t('delete')}</button>
               )}
             </div>
             {renaming?.id === r.id && (
@@ -571,7 +571,7 @@ function AdminSystem() {
         <div className="admin-limits-grid">
           {limits && Object.keys(limits).map((k) => (
             <label key={k} className="admin-limit-field">
-              <span className="admin-limit-label">{LIMIT_LABELS[k] ?? k}</span>
+              <span className="admin-limit-label">{t(LIMIT_LABELS[k] ?? k)}</span>
               <input
                 type="number"
                 min="1"
@@ -719,7 +719,7 @@ function AdminUserEdit({ account, onBack }: { account: EditState['account']; onB
         <div className="admin-user-edit-admin-text">
           <span className="admin-user-edit-admin-label">
             {t('adminRole')}
-            {isMaster && <span className="user-admin-badge user-admin-badge--master">Master</span>}
+            {isMaster && <span className="user-admin-badge user-admin-badge--master">{t('adminMaster')}</span>}
           </span>
           <span className="admin-user-edit-admin-hint">
             {isMaster ? t('masterUserHint') : isAdmin ? t('adminRoleActive') : t('adminRoleInactive')}
@@ -779,7 +779,7 @@ function AdminUserEdit({ account, onBack }: { account: EditState['account']; onB
                 aria-pressed={selected}
                 style={selected ? { borderColor: tagColor(tag), color: tagColor(tag) } : undefined}
               >
-                {tag}
+                {tagLabel(tag, t)}
               </button>
             )
           })}

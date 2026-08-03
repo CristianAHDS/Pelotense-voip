@@ -32,10 +32,10 @@ export function WelcomePanel() {
                 key={r.id}
                 className={`welcome-chip${r.live ? ' welcome-chip--live' : ''}`}
                 onClick={() => join(r.name)}
-                title={r.live ? `${r.live?.userName ?? ''} está ao vivo` : undefined}
+                title={r.live ? t('isLiveTooltip', { name: r.live?.userName ?? '' }) : undefined}
               >
                 <span className="welcome-chip-name">#{r.name}</span>
-                {r.live && <span className="welcome-chip-live">LIVE</span>}
+                {r.live && <span className="welcome-chip-live">{t('liveBadge')}</span>}
               </button>
             ))}
           </div>

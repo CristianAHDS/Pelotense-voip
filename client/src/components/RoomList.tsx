@@ -121,8 +121,8 @@ export function RoomList() {
                       </span>
                     )}
                     {isLive && (
-                      <span className="room-live-badge" title={`${room.live?.userName ?? ''} is live`}>
-                        LIVE
+                      <span className="room-live-badge" title={t('isLiveTooltip', { name: room.live?.userName ?? '' })}>
+                        {t('liveBadge')}
                       </span>
                     )}
                     {isSpeaking && (

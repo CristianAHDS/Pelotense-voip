@@ -249,7 +249,7 @@ export function PrivateChatPanel() {
     <div className="chat-panel chat-panel--dm">
       <div className="chat-header chat-header--dm">
         <span className="chat-header-name">@{activeUserName}</span>
-        <span className="chat-header-count">{messages.length} messages</span>
+        <span className="chat-header-count">{t('messagesCount', { count: messages.length })}</span>
         <div className="chat-header-actions">
           <button
             className="chat-fullscreen-btn"
@@ -264,7 +264,7 @@ export function PrivateChatPanel() {
               <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
             </svg>
           </button>
-          <button onClick={closeChat} className="btn-close-pchat" title="Close">&times;</button>
+          <button onClick={closeChat} className="btn-close-pchat" title={t('close')}>&times;</button>
         </div>
       </div>
 
@@ -314,7 +314,7 @@ export function PrivateChatPanel() {
                     <button
                       onClick={() => handleDelete(msg.id)}
                       className="chat-bubble-delete-btn"
-                      title="Delete"
+                      title={t('delete')}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="3 6 5 6 21 6" />
@@ -369,7 +369,7 @@ export function PrivateChatPanel() {
                 <button
                   onClick={() => videoRec.enumerateDevices().then(() => setCameraPickerOpen(!cameraPickerOpen))}
                   className="chat-cam-settings-btn"
-                  title="Choose camera"
+                  title={t('chooseCamera')}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3" />
@@ -379,7 +379,7 @@ export function PrivateChatPanel() {
                 <button
                   onClick={handleCancelVideoRecording}
                   className="chat-cancel-btn"
-                  title="Cancel"
+                  title={t('cancel')}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -390,7 +390,7 @@ export function PrivateChatPanel() {
                   <button
                     onClick={handleStopVideoRecording}
                     className="chat-recording-stop-btn"
-                    title="Stop and send"
+                    title={t('stopAndSend')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <rect x="6" y="6" width="12" height="12" rx="2" />
@@ -400,7 +400,7 @@ export function PrivateChatPanel() {
                   <button
                     onClick={handleBeginRecording}
                     className="chat-recording-start-btn"
-                    title="Start recording"
+                    title={t('startRecording')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <circle cx="12" cy="12" r="6" />
@@ -424,7 +424,7 @@ export function PrivateChatPanel() {
               <button
                 onClick={handleCancelAudioRecording}
                 className="chat-cancel-btn"
-                title="Cancel"
+                title={t('cancel')}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -434,7 +434,7 @@ export function PrivateChatPanel() {
               <button
                 onClick={handleStopAudioRecording}
                 className="chat-recording-stop-btn"
-                title="Send"
+                title={t('send')}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
@@ -448,7 +448,7 @@ export function PrivateChatPanel() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={`Message @${activeUserName}`}
+                placeholder={t('dmMessagePlaceholder', { name: activeUserName })}
                 className="chat-input"
               />
               <button

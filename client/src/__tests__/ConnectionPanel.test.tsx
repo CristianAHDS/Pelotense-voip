@@ -34,7 +34,7 @@ afterEach(() => {
 describe('ConnectionPanel desconexão', () => {
   it('mostra botão Disconnect quando conectado', () => {
     renderConnected()
-    expect(screen.getByRole('button', { name: 'Disconnect' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Desconectar' })).toBeInTheDocument()
   })
 
   it('não mostra botão Logout quando conectado', () => {
@@ -44,7 +44,7 @@ describe('ConnectionPanel desconexão', () => {
 
   it('não mostra botão Disconnect quando desconectado', () => {
     renderLoggedOut()
-    expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Desconectar' })).not.toBeInTheDocument()
   })
 
   it('Disconnect desconecta e também faz logout limpando as credenciais', () => {
@@ -56,7 +56,7 @@ describe('ConnectionPanel desconexão', () => {
       password: 'segredo',
     }))
     renderConnected()
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Desconectar' }))
     expect(disconnectFromServer).toHaveBeenCalled()
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!)
     expect(stored.name).toBe('')

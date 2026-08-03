@@ -26,7 +26,7 @@ function typingNames(typing: Record<string, string>, myId: string | null, t: Tra
     .map(([, name]) => name)
   if (names.length === 0) return ''
   if (names.length === 1) return t('typingOne', { name: names[0] })
-  if (names.length === 2) return t('typingTwo', { names: names.join(' e ') })
+  if (names.length === 2) return t('typingTwo', { names: names.join(t('and')) })
   return t('typingMany', { names: names.slice(0, 2).join(', ') })
 }
 
@@ -572,7 +572,7 @@ export function ChatPanel() {
                 <div className="chat-video-preview-left">
                   <span className="chat-recording-indicator">
                     <span className="chat-recording-dot" />
-                    <span>Requesting takeover...</span>
+                    <span>{t('requestingTakeover')}</span>
                   </span>
                 </div>
                 <div className="chat-video-preview-center">
@@ -597,7 +597,7 @@ export function ChatPanel() {
                   <button
                     onClick={() => videoRec.enumerateDevices().then(() => setCameraPickerOpen(!cameraPickerOpen))}
                     className="chat-cam-settings-btn"
-                    title="Choose camera"
+                    title={t('chooseCamera')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="3" />
@@ -607,7 +607,7 @@ export function ChatPanel() {
                   <button
                     onClick={handleCancelVideoRecording}
                     className="chat-cancel-btn"
-                    title="Cancel"
+                    title={t('cancel')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
@@ -646,7 +646,7 @@ export function ChatPanel() {
                   <button
                     onClick={() => videoRec.enumerateDevices().then(() => setCameraPickerOpen(!cameraPickerOpen))}
                     className="chat-cam-settings-btn"
-                    title="Choose camera"
+                    title={t('chooseCamera')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="3" />
@@ -656,7 +656,7 @@ export function ChatPanel() {
                   <button
                     onClick={handleCancelVideoRecording}
                     className="chat-cancel-btn"
-                    title="Cancel"
+                    title={t('cancel')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" />
@@ -667,7 +667,7 @@ export function ChatPanel() {
                     <button
                       onClick={handleStopVideoRecording}
                       className="chat-recording-stop-btn"
-                      title="Stop and send"
+                      title={t('stopAndSend')}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                         <rect x="6" y="6" width="12" height="12" rx="2" />
@@ -677,7 +677,7 @@ export function ChatPanel() {
                     <button
                       onClick={handleBeginRecording}
                       className="chat-recording-start-btn"
-                      title="Start recording"
+                      title={t('startRecording')}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                         <circle cx="12" cy="12" r="6" />
@@ -705,7 +705,7 @@ export function ChatPanel() {
               <div className="chat-video-preview-left">
                 <span className="live-indicator">
                   <span className="live-indicator-dot" />
-                  <span className="live-indicator-label">LIVE</span>
+                  <span className="live-indicator-label">{t('liveBadge')}</span>
                 </span>
               </div>
               <div className="chat-video-preview-center">
@@ -730,7 +730,7 @@ export function ChatPanel() {
                 <button
                   onClick={() => videoRec.enumerateDevices().then(() => setCameraPickerOpen(!cameraPickerOpen))}
                   className="chat-cam-settings-btn"
-                  title="Choose camera"
+                  title={t('chooseCamera')}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="3" />
@@ -740,7 +740,7 @@ export function ChatPanel() {
                 <button
                   onClick={handleStopLiveBroadcast}
                   className="chat-live-stop-btn"
-                  title="Stop broadcast"
+                  title={t('liveStop')}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <rect x="6" y="6" width="12" height="12" rx="2" />
@@ -787,7 +787,7 @@ export function ChatPanel() {
               <button
                 onClick={handleCancelAudioRecording}
                 className="chat-cancel-btn"
-                title="Cancel"
+                title={t('cancel')}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -797,7 +797,7 @@ export function ChatPanel() {
               <button
                 onClick={handleStopAudioRecording}
                 className="chat-recording-stop-btn"
-                title="Send"
+                title={t('send')}
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
@@ -822,7 +822,7 @@ export function ChatPanel() {
                 <button
                   onClick={handleStartAudioRecording}
                   className="chat-mic-btn"
-                  title="Record audio"
+                  title={t('recordAudio')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -836,10 +836,10 @@ export function ChatPanel() {
                 <button
                   onClick={handleStartLiveBroadcast}
                   className={`chat-live-btn ${isLiveBroadcasting ? 'active' : ''} ${takeoverRequested ? 'requesting' : ''}`}
-                  title={isLiveBroadcasting ? 'Broadcasting' : takeoverRequested ? 'Request sent...' : 'Start live broadcast'}
+                  title={isLiveBroadcasting ? t('liveBroadcasting') : takeoverRequested ? t('liveRequestSent') : t('liveStart')}
                 >
                   {takeoverRequested ? (
-                    <span className="chat-live-request-text">Requesting...</span>
+                    <span className="chat-live-request-text">{t('liveRequesting')}</span>
                   ) : (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.94 2C5.12 20 12 20 12 20s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
@@ -851,7 +851,7 @@ export function ChatPanel() {
                 <button
                   onClick={handleOpenCamera}
                   className="chat-cam-btn"
-                  title="Record video"
+                  title={t('recordVideo')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polygon points="23 7 16 12 23 17 23 7" />
@@ -879,7 +879,7 @@ export function ChatPanel() {
                 <button
                   onClick={() => imageInputRef.current?.click()}
                   className="chat-img-btn"
-                  title="Enviar imagem"
+                  title={t('sendImage')}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -1076,7 +1076,7 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onF
                 useToastStore.getState().show('success', tStatic('messageSent'))
               }}
               className="chat-bubble-delete-btn"
-              title="Delete"
+              title={tStatic('delete')}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" />

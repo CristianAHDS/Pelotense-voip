@@ -26,7 +26,7 @@ describe('Toasts', () => {
   it('descarta o toast ao clicar no fechar', () => {
     useToastStore.getState().show('error', 'Erro de conexão')
     render(<Toasts />)
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }))
     expect(screen.queryByText('Erro de conexão')).not.toBeInTheDocument()
   })
 })

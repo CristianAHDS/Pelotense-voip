@@ -1,5 +1,6 @@
 import React from 'react'
 import { useToastStore } from '../stores/toastStore.ts'
+import { tStatic } from '../i18n/index.ts'
 
 export function Toasts() {
   const toasts = useToastStore((s) => s.toasts)
@@ -15,7 +16,7 @@ export function Toasts() {
           <button
             className="toast-close"
             onClick={() => dismiss(t.id)}
-            aria-label="Dismiss"
+            aria-label={tStatic('close')}
           >
             ×
           </button>

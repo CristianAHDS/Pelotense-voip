@@ -238,10 +238,10 @@ export function ConnectionPanel() {
   }
 
   const statusText = reconnecting
-    ? 'Reconnecting...'
+    ? t('statusReconnecting')
     : connected
-      ? `Connected as ${connectedName}`
-      : 'Disconnected'
+      ? t('connectedAs', { name: connectedName ?? '' })
+      : t('statusOffline')
 
   const statusClass = reconnecting
     ? 'reconnecting'
@@ -282,7 +282,7 @@ export function ConnectionPanel() {
           {id && !reconnecting && <div className="client-id">ID: {id}</div>}
           {!connected && (
             <>
-              <div className="auth-tabs" role="tablist" aria-label="Autenticação">
+              <div className="auth-tabs" role="tablist" aria-label={t('authLabel')}>
                 <button
                   role="tab"
                   aria-selected={mode === 'login'}
@@ -384,14 +384,14 @@ export function ConnectionPanel() {
               <details className="server-config">
                 <summary>{t('serverConfig')}</summary>
                 <div className="field">
-                  <label className="field-label" htmlFor="cp-host">Servidor</label>
+                  <label className="field-label" htmlFor="cp-host">{t('serverLabel')}</label>
                   <div className="server-inputs">
                     <input
                       id="cp-host"
                       type="text"
                       value={host}
                       onChange={(e) => { const v = e.target.value; setHost(v); saveStored(v, wsPort, wssPort, nickname, email, password) }}
-                      placeholder="Server IP"
+                      placeholder={t('serverIpPlaceholder')}
                       className="input"
                     />
                     <input
@@ -403,39 +403,39 @@ export function ConnectionPanel() {
                         if (useWss) { setWssPort(v); saveStored(host, wsPort, v, nickname, email, password) }
                         else { setWsPort(v); saveStored(host, v, wssPort, nickname, email, password) }
                       }}
-                      placeholder={useWss ? 'WSS Port' : 'Port'}
+                      placeholder={useWss ? t('wssPortPlaceholder') : t('portPlaceholder')}
                       className="input"
                     />
                   </div>
                 </div>
                 <button type="button" className="btn btn-fill-default" onClick={fillDefault}>
-                  Preencher padrão
+                  {t('fillDefault')}
                 </button>
               </details>
 
               {authError && <div className="form-error" role="alert">{authError}</div>}
               {useWss && !certAccepted && (
                 <div className="wss-hint">
-                  Antes de conectar, acesse <a href={`https://${host}:${wssPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{wssPort}/</a> no navegador e aceite o certificado SSL.
-                  <button className="btn btn-verify-cert" onClick={checkCert}>Verificar</button>
+                  {t('wssHintConnectPre')}<a href={`https://${host}:${wssPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{wssPort}/</a>{t('wssHintConnectPost')}
+                  <button className="btn btn-verify-cert" onClick={checkCert}>{t('verifyCert')}</button>
                 </div>
               )}
               {!useWss && (
                 <div className="wss-hint">
-                  Para usar o microfone, acesse <a href={`https://${host}:${httpsClientPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{httpsClientPort}/</a> e aceite o certificado SSL.
-                  <button className="btn btn-verify-cert" onClick={checkHttpsClient}>Verificar</button>
+                  {t('wssHintMicPre')}<a href={`https://${host}:${httpsClientPort}/`} target="_blank" rel="noopener noreferrer">https://{host}:{httpsClientPort}/</a>{t('wssHintMicPost')}
+                  <button className="btn btn-verify-cert" onClick={checkHttpsClient}>{t('verifyCert')}</button>
                 </div>
               )}
             </>
           )}
           {connected ? (
             <button onClick={handleDisconnect} className="btn btn-disconnect">
-              Disconnect
+              {t('disconnect')}
             </button>
           ) : (
             <>
               <button onClick={handleConnect} disabled={reconnecting} className="btn btn-connect">
-                {reconnecting ? 'Reconnecting...' : mode === 'register' ? t('registerButton') : t('loginButton')}
+                {reconnecting ? t('reconnectingEllipsis') : mode === 'register' ? t('registerButton') : t('loginButton')}
               </button>
               {mode === 'login' && (
                 <button onClick={handleGuest} disabled={reconnecting} className="btn btn-guest" title={t('guestHint')}>

@@ -159,7 +159,7 @@ export function MainPage() {
           onClick={() => openSheet('users')}
           aria-label={t('toggleUsers')}
         >
-          Users {sheetOpen ? '✕' : '▸'}
+          {t('usersTitle')} {sheetOpen ? '✕' : '▸'}
           {unreadCount > 0 && (
             <span className="menu-unread-badge">{unreadCount}</span>
           )}
@@ -193,7 +193,7 @@ export function MainPage() {
             className="sidebar-version"
             title={
               serverVersion
-                ? `UI: ${__APP_VERSION__}\nServidor: v${serverVersion} (build ${serverBuild ?? 0})`
+                ? t('versionTooltip', { ui: __APP_VERSION__, srv: serverVersion, build: serverBuild ?? 0 })
                 : `UI: ${__APP_VERSION__}`
             }
           >

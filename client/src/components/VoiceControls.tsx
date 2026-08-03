@@ -7,6 +7,7 @@ import { useVoiceStore } from '../stores/voiceStore.ts'
 import { getVoiceManager } from '../services/connectionService.ts'
 import type { MicrophoneInfo } from '../audio/index.ts'
 import { isTauri } from '../utils/isTauri.ts'
+import { useT } from '../i18n/index.ts'
 
 interface Props {
   compact?: boolean
@@ -31,6 +32,7 @@ function saveMicDevice(deviceId: string): void {
 }
 
 export function VoiceControls({ compact }: Props) {
+  const t = useT()
   const { muted, volume, level, rxLevel, toggleMute, setVolume } = useVoice()
   const micTest = useMicTest()
   const prevMutedRef = useRef(false)
@@ -105,7 +107,7 @@ export function VoiceControls({ compact }: Props) {
             <span className="voice-bar-vu-label">--%</span>
           </div>
           <div className="voice-bar-volume">
-            <label>Vol</label>
+            <label>{t('vol')}</label>
             <input
               type="range"
               min="0"
@@ -129,21 +131,21 @@ export function VoiceControls({ compact }: Props) {
 
     return (
       <div className="panel voice-controls">
-        <h2>Voice</h2>
+        <h2>{t('voiceTitle')}</h2>
         <div className="voice-controls-row">
           <button disabled className="btn btn-mic muted">
-            Mic indisponível
+            {t('micUnavailable')}
           </button>
         </div>
         <div className="wss-hint" style={{ marginTop: 8 }}>
-          Para ativar o microfone, acesse{' '}
+          {t('micHttpsHintPre')}
           <a href={`https://${HTTPS_HOST}/`} target="_blank" rel="noopener noreferrer">
             https://{HTTPS_HOST}/
           </a>
-          {' '}e aceite o certificado SSL.
+          {t('micHttpsHintPost')}
         </div>
         <div className="vu-meter">
-          <div className="vu-meter-label">Mic</div>
+          <div className="vu-meter-label">{t('micLabel')}</div>
           <div className="vu-meter-track">
             {Array.from({ length: bars }, (_, i) => (
               <div key={i} className="vu-bar" />
@@ -163,21 +165,21 @@ export function VoiceControls({ compact }: Props) {
           disabled={!connected || micDisabled}
           className={`voice-bar-mic ${(muted || micDisabled) ? 'muted' : 'unmuted'}`}
         >
-          {micDisabled ? 'Muted' : muted ? 'Unmute' : 'Mute'}
+          {micDisabled ? t('muted') : muted ? t('unmute') : t('mute')}
         </button>
         {micDevices.length > 1 && (
           <select
             className="voice-bar-mic-select"
             value={micDevice}
             onChange={(e) => handleMicChange(e.target.value)}
-            title="Selecionar microfone"
-            aria-label="Selecionar microfone"
+            title={t('selectMicrophone')}
+            aria-label={t('selectMicrophone')}
             disabled={!connected}
           >
-            <option value="">Padrão</option>
+            <option value="">{t('defaultMic')}</option>
             {micDevices.map((d, i) => (
               <option key={d.deviceId} value={d.deviceId}>
-                {d.label || `Microfone ${i + 1}`}
+                {d.label || t('microphoneFallback', { n: i + 1 })}
               </option>
             ))}
           </select>
@@ -206,10 +208,10 @@ export function VoiceControls({ compact }: Props) {
               />
             ))}
           </div>
-          <span className="voice-bar-vu-label voice-bar-vu-label--rx">RX {rxPct}%</span>
+          <span className="voice-bar-vu-label voice-bar-vu-label--rx">{t('rxPct', { n: rxPct })}</span>
         </div>
         <div className="voice-bar-volume">
-          <label>Vol</label>
+          <label>{t('vol')}</label>
           <input
             type="range"
             min="0"
@@ -232,29 +234,29 @@ export function VoiceControls({ compact }: Props) {
           disabled={!connected || micDisabled}
           className={`btn btn-mic ${(muted || micDisabled) ? 'muted' : 'unmuted'}`}
         >
-          {micDisabled ? 'Muted' : muted ? 'Unmute' : 'Mute'}
+          {micDisabled ? t('muted') : muted ? t('unmute') : t('mute')}
         </button>
       </div>
       {micDevices.length > 1 && (
         <div className="mic-select-wrap">
-          <label className="mic-select-label">Microfone</label>
+          <label className="mic-select-label">{t('microphoneLabel')}</label>
           <select
             className="mic-select"
             value={micDevice}
             onChange={(e) => handleMicChange(e.target.value)}
             disabled={!connected}
           >
-            <option value="">Padrão</option>
+            <option value="">{t('defaultMic')}</option>
             {micDevices.map((d, i) => (
               <option key={d.deviceId} value={d.deviceId}>
-                {d.label || `Microfone ${i + 1}`}
+                {d.label || t('microphoneFallback', { n: i + 1 })}
               </option>
             ))}
           </select>
         </div>
       )}
       <div className="volume-control">
-        <label>Volume: {Math.round(volume * 100)}%</label>
+        <label>{t('volumeLabel', { n: Math.round(volume * 100) })}</label>
         <input
           type="range"
           min="0"
@@ -268,9 +270,9 @@ export function VoiceControls({ compact }: Props) {
         <button
           onClick={handleMicTest}
           className={`btn btn-mic-test ${micTest.testing ? 'testing' : ''}`}
-          title={micTest.testing ? 'Parar teste de microfone' : 'Testar microfone'}
+          title={micTest.testing ? t('stopTestMic') : t('testMic')}
         >
-          {micTest.testing ? '⏹ Parar teste' : '🎤 Testar microfone'}
+          {micTest.testing ? t('micTestStop') : t('micTestStart')}
         </button>
         {micTest.testing && (
           <div className="mic-test-live">
@@ -287,12 +289,12 @@ export function VoiceControls({ compact }: Props) {
               </div>
               <div className="vu-meter-value">{Math.round(micTest.level * 100)}%</div>
             </div>
-            <span className="mic-test-hint">Fale e ouça sua voz no fone (use headphones p/ evitar eco).</span>
+            <span className="mic-test-hint">{t('micTestHint')}</span>
           </div>
         )}
       </div>
       <div className="vu-meter">
-        <div className="vu-meter-label">Mic</div>
+        <div className="vu-meter-label">{t('micLabel')}</div>
         <div className="vu-meter-track">
           {Array.from({ length: bars }, (_, i) => (
             <div
@@ -306,7 +308,7 @@ export function VoiceControls({ compact }: Props) {
         <div className="vu-meter-value">{pct}%</div>
       </div>
       <div className="vu-meter vu-meter--rx">
-        <div className="vu-meter-label">RX</div>
+        <div className="vu-meter-label">{t('rxLabel')}</div>
         <div className="vu-meter-track">
           {Array.from({ length: bars }, (_, i) => (
             <div

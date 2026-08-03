@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import * as liveRtc from '../services/liveRtc.ts'
 import { getUserMediaWithMic } from '../utils/media.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
+import { tStatic } from '../i18n/index.ts'
 
 interface VideoDevice {
   deviceId: string
@@ -119,7 +120,7 @@ export function useVideoRecorder() {
       const all = await navigator.mediaDevices.enumerateDevices()
       const video = all
         .filter((d) => d.kind === 'videoinput')
-        .map((d) => ({ deviceId: d.deviceId, label: d.label || `Camera ${d.deviceId.slice(0, 8)}` }))
+        .map((d) => ({ deviceId: d.deviceId, label: d.label || tStatic('cameraFallback', { id: d.deviceId.slice(0, 8) }) }))
       setDevices(video)
       if (video.length > 0 && !cameraId) {
         setCameraId(video[0].deviceId)

@@ -203,7 +203,7 @@ export function ChatMedia({ audioData, videoData, imageData, duration, userName,
         ref={progressRef}
         className="chat-audio-progress"
         role="slider"
-        aria-label="Linha do tempo do áudio"
+        aria-label={tStatic('audioTimeline')}
         aria-valuemin={0}
         aria-valuemax={Math.round(totalDuration)}
         aria-valuenow={Math.round(currentTime)}

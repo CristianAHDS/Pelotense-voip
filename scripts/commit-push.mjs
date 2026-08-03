@@ -58,9 +58,11 @@ function main() {
   }
 
   // 3) Adiciona tudo, exceto config.json (gerado pelo túnel).
+  // O `git status --porcelain` entre aspas em caminhos com espaços; remove-as
+  // para o `git add "..."` montar a citação correta para o shell.
   const files = execSync('git status --porcelain', { cwd: ROOT, encoding: 'utf8' })
     .split('\n')
-    .map((l) => l.slice(3).trim())
+    .map((l) => l.slice(3).trim().replace(/^"(.*)"$/, '$1'))
     .filter(Boolean)
     .filter((f) => f !== 'config.json')
   if (files.length > 0) {

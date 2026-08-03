@@ -16,6 +16,7 @@ import { radioPlayer } from './radioStream.ts'
 import { notifyNewMessage, requestNotificationPermission } from './notifications.ts'
 import { chatHistory } from './historyStore.ts'
 import * as liveRtc from './liveRtc.ts'
+import { tStatic } from '../i18n/index.ts'
 
 let wsClient: WsClient | null = null
 let reconnecting: boolean = false
@@ -143,10 +144,10 @@ function markRoomUnread(): void {
 
 function messageBody(payload: ChatMsg): string {
   if (payload.text) return payload.text
-  if (payload.audioData) return '🎤 Mensagem de voz'
-  if (payload.videoData) return '🎬 Mensagem de vídeo'
-  if (payload.imageData) return '🖼️ Imagem'
-  return 'Nova mensagem'
+  if (payload.audioData) return tStatic('notifVoiceMsg')
+  if (payload.videoData) return tStatic('notifVideoMsg')
+  if (payload.imageData) return tStatic('notifImageMsg')
+  return tStatic('notifNewMsg')
 }
 
 function onRoomChatMessage(payload: ChatMsg): void {
@@ -159,7 +160,7 @@ function onRoomChatMessage(payload: ChatMsg): void {
   markRoomUnread()
   if (typeof document !== 'undefined' && document.hidden) {
     notifyNewMessage(
-      `#${useRoomStore.getState().currentRoomName ?? 'sala'}`,
+      `#${useRoomStore.getState().currentRoomName ?? tStatic('roomFallback')}`,
       `${payload.userName}: ${messageBody(payload)}`
     )
   }
@@ -454,7 +455,7 @@ function dmKey(payload: PrivateChatMsg): string {
     usePrivateChatStore.getState().addMessage(payload)
     confirmMessage(payload.id)
     persistDm(dmKey(payload))
-    maybeNotifyPrivate(payload, payload.text ?? 'Nova mensagem')
+    maybeNotifyPrivate(payload, payload.text ?? tStatic('notifNewMsg'))
   })
 
   wsClient.on(WsMessageType.PrivateAudioMessage, (msg) => {
@@ -462,7 +463,7 @@ function dmKey(payload: PrivateChatMsg): string {
     usePrivateChatStore.getState().addMessage(payload)
     confirmMessage(payload.id)
     persistDm(dmKey(payload))
-    maybeNotifyPrivate(payload, '🎤 Mensagem de voz')
+    maybeNotifyPrivate(payload, tStatic('notifVoiceMsg'))
   })
 
   wsClient.on(WsMessageType.PrivateVideoMessage, (msg) => {
@@ -470,7 +471,7 @@ function dmKey(payload: PrivateChatMsg): string {
     usePrivateChatStore.getState().addMessage(payload)
     confirmMessage(payload.id)
     persistDm(dmKey(payload))
-    maybeNotifyPrivate(payload, '🎬 Mensagem de vídeo')
+    maybeNotifyPrivate(payload, tStatic('notifVideoMsg'))
   })
 
   wsClient.on(WsMessageType.PrivateImageMessage, (msg) => {
@@ -478,7 +479,7 @@ function dmKey(payload: PrivateChatMsg): string {
     usePrivateChatStore.getState().addMessage(payload)
     confirmMessage(payload.id)
     persistDm(dmKey(payload))
-    maybeNotifyPrivate(payload, '🖼️ Imagem')
+    maybeNotifyPrivate(payload, tStatic('notifImageMsg'))
   })
 
   wsClient.on(WsMessageType.PrivateMessageDeleted, (msg) => {
@@ -512,17 +513,17 @@ function dmKey(payload: PrivateChatMsg): string {
 
   wsClient.on(WsMessageType.Error, (msg) => {
     const raw = msg.payload as unknown
-    let error = 'Unknown error'
+    let error = tStatic('unknownError')
     let notice = false
     if (raw && typeof raw === 'object' && 'code' in raw && 'message' in raw) {
       const obj = raw as { code: string; message: string }
       error = obj.message
       notice = obj.code === 'maintenance' || obj.code === 'banned'
     } else {
-      error = String(raw ?? 'Unknown error')
+      error = String(raw ?? tStatic('unknownError'))
     }
     useConnectionStore.getState().setDisconnected()
-    useToastStore.getState().show(notice ? 'info' : 'error', notice ? error : `Connection error: ${error}`)
+    useToastStore.getState().show(notice ? 'info' : 'error', notice ? error : tStatic('connectionError', { error }))
   })
 
   wsClient.on(WsMessageType.MaintenanceState, (msg) => {
@@ -531,8 +532,8 @@ function dmKey(payload: PrivateChatMsg): string {
     useToastStore.getState().show(
       p.enabled ? 'info' : 'success',
       p.enabled
-        ? p.message || 'Servidor em manutenção — novos acessos bloqueados'
-        : 'Manutenção encerrada — novos acessos liberados'
+        ? p.message || tStatic('maintenanceOnToast')
+        : tStatic('maintenanceOffToast')
     )
   })
 
@@ -541,7 +542,7 @@ function dmKey(payload: PrivateChatMsg): string {
     useConnectionStore.getState().setGuestMode(p.enabled)
     useToastStore.getState().show(
       p.enabled ? 'info' : 'success',
-      p.enabled ? 'Modo convidado ativado — é possível entrar só com o nome' : 'Modo convidado desativado'
+      p.enabled ? tStatic('guestOnToast') : tStatic('guestOffToast')
     )
   })
 
