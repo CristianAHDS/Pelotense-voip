@@ -6,12 +6,13 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useVoiceStore } from '../stores/voiceStore.ts'
 import { getVoiceManager } from '../services/connectionService.ts'
 import type { MicrophoneInfo } from '../audio/index.ts'
+import { isTauri } from '../utils/isTauri.ts'
 
 interface Props {
   compact?: boolean
 }
 
-const IS_HTTPS = window.location.protocol === 'https:'
+const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
 const HTTPS_CLIENT_PORT = 3443
 const HTTPS_HOST = `${window.location.hostname}:${HTTPS_CLIENT_PORT}`
 const MIC_DEVICE_KEY = 'voip_mic_device'
