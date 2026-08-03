@@ -1,12 +1,14 @@
 #!/bin/sh
-# pre-commit: incrementa a versão (build) automaticamente a cada commit e
-# adiciona o version.json ao commit que está sendo criado. Assim o push sempre
-# carrega a versão atualizada. Para funcionar, o repositório usa este diretório
-# como hooksPath:  git config core.hooksPath .githooks
+# pre-commit: incrementa a versão (build) automaticamente a cada commit, a menos
+# que o version.json já tenha sido bumpado e adicionado ao commit manualmente
+# (ex: fluxo de release que roda `npm run version` antes de buildar o exe).
+# Assim, cada push carrega uma versão nova, sem dobro de bump.
 set -e
 
-node scripts/bump-version.mjs
-
-git add version.json client/public/version.json
+# Se o version.json já está staged (bump manual), não bumpa de novo.
+if git diff --cached --quiet -- version.json 2>/dev/null; then
+  node scripts/bump-version.mjs
+  git add version.json client/public/version.json
+fi
 
 exit 0
