@@ -20,7 +20,7 @@ vi.mock('../services/liveRtc.ts', () => ({
 const mockLiveRtc = vi.mocked(liveRtc)
 
 function resetStores(): void {
-  useLiveStore.setState({ broadcaster: null, chunks: [], mime: null, myMime: null, pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
+  useLiveStore.setState({ broadcasters: [], chunks: [], mime: null, myMime: null, pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu' })
 }
 
@@ -42,20 +42,20 @@ describe('LiveViewer', () => {
   })
 
   it('retorna null quando o broadcaster é eu mesmo', () => {
-    useLiveStore.getState().setBroadcaster({ userId: 'me', userName: 'Eu' })
+    useLiveStore.getState().addBroadcaster({ userId: 'me', userName: 'Eu' })
     const { container } = render(<LiveViewer />)
     expect(container.firstChild).toBeNull()
     expect(mockLiveRtc.startViewing).not.toHaveBeenCalled()
   })
 
   it('inicia a visualização WebRTC ao receber live de outro', () => {
-    useLiveStore.getState().setBroadcaster({ userId: 'other', userName: 'Narrador' })
+    useLiveStore.getState().addBroadcaster({ userId: 'other', userName: 'Narrador' })
     render(<LiveViewer />)
     expect(mockLiveRtc.startViewing).toHaveBeenCalledWith('other', expect.any(Function))
   })
 
   it('anexa o stream remoto ao <video> quando chega', () => {
-    useLiveStore.getState().setBroadcaster({ userId: 'other', userName: 'Narrador' })
+    useLiveStore.getState().addBroadcaster({ userId: 'other', userName: 'Narrador' })
     render(<LiveViewer />)
     const onStream = mockLiveRtc.startViewing.mock.calls[0][1]
     const fakeStream = { getTracks: () => [] } as unknown as MediaStream
@@ -66,7 +66,7 @@ describe('LiveViewer', () => {
   })
 
   it('para a visualização ao desmontar', () => {
-    useLiveStore.getState().setBroadcaster({ userId: 'other', userName: 'Narrador' })
+    useLiveStore.getState().addBroadcaster({ userId: 'other', userName: 'Narrador' })
     const { unmount } = render(<LiveViewer />)
     const unsubscribe = mockLiveRtc.startViewing.mock.results[0].value
     expect(unsubscribe).toBeTypeOf('function')

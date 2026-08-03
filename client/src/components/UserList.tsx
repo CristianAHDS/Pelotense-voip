@@ -31,7 +31,7 @@ export function UserList() {
   const activeUserId = usePrivateChatStore((s) => s.activeUserId)
   const unread = usePrivateChatStore((s) => s.unread)
   const speaking = useVoiceStore((s) => s.speaking)
-  const broadcaster = useLiveStore((s) => s.broadcaster)
+  const liveBroadcasters = useLiveStore((s) => s.broadcasters)
   const t = useT()
   const [popover, setPopover] = useState<PopoverState | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -128,7 +128,7 @@ export function UserList() {
             const isActive = user.id === activeUserId
             const hasUnread = !isMe && unread[user.id]
             const isSpeaking = !!speaking[user.id] && Date.now() - speaking[user.id] <= SPEAKING_TIMEOUT_MS
-            const canStopLive = myAdmin && broadcaster?.userId === user.id && !isMe
+            const canStopLive = myAdmin && liveBroadcasters.some((b) => b.userId === user.id) && !isMe
             return (
               <div
                 key={user.id}

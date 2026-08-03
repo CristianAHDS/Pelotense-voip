@@ -1,4 +1,12 @@
-type Signal = { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
+type Signal = {
+  sdp?: RTCSessionDescriptionInit
+  candidate?: RTCIceCandidateInit
+  // 'bc' = sinal do PC de transmissão (minha live para o outro);
+  // 'vw' = sinal do PC de visualização (a live do outro para mim).
+  // Em multilive os pares têm dois PCs simultâneos (bidirecional), então o
+  // rótulo desambiguia offer/answer/ICE de cada conexão.
+  kind?: 'bc' | 'vw'
+}
 type SendFn = (toUserId: string, signal: Signal) => void
 type StreamCb = (stream: MediaStream | null) => void
 
@@ -58,7 +66,7 @@ function makeOfferPc(peerId: string, map: Map<string, RTCPeerConnection>): RTCPe
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream!))
   }
   pc.onicecandidate = (e) => {
-    if (e.candidate) sendSignal(peerId, { candidate: e.candidate.toJSON() })
+    if (e.candidate) sendSignal(peerId, { candidate: e.candidate.toJSON(), kind: 'bc' })
   }
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
@@ -70,7 +78,7 @@ function makeOfferPc(peerId: string, map: Map<string, RTCPeerConnection>): RTCPe
   pc.createOffer()
     .then((offer) => pc.setLocalDescription(offer))
     .then(() => {
-      if (pc.localDescription) sendSignal(peerId, { sdp: pc.localDescription })
+      if (pc.localDescription) sendSignal(peerId, { sdp: pc.localDescription, kind: 'bc' })
     })
     .catch(() => {
       try { pc.close() } catch { /* ignore */ }
@@ -200,7 +208,7 @@ export function startPreviewViewing(broadcasterId: string, onStream: StreamCb): 
 
 function setupViewerPc(pc: RTCPeerConnection, broadcasterId: string): void {
   pc.onicecandidate = (e) => {
-    if (e.candidate) sendSignal(broadcasterId, { candidate: e.candidate.toJSON() })
+    if (e.candidate) sendSignal(broadcasterId, { candidate: e.candidate.toJSON(), kind: 'vw' })
   }
   pc.ontrack = (e) => {
     const s = e.streams[0] ?? new MediaStream([e.track])
@@ -233,7 +241,7 @@ function handleViewerSignal(pc: RTCPeerConnection, broadcasterId: string, signal
         })
         .then((answer) => pc.setLocalDescription(answer))
         .then(() => {
-          if (pc.localDescription) sendSignal(broadcasterId, { sdp: pc.localDescription })
+          if (pc.localDescription) sendSignal(broadcasterId, { sdp: pc.localDescription, kind: 'vw' })
         })
         .catch(() => {})
     }
@@ -295,9 +303,24 @@ export function stopPreviewViewing(broadcasterId?: string): void {
 // ---------------- Sinalização ----------------
 
 export function handleSignal(fromUserId: string, signal: Signal): void {
+  // Sinal rotulado da minha live para o outro ('bc') => PC de transmissão.
+  if (signal.kind === 'vw') {
+    handleBroadcasterSignal(fromUserId, signal)
+    return
+  }
+
+  // Sinal da live do outro para mim ('bc') => PC de visualização.
   const viewerPc = viewerPcs.get(fromUserId) ?? previewViewerPcs.get(fromUserId)
   if (viewerPc) {
     handleViewerSignal(viewerPc, fromUserId, signal)
+    return
+  }
+
+  if (signal.kind === 'bc') {
+    // Ainda não há PC (ex: offer chegou antes do mosaico montar): enfileira.
+    const queue = pendingViewerSignals.get(fromUserId) ?? []
+    queue.push(signal)
+    pendingViewerSignals.set(fromUserId, queue)
     return
   }
 

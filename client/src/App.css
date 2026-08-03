@@ -1423,6 +1423,22 @@ body {
   background: var(--red-strong);
 }
 
+.btn-join,
+.btn-leave,
+.btn-create {
+  width: 84px;
+  text-align: center;
+}
+
+/* Em desktop (navegador/PC), botões um pouco mais largos */
+@media (min-width: 769px) {
+  .btn-join,
+  .btn-leave,
+  .btn-create {
+    width: 96px;
+  }
+}
+
 .btn-join {
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   color: var(--accent-contrast);
@@ -1704,15 +1720,14 @@ body {
   box-shadow: 0 0 8px var(--accent);
 }
 
-/* Animação ao entrar na sala: aumenta o card e dá um brilho */
+/* Animação sutil ao abrir o chat / entrar na sala (compartilhada) */
 .room-item--entering {
-  animation: room-enter 0.7s ease;
+  animation: panel-open 0.4s ease;
 }
 
-@keyframes room-enter {
-  0% { transform: scale(0.94); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-  40% { transform: scale(1.03); box-shadow: 0 0 18px var(--accent-soft); border-color: var(--accent); }
-  100% { transform: scale(1); box-shadow: 0 0 0 1px var(--accent-soft); }
+@keyframes panel-open {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Badge "Você está aqui" no card da sala atual */
@@ -2666,6 +2681,7 @@ body {
   box-shadow: var(--shadow-s);
   overflow: hidden;
   position: relative;
+  animation: panel-open 0.4s ease;
   transition: background var(--transition), border-color var(--transition);
 }
 
@@ -2704,6 +2720,371 @@ body {
 .chat-panel--dm {
   margin-top: 12px;
   border-left: 3px solid var(--accent);
+}
+
+/* ---------------- Multilives: mosaico de câmeras ao vivo ---------------- */
+.chat-panel--multilive {
+  padding: 0;
+}
+
+.multilive {
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+}
+
+.multilive-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+}
+
+.multilive-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.multilive-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.multilive-count--live {
+  color: #e74c3c;
+  border-color: rgba(231, 76, 60, 0.35);
+  background: rgba(231, 76, 60, 0.08);
+}
+
+.multilive-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e74c3c;
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+.multilive-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.multilive-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mosaic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+.mosaic-tile {
+  position: relative;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--border);
+  min-height: 200px;
+  box-shadow: var(--shadow-s);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.mosaic-tile:hover {
+  border-color: var(--border-strong);
+}
+
+.mosaic-tile--self {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-s);
+}
+
+.mosaic-tile-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.mosaic-tile-video:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  object-fit: contain;
+  background: #000;
+}
+
+.mosaic-tile-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: #e74c3c;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.mosaic-tile-name {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  backdrop-filter: blur(2px);
+}
+
+.mosaic-fullscreen-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+  transition: background var(--transition), color var(--transition);
+}
+
+.mosaic-fullscreen-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* Placeholder enquanto o stream não chega */
+.mosaic-tile-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #1a1a1a, #0e0e0e);
+  color: var(--text-3);
+}
+
+.mosaic-tile-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.mosaic-tile-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #e74c3c;
+  animation: mosaic-spin 0.8s linear infinite;
+}
+
+@keyframes mosaic-spin {
+  to { transform: rotate(360deg); }
+}
+
+.mosaic-tile-placeholder-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Barra de controles do tile próprio (trocar câmera / encerrar) */
+.mosaic-tile-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-m);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.mosaic-tile-bar-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Seletor de câmera + encerrar sempre na mesma linha */
+.mosaic-tile-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mosaic-tile-controls .mosaic-cam-select {
+  flex: 1 1 110px;
+  min-width: 0;
+  max-width: 140px;
+  padding: 5px 8px;
+  border-radius: var(--radius-s);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 12px;
+}
+
+.mosaic-tile-controls .mosaic-flip-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-s);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.mosaic-tile-controls .mosaic-flip-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.mosaic-tile-controls .mosaic-stop-btn {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+/* Barra para entrar na transmissão quando já há lives */
+.mosaic-join-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-m);
+  border: 1px dashed var(--border-strong);
+  background: var(--panel-2);
+}
+
+.mosaic-join-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.mosaic-join-bar .btn {
+  flex-shrink: 0;
+}
+
+/* Estado vazio (ninguém transmitindo) */
+.mosaic-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 36px 20px;
+  border-radius: var(--radius-l);
+  border: 1px dashed var(--border-strong);
+  background: var(--panel-2);
+  text-align: center;
+}
+
+.mosaic-empty-icon {
+  font-size: 32px;
+  opacity: 0.75;
+  line-height: 1;
+}
+
+.mosaic-empty-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mosaic-empty-hint {
+  font-size: 13px;
+  color: var(--text-3);
+  max-width: 340px;
+  line-height: 1.5;
+}
+
+.mosaic-cta {
+  margin-top: 6px;
+  min-width: 170px;
+}
+
+@media (max-width: 480px) {
+  .multilive-hint {
+    display: none;
+  }
+
+  .mosaic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mosaic-tile-controls .mosaic-cam-select {
+    max-width: 110px;
+  }
 }
 
 .chat-header--dm {

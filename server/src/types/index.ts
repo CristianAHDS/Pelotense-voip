@@ -61,6 +61,9 @@ export interface Room {
   featured?: number
   createdBy?: string
   createdByName?: string
+  // Sala temporariamente desativada: sai da lista de salas (room_list/admin)
+  // mas permanece criada para ser reativada no futuro.
+  disabled?: boolean
 }
 
 export enum WsMessageType {

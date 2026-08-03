@@ -26,7 +26,7 @@ export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
   const isMaster = isMasterUser(user)
   const isAdmin = !!user.admin || isMaster
   const rooms = useRoomStore((s) => s.rooms)
-  const currentBroadcaster = useLiveStore((s) => s.broadcaster)
+  const currentBroadcaster = useLiveStore((s) => s.broadcasters[0])
   const isLive = !!user.id && rooms.some((r) => r.live?.userId === user.id)
   // Se o usuário já está assistindo a live desta pessoa (mesma sala), não abre
   // uma segunda conexão WebRTC — isso faria o transmissor codificar 2x e travar.

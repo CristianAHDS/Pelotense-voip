@@ -573,7 +573,7 @@ export class WsHandler {
       case 'metrics': {
         const online = this.clients.size()
         const rooms = this.rooms.getAll()
-        const live = rooms.filter((r) => this.rooms.getLiveBroadcast(r.id)).length
+        const live = rooms.reduce((n, r) => n + this.rooms.getLiveCount(r.id), 0)
         const stats = this.storage?.getStats()
         const mem = process.memoryUsage()
         this.adminResult(client.ws, cmd, true, {
@@ -605,7 +605,7 @@ export class WsHandler {
           heapMB: Math.round(mem.heapUsed / 1024 / 1024),
           clients: this.clients.size(),
           rooms: this.rooms.getAll().length,
-          liveCount: this.rooms.getAll().filter((r) => this.rooms.getLiveBroadcast(r.id)).length,
+          liveCount: this.rooms.getAll().reduce((n, r) => n + this.rooms.getLiveCount(r.id), 0),
           pendingConnections: this.pendingClients.size,
           maintenance: this.maintenanceMode,
           guestMode: this.guestMode,
@@ -994,6 +994,7 @@ export class WsHandler {
 
   private handleChatMessage(client: Client, payload: { text: string; id?: string }): void {
     if (!client.room || !payload.text?.trim()) return
+    if (this.rooms.isMultiLiveRoom(client.room)) return
     if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (payload.text.length > this.limits.maxTextLength) {
@@ -1024,6 +1025,7 @@ export class WsHandler {
 
   private handleChatAudioMessage(client: Client, payload: { id?: string; audioData: string; duration: number; mime?: string }): void {
     if (!client.room || !payload.audioData) return
+    if (this.rooms.isMultiLiveRoom(client.room)) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.audioData, this.limits.maxAudioMessageBytes)) {
       logger.warn('WsHandler', `Audio message from ${client.id} exceeds ${this.limits.maxAudioMessageBytes} bytes, dropped`)
@@ -1055,6 +1057,7 @@ export class WsHandler {
 
   private handleChatVideoMessage(client: Client, payload: { id?: string; videoData: string; duration: number; mime?: string }): void {
     if (!client.room || !payload.videoData) return
+    if (this.rooms.isMultiLiveRoom(client.room)) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.videoData, this.limits.maxVideoMessageBytes)) {
       logger.warn('WsHandler', `Video message from ${client.id} exceeds ${this.limits.maxVideoMessageBytes} bytes, dropped`)
@@ -1084,6 +1087,7 @@ export class WsHandler {
 
   private handleChatImageMessage(client: Client, payload: { id?: string; imageData: string }): void {
     if (!client.room || !payload.imageData) return
+    if (this.rooms.isMultiLiveRoom(client.room)) return
     if (client.isGuest) return
     if (client.restrictions?.chat) return
     if (this.base64Exceeds(payload.imageData, this.limits.maxImageMessageBytes)) {
@@ -1158,6 +1162,8 @@ export class WsHandler {
 
     const target = this.rooms.findByName(payload.roomName)
     if (!target) return
+    // Sala multilive não tem chat: não encaminha mensagens para ela.
+    if (this.rooms.isMultiLiveRoom(target.id)) return
 
     const copy: ChatMessage = {
       ...source,
@@ -1580,10 +1586,10 @@ export class WsHandler {
   }
 
   private stopBroadcastForLeaving(client: Client, roomId: string): void {
-    const live = this.rooms.getLiveBroadcast(roomId)
-    if (!live || live.userId !== client.id) return
+    const live = this.rooms.getLiveBroadcasts(roomId).find((l) => l.userId === client.id)
+    if (!live) return
 
-    this.rooms.clearLiveBroadcast(roomId)
+    this.rooms.clearLiveBroadcast(roomId, client.id)
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveStopped,
       payload: { userId: client.id },
@@ -1638,15 +1644,15 @@ export class WsHandler {
       payload: { roomId: room.id, roomName: room.name, messages: room.messages },
     })
 
-    const liveBroadcast = this.rooms.getLiveBroadcast(room.id)
-    if (liveBroadcast) {
+    const liveBroadcasts = this.rooms.getLiveBroadcasts(room.id)
+    for (const live of liveBroadcasts) {
       this.send(client.ws, {
         type: WsMessageType.LiveStarted,
-        payload: { userId: liveBroadcast.userId, userName: liveBroadcast.userName, mime: liveBroadcast.mime },
+        payload: { userId: live.userId, userName: live.userName, mime: live.mime },
       })
       // Avisa o transmissor para criar um RTCPeerConnection com o novo espectador.
-      if (liveBroadcast.userId !== client.id) {
-        const broadcaster = this.clients.get(liveBroadcast.userId)
+      if (live.userId !== client.id) {
+        const broadcaster = this.clients.get(live.userId)
         if (broadcaster) {
           this.send(broadcaster.ws, {
             type: WsMessageType.LivePeerJoined,
@@ -1654,10 +1660,10 @@ export class WsHandler {
           })
         }
       }
-      if (liveBroadcast.initChunk) {
+      if (live.initChunk) {
         this.send(client.ws, {
           type: WsMessageType.LiveChunkReceived,
-          payload: { userId: liveBroadcast.userId, chunk: liveBroadcast.initChunk, duration: 0 },
+          payload: { userId: live.userId, chunk: live.initChunk, duration: 0 },
         })
       }
     }
@@ -1858,7 +1864,7 @@ export class WsHandler {
   }
 
   // Sinalização WebRTC: apenas encaminha offer/answer/ICE entre os pares.
-  private handleRTCSignal(client: Client, payload: { toUserId: string; sdp?: unknown; candidate?: unknown }): void {
+  private handleRTCSignal(client: Client, payload: { toUserId: string; sdp?: unknown; candidate?: unknown; kind?: string }): void {
     if (!payload.toUserId) return
     const target = this.clients.get(payload.toUserId)
     if (!target) return
@@ -1869,6 +1875,7 @@ export class WsHandler {
         fromUserName: client.name,
         sdp: payload.sdp,
         candidate: payload.candidate,
+        kind: payload.kind,
       },
     })
   }
@@ -1889,25 +1896,44 @@ export class WsHandler {
     const roomId = client.room
     if (!roomId) return
 
-    const existing = this.rooms.getLiveBroadcast(roomId)
-    if (existing) {
-      const current = this.clients.get(existing.userId)
-      if (current) {
-        existing.takeoverRequesterId = client.id
-        this.send(current.ws, {
-          type: WsMessageType.LiveRequest,
-          payload: { fromUserId: client.id, fromUserName: client.name },
-        })
+    const mime = typeof payload.mime === 'string' && payload.mime ? payload.mime : undefined
+    const multilive = this.rooms.isMultiLiveRoom(roomId)
+
+    // Em salas comuns, só um transmissor por vez: pedido de takeover.
+    if (!multilive) {
+      const existing = this.rooms.getLiveBroadcast(roomId)
+      if (existing) {
+        const current = this.clients.get(existing.userId)
+        if (current) {
+          existing.takeoverRequesterId = client.id
+          this.send(current.ws, {
+            type: WsMessageType.LiveRequest,
+            payload: { fromUserId: client.id, fromUserName: client.name },
+          })
+        }
+        return
       }
-      return
     }
 
-    const mime = typeof payload.mime === 'string' && payload.mime ? payload.mime : undefined
     this.rooms.setLiveBroadcast(roomId, { userId: client.id, userName: client.name, timestamp: Date.now(), initChunk: undefined, mime })
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveStarted,
       payload: { userId: client.id, userName: client.name, mime },
     }, '')
+
+    // Em multilive, garante que o novo transmissor crie oferta para todos os
+    // presentes na sala (espectadores e outros transmissores já ativos).
+    if (multilive) {
+      this.rooms.getClients(roomId).forEach((c) => {
+        if (c.id !== client.id) {
+          this.send(client.ws, {
+            type: WsMessageType.LivePeerJoined,
+            payload: { peerUserId: c.id, peerName: c.name },
+          })
+        }
+      })
+    }
+
     this.broadcast({
       type: WsMessageType.RoomList,
       payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
@@ -1917,10 +1943,10 @@ export class WsHandler {
   private handleLiveStop(client: Client): void {
     const roomId = client.room
     if (!roomId) return
-    const live = this.rooms.getLiveBroadcast(roomId)
-    if (!live || live.userId !== client.id) return
+    const live = this.rooms.getLiveBroadcasts(roomId).find((l) => l.userId === client.id)
+    if (!live) return
 
-    this.rooms.clearLiveBroadcast(roomId)
+    this.rooms.clearLiveBroadcast(roomId, client.id)
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveStopped,
       payload: { userId: client.id },
@@ -1950,10 +1976,10 @@ export class WsHandler {
       logger.warn('WsHandler', `${client.name} (${client.id}) tried to force-stop a live without admin`)
       return
     }
-    const live = this.rooms.getLiveBroadcast(roomId)
-    if (!live || live.userId !== payload.targetUserId) return
+    const live = this.rooms.getLiveBroadcasts(roomId).find((l) => l.userId === payload.targetUserId)
+    if (!live) return
 
-    this.rooms.clearLiveBroadcast(roomId)
+    this.rooms.clearLiveBroadcast(roomId, payload.targetUserId)
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveStopped,
       payload: { userId: live.userId },
@@ -1979,8 +2005,8 @@ export class WsHandler {
   private handleLiveChunk(client: Client, payload: { chunk: string; duration: number }): void {
     const roomId = client.room
     if (!roomId) return
-    const live = this.rooms.getLiveBroadcast(roomId)
-    if (!live || live.userId !== client.id) return
+    const live = this.rooms.getLiveBroadcasts(roomId).find((l) => l.userId === client.id)
+    if (!live) return
     if (this.base64Exceeds(payload.chunk, this.limits.maxLiveChunkBytes)) {
       logger.warn('WsHandler', `Live chunk from ${client.id} exceeds ${this.limits.maxLiveChunkBytes} bytes, dropped`)
       return

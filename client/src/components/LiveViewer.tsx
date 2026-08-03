@@ -6,7 +6,7 @@ import { attachMediaStream, markActive } from '../audio/audioMeter.ts'
 import { useT } from '../i18n/index.ts'
 
 export function LiveViewer() {
-  const broadcaster = useLiveStore((s) => s.broadcaster)
+  const broadcaster = useLiveStore((s) => s.broadcasters[0])
   const myId = useConnectionStore((s) => s.id)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)

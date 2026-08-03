@@ -10,7 +10,7 @@ import { WsMessageType } from '../types/index.ts'
 describe('liveStore', () => {
   beforeEach(() => {
     useLiveStore.setState({
-      broadcaster: null,
+      broadcasters: [],
       chunks: [],
       pendingRequest: null,
       takeoverRequestSent: false,
@@ -18,12 +18,19 @@ describe('liveStore', () => {
     })
   })
 
-  it('define o broadcaster e limpa chunks ao trocar de transmissão', () => {
-    useLiveStore.getState().addChunk({ userId: 'u1', chunk: 'aGk=', duration: 1 })
-    expect(useLiveStore.getState().chunks).toHaveLength(1)
-    useLiveStore.getState().setBroadcaster({ userId: 'u2', userName: 'Narrador' })
-    expect(useLiveStore.getState().broadcaster).toEqual({ userId: 'u2', userName: 'Narrador' })
-    expect(useLiveStore.getState().chunks).toHaveLength(0)
+  it('adiciona e remove broadcasters na lista (multilive)', () => {
+    useLiveStore.getState().addBroadcaster({ userId: 'u1', userName: 'Narrador' })
+    useLiveStore.getState().addBroadcaster({ userId: 'u2', userName: 'Repórter' })
+    expect(useLiveStore.getState().broadcasters).toEqual([
+      { userId: 'u1', userName: 'Narrador' },
+      { userId: 'u2', userName: 'Repórter' },
+    ])
+    useLiveStore.getState().addBroadcaster({ userId: 'u1', userName: 'Narrador' })
+    expect(useLiveStore.getState().broadcasters).toHaveLength(2)
+    useLiveStore.getState().removeBroadcaster('u1')
+    expect(useLiveStore.getState().broadcasters).toEqual([{ userId: 'u2', userName: 'Repórter' }])
+    useLiveStore.getState().clearBroadcasters()
+    expect(useLiveStore.getState().broadcasters).toHaveLength(0)
   })
 
   it('limita os chunks a 200 (descarta os mais antigos)', () => {

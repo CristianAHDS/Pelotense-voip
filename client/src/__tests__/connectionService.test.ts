@@ -86,7 +86,7 @@ beforeEach(() => {
   notifyMock.mockClear()
   useConnectionStore.setState({ connected: false, reconnecting: false, id: null, name: null })
   useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [], unread: {}, typing: {}, loadingRooms: false, loadingMessages: false })
-  useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
+  useLiveStore.setState({ broadcasters: [], chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
   usePrivateChatStore.setState({ activeUserId: null, activeUserName: null, messages: {}, unread: {} })
 })
 
@@ -200,9 +200,9 @@ describe('connectionService', () => {
   it('processa LiveStarted e LiveStopped', () => {
     connectToServer('ws://x', 'A', 'p')
     emit(WsMessageType.LiveStarted, { userId: 'u1', userName: 'Narrador' })
-    expect(useLiveStore.getState().broadcaster).toEqual({ userId: 'u1', userName: 'Narrador' })
+    expect(useLiveStore.getState().broadcasters).toEqual([{ userId: 'u1', userName: 'Narrador' }])
     emit(WsMessageType.LiveStopped, { userId: 'u1' })
-    expect(useLiveStore.getState().broadcaster).toBeNull()
+    expect(useLiveStore.getState().broadcasters).toEqual([])
   })
 
   it('processa LiveChunkReceived adicionando ao store', () => {
@@ -294,7 +294,7 @@ describe('connectionService', () => {
     expect(useConnectionStore.getState().connected).toBe(false)
     expect(useRoomStore.getState().currentRoom).toBeNull()
     expect(useRoomStore.getState().messages).toHaveLength(0)
-    expect(useLiveStore.getState().broadcaster).toBeNull()
+    expect(useLiveStore.getState().broadcasters).toEqual([])
   })
 
   it('joinRoom retoma a saída de áudio mesmo com o mic mutado', () => {

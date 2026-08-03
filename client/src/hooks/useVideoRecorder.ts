@@ -70,6 +70,8 @@ export function useVideoRecorder() {
   const [streamVersion, setStreamVersion] = useState(0)
   const [devices, setDevices] = useState<VideoDevice[]>([])
   const [cameraId, setCameraId] = useState<string>('')
+  // Câmera frontal/traseira (mobile): alternativa ao seletor por deviceId.
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -191,6 +193,33 @@ export function useVideoRecorder() {
       // camera switch failed, keep old camera
     }
   }, [])
+
+  // Alterna entre câmera frontal/traseira (mobile) via facingMode, sem depender
+  // da enumeração de deviceIds. Funciona mesmo quando o navegador reporta só
+  // uma câmera; troca o stream na hora (e na live, via replaceStream).
+  const flipCamera = useCallback(async (): Promise<boolean> => {
+    const next = facingMode === 'user' ? 'environment' : 'user'
+    const v = videoSettings().video
+    const constraints: MediaTrackConstraints = {
+      width: { ideal: v.width },
+      height: { ideal: v.height },
+      frameRate: { ideal: v.fps },
+      facingMode: { ideal: next },
+    }
+    try {
+      const stream = await getUserMediaWithMic(constraints, true)
+      const old = streamRef.current
+      if (old) old.getTracks().forEach((t) => t.stop())
+      streamRef.current = stream
+      setFacingMode(next)
+      setHasStream(true)
+      setStreamVersion((s) => s + 1)
+      liveRtc.replaceStream(stream)
+      return true
+    } catch {
+      return false
+    }
+  }, [facingMode])
 
   // No mobile (iOS), após parar uma live longa a câmera demora a ser liberada
   // pelo hardware; pedir getUserMedia de novo na hora pode falhar ou voltar com
@@ -314,6 +343,6 @@ export function useVideoRecorder() {
     recording, duration, hasStream, streamVersion, streamRef,
     devices, cameraId, setCameraId,
     openCamera, beginRecording, stopRecording, cancelRecording, closeCamera,
-    enumerateDevices, switchCamera,
+    enumerateDevices, switchCamera, flipCamera,
   }
 }

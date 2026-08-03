@@ -363,6 +363,17 @@ const messages: Record<Language, Record<string, string>> = {
     tagProduction: 'Produção',
     tagLocution: 'Locução',
     versionTooltip: 'UI: {ui}\nServidor: v{srv} (build {build})',
+    // Multilives (mosaico de câmeras)
+    multiliveCount: '{n} ao vivo',
+    multiliveStart: 'Iniciar live',
+    multiliveEmpty: 'Ninguém transmitindo ainda',
+    multiliveEmptyHint: 'Transmita com a sua câmera e apareça no mosaico, ou assista os outros.',
+    multiliveJoinHint: 'Transmita também e apareça no mosaico',
+    multiliveHint: 'Todos na sala veem as câmeras ao vivo',
+    multiliveStop: 'Encerrar',
+    flipCamera: 'Virar câmera',
+    liveFullscreen: 'Tela cheia',
+    you: 'você',
   },
   en: {
     appName: 'VoIP',
@@ -721,6 +732,17 @@ const messages: Record<Language, Record<string, string>> = {
     tagProduction: 'Production',
     tagLocution: 'Announcer',
     versionTooltip: 'UI: {ui}\nServer: v{srv} (build {build})',
+    // Multilives (camera mosaic)
+    multiliveCount: '{n} live',
+    multiliveStart: 'Start live',
+    multiliveEmpty: 'No one is broadcasting yet',
+    multiliveEmptyHint: 'Broadcast with your camera and show up in the mosaic, or watch others.',
+    multiliveJoinHint: 'Start broadcasting and show up in the mosaic',
+    multiliveHint: 'Everyone in the room sees the live cameras',
+    multiliveStop: 'Stop',
+    flipCamera: 'Flip camera',
+    liveFullscreen: 'Fullscreen',
+    you: 'you',
   },
 }
 

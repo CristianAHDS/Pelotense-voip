@@ -7,6 +7,7 @@ export interface RoomInfo {
   createdBy?: string
   createdByName?: string
   live?: { userId: string; userName: string } | null
+  lives?: Array<{ userId: string; userName: string }>
 }
 
 export interface UserInfo {
@@ -128,6 +129,7 @@ export interface AdminRoomInfo {
   messages: number
   occupants: string[]
   live?: { userId: string; userName: string } | null
+  lives?: Array<{ userId: string; userName: string }>
   createdByName?: string
 }
 

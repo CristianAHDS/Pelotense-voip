@@ -10,8 +10,9 @@ import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
 import { LiveViewer } from './LiveViewer.tsx'
 import { RadioBot } from './RadioBot.tsx'
+import { MultiLiveMosaic } from './MultiLiveMosaic.tsx'
 import { ChatMedia } from './ChatMedia.tsx'
-import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
+import { RADIO_ROOM_NAME, MULTILIVE_ROOM_NAME } from '../ui/radioBot.ts'
 import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
@@ -144,7 +145,7 @@ export function ChatPanel() {
   const myAdmin = useConnectionStore((s) => s.admin)
   const connected = useConnectionStore((s) => s.connected)
   const isGuest = useConnectionStore((s) => s.guest)
-  const broadcaster = useLiveStore((s) => s.broadcaster)
+  const broadcaster = useLiveStore((s) => s.broadcasters[0])
   const pendingRequest = useLiveStore((s) => s.pendingRequest)
   const setPendingRequest = useLiveStore((s) => s.setPendingRequest)
   const takeoverRequested = useLiveStore((s) => s.takeoverRequestSent)
@@ -482,6 +483,15 @@ export function ChatPanel() {
   }, [isAoVivo])
 
   if (!connected || !currentRoomName) return null
+
+  // Sala de multilives: sem chat, apenas o mosaico de câmeras ao vivo.
+  if (currentRoomName === MULTILIVE_ROOM_NAME) {
+    return (
+      <div className="chat-panel chat-panel--multilive">
+        <MultiLiveMosaic />
+      </div>
+    )
+  }
 
   return (
     <div className="chat-panel">

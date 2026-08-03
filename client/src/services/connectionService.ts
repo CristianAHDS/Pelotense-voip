@@ -282,8 +282,8 @@ export function connectToServer(address: string, name: string, password: string,
   })
 
   wsClient.on(WsMessageType.RTCSignal, (msg) => {
-    const payload = msg.payload as { fromUserId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }
-    liveRtc.handleSignal(payload.fromUserId, { sdp: payload.sdp, candidate: payload.candidate })
+    const payload = msg.payload as { fromUserId: string; sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; kind?: 'bc' | 'vw' }
+    liveRtc.handleSignal(payload.fromUserId, { sdp: payload.sdp, candidate: payload.candidate, kind: payload.kind })
   })
 
   wsClient.on(WsMessageType.LivePeerJoined, (msg) => {
@@ -322,6 +322,7 @@ export function connectToServer(address: string, name: string, password: string,
   wsClient.on(WsMessageType.RoomLeft, () => {
     useRoomStore.getState().setCurrentRoom(null)
     useRoomStore.getState().clearMessages()
+    useLiveStore.getState().clearBroadcasters()
     voiceOnRoomLeft()
   })
 
@@ -391,13 +392,18 @@ export function connectToServer(address: string, name: string, password: string,
 
   wsClient.on(WsMessageType.LiveStarted, (msg) => {
     const payload = msg.payload as { userId: string; userName: string; mime?: string }
-    useLiveStore.getState().setBroadcaster({ userId: payload.userId, userName: payload.userName })
-    useLiveStore.getState().setMime(payload.mime ?? null)
+    useLiveStore.getState().addBroadcaster({ userId: payload.userId, userName: payload.userName })
+    if (payload.userId === useConnectionStore.getState().id) {
+      useLiveStore.getState().setMyMime(payload.mime ?? null)
+    }
   })
 
   wsClient.on(WsMessageType.LiveStopped, (msg) => {
-    useLiveStore.getState().setBroadcaster(null)
-    useLiveStore.getState().setMime(null)
+    const payload = msg.payload as { userId: string }
+    useLiveStore.getState().removeBroadcaster(payload.userId)
+    if (payload.userId === useConnectionStore.getState().id) {
+      useLiveStore.getState().setMyMime(null)
+    }
   })
 
   wsClient.on(WsMessageType.LiveChunkReceived, (msg) => {
@@ -722,9 +728,9 @@ export function sendLiveForceStop(targetUserId: string): void {
   wsClient.send(WsMessageType.LiveForceStop, { targetUserId })
 }
 
-export function sendRTCSignal(toUserId: string, signal: { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit }): void {
+export function sendRTCSignal(toUserId: string, signal: { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; kind?: 'bc' | 'vw' }): void {
   if (!wsClient) { console.error('sendRTCSignal: wsClient is null'); return }
-  wsClient.send(WsMessageType.RTCSignal, { toUserId, sdp: signal.sdp, candidate: signal.candidate })
+  wsClient.send(WsMessageType.RTCSignal, { toUserId, sdp: signal.sdp, candidate: signal.candidate, kind: signal.kind })
 }
 
 export function sendRequestLivePreview(broadcasterUserId: string): void {
@@ -750,9 +756,8 @@ export function disconnectFromServer(): void {
   useRoomStore.getState().setRooms([])
   useRoomStore.getState().setUsers([])
   useRoomStore.getState().setAccounts([])
-  useLiveStore.getState().setBroadcaster(null)
+  useLiveStore.getState().clearBroadcasters()
   useLiveStore.getState().clearChunks()
-  useLiveStore.getState().setMime(null)
   useLiveStore.getState().setMyMime(null)
   liveRtc.cleanup()
   useVoiceStore.getState().clearSpeaking()

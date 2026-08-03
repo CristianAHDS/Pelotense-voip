@@ -2,12 +2,17 @@ import { Room, Client, LiveState, ChatMessage } from '../types/index.js'
 import { logger } from '../utils/logger.js'
 import { SqliteStore } from '../storage/index.js'
 
-const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados']
+const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados', 'Multilives']
+
+// Sala fixa onde várias pessoas transmitem ao vivo simultaneamente (mosaico).
+export const MULTILIVE_ROOM_NAME = 'Multilives'
 
 export class RoomManager {
   private rooms = new Map<string, Room>()
   private maxRooms: number
-  private liveBroadcasts = new Map<string, LiveState>()
+  // Várias lives por sala (multilive): roomId -> (userId -> LiveState). Em salas
+  // comuns só há uma live ativa por vez (fluxo de takeover continua valendo).
+  private liveBroadcasts = new Map<string, Map<string, LiveState>>()
   private storage?: SqliteStore
 
   constructor(maxRooms: number, storage?: SqliteStore) {
@@ -22,6 +27,8 @@ export class RoomManager {
       'Retorno ao vivo': 1,
       'Boletins gravados': 2,
       'Ao vivo': 3,
+      // Multilives assume o destaque/posição da sala "Ao vivo" (desativada).
+      'Multilives': 3,
     }
     for (const name of DEFAULT_ROOM_NAMES) {
       const id = this.fixedId(name)
@@ -32,6 +39,7 @@ export class RoomManager {
         createdAt: Date.now(),
         messages: [],
         fixed: true,
+        disabled: name === 'Ao vivo',
         featured: featured[name],
       }
       this.rooms.set(id, room)
@@ -74,6 +82,10 @@ export class RoomManager {
   }
 
   create(name: string, createdBy?: string, createdByName?: string): Room | null {
+    if (this.isNameDisabled(name)) {
+      logger.warn('RoomManager', `Room name is disabled: ${name}`)
+      return null
+    }
     if (this.rooms.size >= this.maxRooms) {
       logger.warn('RoomManager', 'Max rooms reached')
       return null
@@ -143,13 +155,15 @@ export class RoomManager {
   }
 
   getAll(): Room[] {
-    return Array.from(this.rooms.values()).sort((a, b) => {
-      const af = a.featured ?? Infinity
-      const bf = b.featured ?? Infinity
-      if (af !== bf) return af - bf
-      if (a.fixed !== b.fixed) return a.fixed ? -1 : 1
-      return a.createdAt - b.createdAt
-    })
+    return Array.from(this.rooms.values())
+      .filter((r) => !r.disabled)
+      .sort((a, b) => {
+        const af = a.featured ?? Infinity
+        const bf = b.featured ?? Infinity
+        if (af !== bf) return af - bf
+        if (a.fixed !== b.fixed) return a.fixed ? -1 : 1
+        return a.createdAt - b.createdAt
+      })
   }
 
   getClients(roomId: string): Client[] {
@@ -157,8 +171,21 @@ export class RoomManager {
     return room ? Array.from(room.clients.values()) : []
   }
 
+  // Encontra por nome mesmo salas desativadas (reconexão de quem já estava,
+  // encaminhamento, etc.). A desativação esconde a sala das LISTAS (getAll/
+  // listRoomsDetailed), não remove do mapa.
   findByName(name: string): Room | null {
-    return this.getAll().find((r) => r.name === name) ?? null
+    for (const room of this.rooms.values()) {
+      if (room.name === name) return room
+    }
+    return null
+  }
+
+  isNameDisabled(name: string): boolean {
+    for (const room of this.rooms.values()) {
+      if (room.name === name && room.disabled) return true
+    }
+    return false
   }
 
   toRoomListPayload(room: Room): {
@@ -170,8 +197,9 @@ export class RoomManager {
     createdBy?: string
     createdByName?: string
     live?: { userId: string; userName: string } | null
+    lives: Array<{ userId: string; userName: string }>
   } {
-    const live = this.liveBroadcasts.get(room.id)
+    const lives = this.getLiveBroadcasts(room.id).map((l) => ({ userId: l.userId, userName: l.userName }))
     return {
       id: room.id,
       name: room.name,
@@ -180,20 +208,50 @@ export class RoomManager {
       featured: room.featured,
       createdBy: room.createdBy,
       createdByName: room.createdByName,
-      live: live ? { userId: live.userId, userName: live.userName } : null,
+      live: lives[0] ?? null,
+      lives,
     }
   }
 
   getLiveBroadcast(roomId: string): LiveState | undefined {
-    return this.liveBroadcasts.get(roomId)
+    const map = this.liveBroadcasts.get(roomId)
+    return map ? Array.from(map.values())[0] : undefined
+  }
+
+  getLiveBroadcasts(roomId: string): LiveState[] {
+    const map = this.liveBroadcasts.get(roomId)
+    return map ? Array.from(map.values()) : []
+  }
+
+  getLiveCount(roomId: string): number {
+    return this.liveBroadcasts.get(roomId)?.size ?? 0
   }
 
   setLiveBroadcast(roomId: string, state: LiveState): void {
-    this.liveBroadcasts.set(roomId, state)
+    let map = this.liveBroadcasts.get(roomId)
+    if (!map) {
+      map = new Map()
+      this.liveBroadcasts.set(roomId, map)
+    }
+    map.set(state.userId, state)
   }
 
-  clearLiveBroadcast(roomId: string): void {
-    this.liveBroadcasts.delete(roomId)
+  clearLiveBroadcast(roomId: string, userId?: string): void {
+    if (!userId) {
+      this.liveBroadcasts.delete(roomId)
+      return
+    }
+    const map = this.liveBroadcasts.get(roomId)
+    if (!map) return
+    map.delete(userId)
+    if (map.size === 0) {
+      this.liveBroadcasts.delete(roomId)
+    }
+  }
+
+  isMultiLiveRoom(roomId: string): boolean {
+    const room = this.rooms.get(roomId)
+    return room?.name === MULTILIVE_ROOM_NAME
   }
 
   addMessage(roomId: string, msg: ChatMessage): void {
@@ -281,20 +339,27 @@ export class RoomManager {
     messages: number
     occupants: string[]
     live?: { userId: string; userName: string } | null
+    lives: Array<{ userId: string; userName: string }>
     createdByName?: string
   }> {
     // Ordem estável (inserção) para o painel do admin: fixar/destacar não
-    // deve "mover" as salas na lista.
-    return Array.from(this.rooms.values()).map((room) => ({
-      id: room.id,
-      name: room.name,
-      fixed: room.fixed,
-      featured: room.featured,
-      users: room.clients.size,
-      messages: room.messages.length,
-      occupants: Array.from(room.clients.values()).map((c) => c.name),
-      live: this.getLiveBroadcast(room.id) ? { userId: this.getLiveBroadcast(room.id)!.userId, userName: this.getLiveBroadcast(room.id)!.userName } : null,
-      createdByName: room.createdByName,
-    }))
+    // deve "mover" as salas na lista. Salas desativadas não aparecem.
+    return Array.from(this.rooms.values())
+      .filter((room) => !room.disabled)
+      .map((room) => {
+      const lives = this.getLiveBroadcasts(room.id).map((l) => ({ userId: l.userId, userName: l.userName }))
+      return {
+        id: room.id,
+        name: room.name,
+        fixed: room.fixed,
+        featured: room.featured,
+        users: room.clients.size,
+        messages: room.messages.length,
+        occupants: Array.from(room.clients.values()).map((c) => c.name),
+        live: lives[0] ?? null,
+        lives,
+        createdByName: room.createdByName,
+      }
+    })
   }
 }

@@ -31,10 +31,15 @@ beforeEach(() => {
 })
 
 describe('RoomManager', () => {
-  it('cria as 6 salas fixas na inicialização', () => {
+  it('cria 7 salas fixas, com a sala "Ao vivo" desativada (fora das listas)', () => {
     const all = rooms.getAll()
     expect(all.length).toBe(6)
     expect(all.every((r) => r.fixed)).toBe(true)
+    // Desativada: permanece criada (para reativar depois) mas fora das listas.
+    expect(rooms.findByName('Ao vivo')?.disabled).toBe(true)
+    expect(rooms.isNameDisabled('Ao vivo')).toBe(true)
+    expect(rooms.getAll().some((r) => r.name === 'Ao vivo')).toBe(false)
+    expect(rooms.findByName('Multilives')).toBeDefined()
   })
 
   it('ordena salas por featured primeiro, depois fixas, depois por criação', () => {
@@ -43,7 +48,7 @@ describe('RoomManager', () => {
     const names = all.map((r) => r.name)
     expect(names[0]).toBe('Retorno ao vivo')
     expect(names[1]).toBe('Boletins gravados')
-    expect(names[2]).toBe('Ao vivo')
+    expect(names[2]).toBe('Multilives')
     expect(names[names.length - 1]).toBe('Criada')
   })
 

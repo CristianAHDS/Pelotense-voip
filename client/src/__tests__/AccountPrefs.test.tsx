@@ -28,7 +28,7 @@ function resetStores(): void {
   useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [] })
   usePrivateChatStore.setState({ activeUserId: null, activeUserName: null, messages: {}, unread: {} })
   useVoiceStore.setState({ muted: true, volume: 0.8, level: 0, rxLevel: 0, speaking: {} })
-  useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
+  useLiveStore.setState({ broadcasters: [], chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
   useSettingsStore.setState({ theme: 'dark' })
   useAccountStore.setState({ name: 'Eu', password: 'senha', avatar: '', prefsOpen: false, chatFullscreen: false })
 }
