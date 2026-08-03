@@ -71,19 +71,19 @@ describe('MainPage (sheet mobile com 3 abas)', () => {
     expect(container.querySelector('.mobile-sheet--open')).not.toBeNull()
   })
 
-  it('mostra o badge de versão da UI na barra do topo', () => {
+  it('mostra a versão da UI discretamente na sidebar esquerda', () => {
     const { container } = render(<MainPage />)
-    const badge = container.querySelector('.app-version-badge')
+    const badge = container.querySelector('.sidebar-version')
     expect(badge).not.toBeNull()
     expect(badge!.textContent).toContain(__APP_VERSION__)
   })
 
-  it('mostra a versão do servidor no badge quando conectado', () => {
+  it('mostra a versão do servidor no rodapé da sidebar quando conectado', () => {
     act(() => {
       useConnectionStore.getState().setServerVersion('1.0.0', 7)
     })
     const { container } = render(<MainPage />)
-    const badge = container.querySelector('.app-version-badge')
+    const badge = container.querySelector('.sidebar-version')
     expect(badge!.textContent).toContain('1.0.0')
     expect(badge!.textContent).toContain('7')
     expect(badge!.getAttribute('title')).toContain('Servidor: v1.0.0 (build 7)')

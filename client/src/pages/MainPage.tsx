@@ -102,23 +102,6 @@ export function MainPage() {
           <span className="app-title">Rádio Pelotense</span>
           <span className="app-title-freq">99.5 FM</span>
         </h1>
-        <span
-          className="app-version-badge"
-          title={
-            serverVersion
-              ? `UI: ${__APP_VERSION__}\nServidor: v${serverVersion} (build ${serverBuild ?? 0})`
-              : `UI: ${__APP_VERSION__}`
-          }
-        >
-          v{__APP_VERSION__}
-          {serverVersion && (
-            <span className="app-version-server">
-              {' '}
-              · srv {serverVersion}
-              {serverBuild !== null ? ` (${serverBuild})` : ''}
-            </span>
-          )}
-        </span>
         {currentRoomName && (
           <div
             className="current-room-indicator"
@@ -206,6 +189,17 @@ export function MainPage() {
               🛡 {t('adminPanel')}
             </button>
           )}
+          <span
+            className="sidebar-version"
+            title={
+              serverVersion
+                ? `UI: ${__APP_VERSION__}\nServidor: v${serverVersion} (build ${serverBuild ?? 0})`
+                : `UI: ${__APP_VERSION__}`
+            }
+          >
+            v{__APP_VERSION__}
+            {serverVersion && ` · srv ${serverVersion}${serverBuild !== null ? ` (${serverBuild})` : ''}`}
+          </span>
         </aside>
         <main className="main-content">
           <RoomList />
