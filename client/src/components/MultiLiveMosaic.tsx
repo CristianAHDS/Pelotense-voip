@@ -7,6 +7,7 @@ import * as liveRtc from '../services/liveRtc.ts'
 import { sendLiveStart, sendLiveStop } from '../services/connectionService.ts'
 import { attachMediaStream } from '../audio/audioMeter.ts'
 import { initials } from '../ui/avatar.ts'
+import { isMobileDevice } from '../utils/device.ts'
 import { useT } from '../i18n/index.ts'
 
 function toggleVideoFullscreen(video: HTMLVideoElement): void {
@@ -108,6 +109,7 @@ export function MultiLiveMosaic() {
   const [starting, setStarting] = useState(false)
   const myVideoRef = useRef<HTMLVideoElement>(null)
   const isFullscreen = useFullscreenState()
+  const isMobile = isMobileDevice()
 
   const amBroadcasting = broadcasters.some((b) => b.userId === myId)
   const others = broadcasters.filter((b) => b.userId !== myId)
@@ -213,17 +215,19 @@ export function MultiLiveMosaic() {
                           ))}
                         </select>
                       )}
-                      <button
-                        className="mosaic-flip-btn"
-                        onClick={() => void videoRec.flipCamera()}
-                        title={t('flipCamera')}
-                        aria-label={t('flipCamera')}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 4v6h6" />
-                          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-                        </svg>
-                      </button>
+                      {isMobile && (
+                        <button
+                          className="mosaic-flip-btn"
+                          onClick={() => void videoRec.flipCamera()}
+                          title={t('flipCamera')}
+                          aria-label={t('flipCamera')}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 4v6h6" />
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                          </svg>
+                        </button>
+                      )}
                       <button className="btn btn-danger mosaic-stop-btn" onClick={handleStop}>
                         ⏹ {t('multiliveStop')}
                       </button>

@@ -3006,6 +3006,14 @@ body {
   background: rgba(0, 0, 0, 0.8);
 }
 
+/* Botão de virar câmera é exclusivo de mobile (touch): escondido no PC mesmo
+   que a detecção por user-agent falhe. */
+@media (pointer: fine) {
+  .mosaic-tile-controls .mosaic-flip-btn {
+    display: none;
+  }
+}
+
 .mosaic-tile-controls .mosaic-stop-btn {
   flex-shrink: 0;
   min-height: 32px;
