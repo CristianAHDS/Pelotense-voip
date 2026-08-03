@@ -68,7 +68,7 @@ vi.mock('../services/notifications.ts', () => ({
 }))
 
 const { connectToServer, disconnectFromServer, getWsClient } = await import('../services/connectionService.ts')
-const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom, sendChatAudioMessage, sendChatVideoMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, generateClientMessageId, sendChatImageMessage, sendMessageReaction, sendForwardMessage, requestPrivateHistory, requestAccounts } = await import('../services/connectionService.ts')
+const { sendLiveChunk, sendLiveRequestCancel, sendLiveRequestResponse, sendLiveStart, sendChatMessage, joinRoom, leaveRoom, sendChatAudioMessage, sendChatVideoMessage, sendPrivateAudioMessage, sendPrivateVideoMessage, generateClientMessageId, sendChatImageMessage, sendMessageReaction, sendForwardMessage, requestPrivateHistory, requestAccounts, sendTyping } = await import('../services/connectionService.ts')
 const voiceMock = await import('../voice/index.ts')
 const MockVoiceManager = voiceMock.VoiceManager as unknown as { resumeCalls: number; startMicCalls: number; flushAudioCalls: number }
 
@@ -85,7 +85,7 @@ beforeEach(() => {
   MockVoiceManager.flushAudioCalls = 0
   notifyMock.mockClear()
   useConnectionStore.setState({ connected: false, reconnecting: false, id: null, name: null })
-  useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [], unread: {}, loadingRooms: false, loadingMessages: false })
+  useRoomStore.setState({ rooms: [], users: [], currentRoom: null, currentRoomName: null, messages: [], unread: {}, typing: {}, loadingRooms: false, loadingMessages: false })
   useLiveStore.setState({ broadcaster: null, chunks: [], pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
   usePrivateChatStore.setState({ activeUserId: null, activeUserName: null, messages: {}, unread: {} })
 })
@@ -441,5 +441,36 @@ describe('connectionService', () => {
     sent.length = 0
     requestPrivateHistory('other')
     expect(sent).toContainEqual({ type: WsMessageType.ListPrivateMessages, payload: { withUserId: 'other' } })
+  })
+
+  it('sendTyping envia o sinal de digitação', () => {
+    connectToServer('ws://x', 'A', 'p')
+    sent.length = 0
+    sendTyping(true)
+    expect(sent).toContainEqual({ type: WsMessageType.Typing, payload: { isTyping: true } })
+    sendTyping(false)
+    expect(sent).toContainEqual({ type: WsMessageType.Typing, payload: { isTyping: false } })
+  })
+
+  it('mostra quem está digitando ao receber typing do servidor', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useConnectionStore.getState().setConnected('me', 'A')
+    emit(WsMessageType.Typing, { userId: 'outro', userName: 'Outro', isTyping: true })
+    expect(useRoomStore.getState().typing['outro']).toBe('Outro')
+  })
+
+  it('remove o indicador quando o usuário para de digitar', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useConnectionStore.getState().setConnected('me', 'A')
+    emit(WsMessageType.Typing, { userId: 'outro', userName: 'Outro', isTyping: true })
+    emit(WsMessageType.Typing, { userId: 'outro', userName: 'Outro', isTyping: false })
+    expect(useRoomStore.getState().typing['outro']).toBeUndefined()
+  })
+
+  it('ignora o próprio sinal de digitação', () => {
+    connectToServer('ws://x', 'A', 'p')
+    useConnectionStore.getState().setConnected('me', 'A')
+    emit(WsMessageType.Typing, { userId: 'me', userName: 'A', isTyping: true })
+    expect(useRoomStore.getState().typing['me']).toBeUndefined()
   })
 })

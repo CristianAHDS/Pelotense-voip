@@ -263,6 +263,49 @@ describe('Salas', () => {
   })
 })
 
+describe('Indicador de digitação', () => {
+  it('repassa o sinal de digitação para os demais da sala', async () => {
+    const a = await freshClient('Digitador')
+    const b = await freshClient('Leitor')
+    a.send(WsMessageType.JoinRoom, 'Externas')
+    await a.waitFor(WsMessageType.RoomJoined)
+    b.send(WsMessageType.JoinRoom, 'Externas')
+    await b.waitFor(WsMessageType.RoomJoined)
+
+    a.send(WsMessageType.Typing, { isTyping: true })
+    const typing = await b.waitFor(WsMessageType.Typing)
+    expect(typing.payload).toMatchObject({ isTyping: true })
+    expect((typing.payload as { userName: string }).userName).toBe('Digitador')
+  })
+
+  it('não ecoa o sinal de digitação para o próprio autor', async () => {
+    const a = await freshClient('Sozinho')
+    a.send(WsMessageType.JoinRoom, 'Externas')
+    await a.waitFor(WsMessageType.RoomJoined)
+    a.send(WsMessageType.Typing, { isTyping: true })
+    expect(a.hasQueued(WsMessageType.Typing)).toBe(false)
+  })
+
+  it('repassa o sinal de parou de digitar', async () => {
+    const a = await freshClient('Parador')
+    const b = await freshClient('Observador')
+    a.send(WsMessageType.JoinRoom, 'Externas')
+    await a.waitFor(WsMessageType.RoomJoined)
+    b.send(WsMessageType.JoinRoom, 'Externas')
+    await b.waitFor(WsMessageType.RoomJoined)
+
+    a.send(WsMessageType.Typing, { isTyping: false })
+    const typing = await b.waitFor(WsMessageType.Typing)
+    expect(typing.payload).toMatchObject({ isTyping: false })
+  })
+
+  it('ignora sinal de digitação fora de sala', async () => {
+    const a = await freshClient('Vagando')
+    a.send(WsMessageType.Typing, { isTyping: true })
+    expect(a.hasQueued(WsMessageType.Typing)).toBe(false)
+  })
+})
+
 describe('Admin', () => {
   let adminServer: TestServer
   const adminClients: TestClient[] = []

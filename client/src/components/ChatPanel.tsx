@@ -3,7 +3,7 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId, resendMessage } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId, resendMessage, sendTyping } from '../services/connectionService.ts'
 import * as liveRtc from '../services/liveRtc.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
@@ -16,9 +16,19 @@ import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
 import { isMobileDevice } from '../utils/device.ts'
-import { useT, tStatic } from '../i18n/index.ts'
+import { useT, tStatic, type TranslateFn } from '../i18n/index.ts'
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
+function typingNames(typing: Record<string, string>, myId: string | null, t: TranslateFn): string {
+  const names = Object.entries(typing)
+    .filter(([id]) => id !== myId)
+    .map(([, name]) => name)
+  if (names.length === 0) return ''
+  if (names.length === 1) return t('typingOne', { name: names[0] })
+  if (names.length === 2) return t('typingTwo', { names: names.join(' e ') })
+  return t('typingMany', { names: names.slice(0, 2).join(', ') })
+}
 
 function formatTime(ts: number): string {
   const diff = Date.now() - ts
@@ -157,6 +167,45 @@ export function ChatPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const toggleFullscreen = useAccountStore((s) => s.toggleFullscreen)
   const t = useT()
+  const typingUsers = useRoomStore((s) => s.typing)
+
+  // Indicador de digitação: sinaliza "typing" enquanto há texto (debounce no
+  // envio) e envia "parou de digitar" ao limpar o campo ou após pausa.
+  const typingActiveRef = useRef(false)
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const stopTypingSignal = useCallback(() => {
+    if (typingActiveRef.current) {
+      typingActiveRef.current = false
+      sendTyping(false)
+    }
+    if (typingDebounceRef.current) {
+      clearTimeout(typingDebounceRef.current)
+      typingDebounceRef.current = null
+    }
+  }, [])
+
+  const signalTyping = useCallback((value: string) => {
+    if (!value.trim()) {
+      stopTypingSignal()
+      return
+    }
+    if (!typingActiveRef.current) {
+      typingActiveRef.current = true
+      sendTyping(true)
+    }
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current)
+    typingDebounceRef.current = setTimeout(() => {
+      typingDebounceRef.current = null
+      stopTypingSignal()
+    }, 3000)
+  }, [stopTypingSignal])
+
+  useEffect(() => {
+    return () => {
+      stopTypingSignal()
+    }
+  }, [stopTypingSignal])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -179,6 +228,7 @@ export function ChatPanel() {
     if (!text.trim()) return
     sendChatMessage(text.trim())
     setText('')
+    stopTypingSignal()
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -500,6 +550,13 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
+      {Object.keys(typingUsers).length > 0 && (
+        <div className="chat-typing" aria-live="polite">
+          <span className="chat-typing-dots" aria-hidden="true"><i /><i /><i /></span>
+          <span>{typingNames(typingUsers, myId, t)}</span>
+        </div>
+      )}
+
       {videoRec.hasStream && !isLiveBroadcasting ? (
         <div className="chat-video-preview-overlay">
           <div className="chat-video-preview-box">
@@ -755,7 +812,7 @@ export function ChatPanel() {
                 <input
                   type="text"
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => { setText(e.target.value); signalTyping(e.target.value) }}
                   onKeyDown={handleKeyDown}
                   placeholder={t('messagePlaceholder', { room: currentRoomName ?? '' })}
                   className="chat-input"

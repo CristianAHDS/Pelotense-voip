@@ -12,8 +12,6 @@ import { logger } from './utils/logger.js'
 import { ClientManager } from './clients/index.js'
 import { RoomManager } from './rooms/index.js'
 import { WsHandler } from './network/wsHandler.js'
-import { UdpServer } from './network/udpServer.js'
-import { VoiceRouter } from './voice/router.js'
 import { getSSLCredentials } from './utils/cert.js'
 import { SqliteStore } from './storage/index.js'
 import { mkdirSync } from 'fs'
@@ -87,12 +85,21 @@ function writePublicConfig(url: string): void {
 }
 
 // Encerra túneis antigos antes de subir os novos (evita links obsoletos e
-// processos acumulados de execuções anteriores).
-function killOldTunnels(): void {
-  try {
-    spawn('taskkill', ['/IM', 'cloudflared.exe', '/F'], { stdio: 'ignore' })
-    spawn('taskkill', ['/IM', 'ngrok.exe', '/F'], { stdio: 'ignore' })
-  } catch { /* ignore */ }
+// processos acumulados de execuções anteriores). IMPORTANTE: aguarda o
+// taskkill terminar de fato antes de spawnar o túnel novo — senão o `/IM`
+// (mata por nome de imagem) derruba também o cloudflared recém-iniciado.
+function killOldTunnels(): Promise<void> {
+  const kill = (im: string): Promise<void> =>
+    new Promise((resolve) => {
+      try {
+        const p = spawn('taskkill', ['/IM', im, '/F'], { stdio: 'ignore' })
+        p.on('error', () => resolve())
+        p.on('exit', () => resolve())
+      } catch {
+        resolve()
+      }
+    })
+  return Promise.all([kill('cloudflared.exe'), kill('ngrok.exe')]).then(() => undefined)
 }
 
 function logAccessUrls(): void {
@@ -173,6 +180,7 @@ function startCloudflareTunnel(): void {
       logger.warn('Cloudflare', `cloudflared não pôde ser iniciado (${(err as Error).message}). Instale com: winget install cloudflare.cloudflared`)
     })
     let found = false
+    let lastError = ''
     const onData = (buf: Buffer) => {
       const text = buf.toString()
       const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)
@@ -180,11 +188,21 @@ function startCloudflareTunnel(): void {
         found = true
         logger.info('Cloudflare', `PÚBLICO (envie este link): ${m[0]}`)
         writePublicConfig(m[0])
+        return
       }
+      // Mantém a última linha de saída (stderr) para diagnóstico caso o túnel caia.
+      const line = text.split('\n').map((l) => l.trim()).filter(Boolean).pop()
+      if (line) lastError = line
     }
     child.stdout?.on('data', onData)
     child.stderr?.on('data', onData)
-    child.on('exit', () => logger.info('Cloudflare', 'Túnel cloudflared encerrado'))
+    child.on('exit', (code) => {
+      if (!found) {
+        logger.warn('Cloudflare', `cloudflared encerrou antes de criar o túnel (exit ${code}). ${lastError ? `Última saída: ${lastError}` : ''}`)
+      } else {
+        logger.info('Cloudflare', 'Túnel cloudflared encerrado')
+      }
+    })
   } catch (e) {
     logger.warn('Cloudflare', 'Não foi possível iniciar o cloudflared. Instale com: winget install cloudflare.cloudflared')
   }
@@ -201,8 +219,6 @@ async function main(): Promise<void> {
 
   const clientManager = new ClientManager(config.maxUsers)
   const roomManager = new RoomManager(config.maxRooms, storage)
-
-  const voiceRouter = new VoiceRouter(clientManager, roomManager)
 
   const httpServer = Fastify({
     logger: false,
@@ -249,18 +265,18 @@ async function main(): Promise<void> {
 
   const wss = new WebSocketServer({ port: config.wsPort, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WS) on port ${config.wsPort}`)
-  new WsHandler(wss, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
+  new WsHandler(wss, clientManager, roomManager, securityLimits, config.adminNames, storage, config.adminIds)
 
   // WebSocket "puro" na mesma porta do app HTTP (3000): é por onde os túneis
   // (ngrok/cloudflared) fazem o upgrade, já que eles terminam o TLS na borda
   // e encaminham HTTP/WS simples para cá.
   const plainWs = new WebSocketServer({ server: httpServer.server, maxPayload: config.maxWsPayload })
-  new WsHandler(plainWs, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
+  new WsHandler(plainWs, clientManager, roomManager, securityLimits, config.adminNames, storage, config.adminIds)
 
   const httpsServer = createHttpsServer({ key: ssl.key, cert: ssl.cert }, serveClientDist)
   const wssServer = new WebSocketServer({ server: httpsServer, maxPayload: config.maxWsPayload })
   logger.info('Server', `WebSocket server (WSS) on port ${config.wssPort}`)
-  new WsHandler(wssServer, clientManager, roomManager, config.udpPort, securityLimits, config.adminNames, storage, config.adminIds)
+  new WsHandler(wssServer, clientManager, roomManager, securityLimits, config.adminNames, storage, config.adminIds)
   httpsServer.listen(config.wssPort)
 
   try {
@@ -280,7 +296,9 @@ async function main(): Promise<void> {
   }
 
   logAccessUrls()
-  killOldTunnels()
+  // Mata túneis antigos e só então sobe os novos (o taskkill não pode
+  // derrubar o cloudflared/ngrok recém-iniciados).
+  await killOldTunnels()
   startNgrokTunnel()
   startCloudflareTunnel()
 

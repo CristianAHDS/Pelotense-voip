@@ -3,8 +3,6 @@ import { Client, ChatMessage, WsMessage, WsMessageType, LiveState, SecurityLimit
 import { ClientManager } from '../clients/index.js'
 import { RoomManager } from '../rooms/index.js'
 import { logger } from '../utils/logger.js'
-import { eventBus } from '../utils/events.js'
-import { EventType } from '../types/index.js'
 import { SqliteStore } from '../storage/index.js'
 import { config } from '../config/index.js'
 import Database from 'better-sqlite3'
@@ -28,7 +26,6 @@ export class WsHandler {
   private wss: WebSocketServer
   private clients: ClientManager
   private rooms: RoomManager
-  private udpPort: number
   private limits: SecurityLimits
   private adminNames: string[]
   private adminIds: string[]
@@ -46,11 +43,14 @@ export class WsHandler {
   // Qualidade de gravação de vídeo (configurável pelo admin).
   private videoSettings = { width: 1280, height: 720, fps: 30, bitrate: 2500000 }
 
+  // Throttle do indicador de digitação: evita flood de "typing" por usuário.
+  private readonly typingThrottleMs = 2000
+  private typingLastForward = new Map<string, number>()
+
   constructor(
     wss: WebSocketServer,
     clients: ClientManager,
     rooms: RoomManager,
-    udpPort: number,
     limits: SecurityLimits = DEFAULT_SECURITY_LIMITS,
     adminNames: string[] = [],
     storage?: SqliteStore,
@@ -59,7 +59,6 @@ export class WsHandler {
     this.wss = wss
     this.clients = clients
     this.rooms = rooms
-    this.udpPort = udpPort
     this.limits = limits
     this.adminNames = adminNames
     this.adminIds = adminIds
@@ -303,7 +302,6 @@ export class WsHandler {
       name: resolvedName,
       password,
       room: null,
-      udpPort: 0,
       ip: pending.ip,
       lastPing: Date.now(),
       admin: isMaster(account) || this.adminNames.includes(resolvedName) || this.adminIds.includes(id) || account.isAdmin === true,
@@ -360,7 +358,7 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest, settings: this.getSettingsPayload(), appVersion: { ...config.appVersion } },
+      payload: { id: client.id, name: client.name, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest, settings: this.getSettingsPayload(), appVersion: { ...config.appVersion } },
     })
 
     this.broadcast({
@@ -370,11 +368,6 @@ export class WsHandler {
     this.broadcast({
       type: WsMessageType.RoomList,
       payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
-    })
-
-    eventBus.emit(EventType.ClientConnected, {
-      clientId: client.id,
-      name: client.name,
     })
   }
 
@@ -401,10 +394,6 @@ export class WsHandler {
       type: WsMessageType.RoomList,
       payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
     })
-    eventBus.emit(EventType.ClientDisconnected, {
-      clientId: client.id,
-      name: client.name,
-    })
     logger.info('WsHandler', `Existing client ${client.name} replaced by new login`)
   }
 
@@ -413,6 +402,10 @@ export class WsHandler {
       case WsMessageType.Heartbeat:
         this.clients.updatePing(client.id)
         this.send(client.ws, { type: WsMessageType.Heartbeat })
+        break
+
+      case WsMessageType.Typing:
+        this.handleTyping(client, msg.payload as { isTyping: boolean })
         break
 
       case WsMessageType.JoinRoom:
@@ -1786,7 +1779,6 @@ export class WsHandler {
   private handleDisconnect(client: Client): void {
     if (!this.clients.has(client.id)) return
     const roomId = client.room
-    const userName = client.name
 
     if (roomId) {
       this.stopBroadcastForLeaving(client, roomId)
@@ -1800,10 +1792,6 @@ export class WsHandler {
     this.broadcast({
       type: WsMessageType.RoomList,
       payload: this.rooms.getAll().map((r) => this.rooms.toRoomListPayload(r)),
-    })
-    eventBus.emit(EventType.ClientDisconnected, {
-      clientId: client.id,
-      name: userName,
     })
   }
 
@@ -1829,6 +1817,24 @@ export class WsHandler {
         this.send(c.ws, msg)
       }
     })
+  }
+
+  // Indicador de digitação: reencaminha para a sala (exceto o autor) com
+  // throttle no sinal "começou a digitar" para não inundar a rede.
+  private handleTyping(client: Client, payload: { isTyping: boolean }): void {
+    if (!client.room) return
+    const isTyping = payload.isTyping === true
+    if (isTyping) {
+      const last = this.typingLastForward.get(client.id) ?? 0
+      if (Date.now() - last < this.typingThrottleMs) return
+      this.typingLastForward.set(client.id, Date.now())
+    } else {
+      this.typingLastForward.delete(client.id)
+    }
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.Typing,
+      payload: { userId: client.id, userName: client.name, isTyping },
+    }, client.id)
   }
 
   private handleDeleteMessage(client: Client, payload: { messageId: string }): void {

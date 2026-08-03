@@ -17,8 +17,7 @@
     "dotenv": "^16.4.0",
     "fastify": "^4.28.0",
     "selfsigned": "^5.5.0",
-    "ws": "^8.18.0",
-    "zod": "^3.23.0"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

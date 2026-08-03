@@ -1,7 +1,5 @@
 import { Room, Client, LiveState, ChatMessage } from '../types/index.js'
 import { logger } from '../utils/logger.js'
-import { eventBus } from '../utils/events.js'
-import { EventType } from '../types/index.js'
 import { SqliteStore } from '../storage/index.js'
 
 const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados']
@@ -96,7 +94,6 @@ export class RoomManager {
     this.rooms.set(id, room)
     this.storage?.saveRoom(room)
     logger.info('RoomManager', `Room created: ${name}`, { id })
-    eventBus.emit(EventType.RoomCreated, { roomId: id, roomName: name })
     return room
   }
 
@@ -113,7 +110,6 @@ export class RoomManager {
     this.rooms.delete(roomId)
     this.storage?.deleteRoom(roomId)
     logger.info('RoomManager', `Room deleted: ${room.name}`, { id: roomId })
-    eventBus.emit(EventType.RoomDeleted, { roomId, roomName: room.name })
     return true
   }
 
@@ -128,7 +124,6 @@ export class RoomManager {
     room.clients.set(client.id, client)
     client.room = roomId
     logger.info('RoomManager', `${client.name} joined ${room.name}`)
-    eventBus.emit(EventType.RoomJoined, { clientId: client.id, roomId })
     return true
   }
 
@@ -139,7 +134,6 @@ export class RoomManager {
     room.clients.delete(client.id)
     client.room = null
     logger.info('RoomManager', `${client.name} left ${room.name}`)
-    eventBus.emit(EventType.RoomLeft, { clientId: client.id, roomId })
 
     return true
   }

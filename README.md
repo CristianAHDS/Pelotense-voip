@@ -131,12 +131,11 @@ voip-project/
 │   ├── src/
 │   │   ├── clients/       # Gerenciador de clientes conectados
 │   │   ├── config/        # Configuração via variáveis de ambiente
-│   │   ├── network/       # WebSocket (wsHandler) e UDP (udpServer)
+│   │   ├── network/       # WebSocket (wsHandler)
 │   │   ├── rooms/         # Gerenciador de salas
 │   │   ├── storage/       # Persistência em SQLite (salas, mensagens, DMs, contas)
 │   │   ├── types/         # Tipos e contratos do protocolo
-│   │   ├── utils/         # Certificados, eventos, logger
-│   │   ├── voice/         # Roteador de voz
+│   │   ├── utils/         # Certificados, logger
 │   │   └── __tests__/     # Testes do servidor (vitest)
 │   └── package.json
 ├── client/        # Cliente React + Vite + Tauri

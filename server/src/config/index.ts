@@ -47,7 +47,6 @@ export const config = {
   serverPort: getInt('SERVER_PORT', 3000),
   wsPort: getInt('WS_PORT', 3001),
   wssPort: getInt('WSS_PORT', 3003),
-  udpPort: getInt('UDP_PORT', 3002),
   httpsClientPort: getInt('HTTPS_CLIENT_PORT', 3443),
   maxUsers: getInt('MAX_USERS', 100),
   maxRooms: getInt('MAX_ROOMS', 20),

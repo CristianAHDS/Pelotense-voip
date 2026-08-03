@@ -303,14 +303,19 @@ describe('voiceStore', () => {
 describe('settingsStore', () => {
   it('mantém valores padrão', () => {
     const s = useSettingsStore.getState()
-    expect(s.serverWsPort).toBe(3001)
+    expect(s.theme).toBe('auto')
+    expect(s.language).toBe('pt')
   })
 
-  it('permite ajustar configurações', () => {
-    useSettingsStore.getState().setServerHost('10.0.0.1')
-    useSettingsStore.getState().setServerWsPort(3002)
-    const s = useSettingsStore.getState()
-    expect(s.serverHost).toBe('10.0.0.1')
-    expect(s.serverWsPort).toBe(3002)
+  it('permite trocar o idioma', () => {
+    useSettingsStore.getState().setLanguage('en')
+    expect(useSettingsStore.getState().language).toBe('en')
+  })
+
+  it('permite trocar o tema', () => {
+    useSettingsStore.getState().setTheme('dark')
+    expect(useSettingsStore.getState().theme).toBe('dark')
+    useSettingsStore.getState().cycleTheme()
+    expect(useSettingsStore.getState().theme).toBe('auto')
   })
 })

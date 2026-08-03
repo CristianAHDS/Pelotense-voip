@@ -31,6 +31,20 @@ let hasReceivedWelcome: boolean = false
 const SEND_TIMEOUT_MS = 8000
 const pendingSends = new Map<string, ReturnType<typeof setTimeout>>()
 
+// Indicador de digitação: mantém o nome do usuário visível por um tempo após o
+// último sinal; o próprio cliente renova o sinal enquanto digita.
+const TYPING_VISIBLE_MS = 4000
+const typingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function scheduleTypingExpiry(userId: string): void {
+  const existing = typingTimers.get(userId)
+  if (existing) clearTimeout(existing)
+  typingTimers.set(userId, setTimeout(() => {
+    typingTimers.delete(userId)
+    useRoomStore.getState().removeTypingUser(userId)
+  }, TYPING_VISIBLE_MS))
+}
+
 function clearPending(id: string): void {
   const t = pendingSends.get(id)
   if (t) {
@@ -63,6 +77,10 @@ export function getVoiceManager(): VoiceManager | null {
 
 export function sendVoiceData(data: ArrayBuffer): void {
   wsClient?.sendBinary(data)
+}
+
+export function sendTyping(isTyping: boolean): void {
+  wsClient?.send(WsMessageType.Typing, { isTyping })
 }
 
 function initVoice(): void {
@@ -340,6 +358,20 @@ export function connectToServer(address: string, name: string, password: string,
 
   wsClient.on(WsMessageType.ChatImageMessage, (msg) => {
     onRoomChatMessage(msg.payload as ChatMsg)
+  })
+
+  wsClient.on(WsMessageType.Typing, (msg) => {
+    const payload = msg.payload as { userId: string; userName: string; isTyping: boolean }
+    if (!payload.userId || payload.userId === useConnectionStore.getState().id) return
+    if (payload.isTyping) {
+      useRoomStore.getState().setTypingUser(payload.userId, payload.userName || payload.userId)
+      scheduleTypingExpiry(payload.userId)
+    } else {
+      const t = typingTimers.get(payload.userId)
+      if (t) clearTimeout(t)
+      typingTimers.delete(payload.userId)
+      useRoomStore.getState().removeTypingUser(payload.userId)
+    }
   })
 
   wsClient.on(WsMessageType.MessageReaction, (msg) => {
@@ -724,6 +756,9 @@ export function disconnectFromServer(): void {
   liveRtc.cleanup()
   useVoiceStore.getState().clearSpeaking()
   useVoiceStore.getState().setRxLevel(0)
+  for (const t of typingTimers.values()) clearTimeout(t)
+  typingTimers.clear()
+  useRoomStore.getState().clearTyping()
   useRoomStore.getState().clearUnread()
   useRoomStore.getState().setLoadingRooms(false)
   useRoomStore.getState().setLoadingMessages(false)

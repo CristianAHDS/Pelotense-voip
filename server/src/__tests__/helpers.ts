@@ -19,7 +19,7 @@ export async function startTestServer(maxUsers = 100, maxRooms = 20, limits?: Se
   const wss = new WebSocketServer({ port: 0 })
   const clients = new ClientManager(maxUsers)
   const rooms = new RoomManager(maxRooms, storage)
-  const handler = new WsHandler(wss, clients, rooms, 3002, limits, adminNames, storage, adminIds)
+  const handler = new WsHandler(wss, clients, rooms, limits, adminNames, storage, adminIds)
   const port = (wss.address() as AddressInfo).port
   const close = (): Promise<void> =>
     new Promise((resolve) => {

@@ -5,7 +5,6 @@ export interface Client {
   name: string
   password: string
   room: string | null
-  udpPort: number
   ip: string
   lastPing: number
   admin: boolean
@@ -64,22 +63,6 @@ export interface Room {
   createdByName?: string
 }
 
-export enum PacketType {
-  VoiceData = 0,
-  Ping = 1,
-  Pong = 2,
-}
-
-export interface VoicePacket {
-  version: number
-  packetType: PacketType
-  userId: string
-  roomId: string
-  sequence: number
-  timestamp: number
-  payload: Buffer
-}
-
 export enum WsMessageType {
   JoinRoom = 'join_room',
   LeaveRoom = 'leave_room',
@@ -91,6 +74,7 @@ export enum WsMessageType {
   AccountsList = 'accounts_list',
   AdminUpdateAccount = 'admin_update_account',
   Heartbeat = 'heartbeat',
+  Typing = 'typing',
   RoomJoined = 'room_joined',
   RoomLeft = 'room_left',
   RoomCreated = 'room_created',
@@ -161,32 +145,9 @@ export enum LogLevel {
 export interface ServerConfig {
   serverPort: number
   wsPort: number
-  udpPort: number
   maxUsers: number
   maxRooms: number
   logLevel: LogLevel
-}
-
-export enum EventType {
-  ClientConnected = 'client:connected',
-  ClientDisconnected = 'client:disconnected',
-  RoomCreated = 'room:created',
-  RoomDeleted = 'room:deleted',
-  RoomJoined = 'room:joined',
-  RoomLeft = 'room:left',
-  VoicePacketReceived = 'voice:packet_received',
-  VoicePacketSent = 'voice:packet_sent',
-}
-
-export type EventPayloads = {
-  [EventType.ClientConnected]: { clientId: string; name: string }
-  [EventType.ClientDisconnected]: { clientId: string; name: string }
-  [EventType.RoomCreated]: { roomId: string; roomName: string }
-  [EventType.RoomDeleted]: { roomId: string; roomName: string }
-  [EventType.RoomJoined]: { clientId: string; roomId: string }
-  [EventType.RoomLeft]: { clientId: string; roomId: string }
-  [EventType.VoicePacketReceived]: { userId: string; roomId: string; size: number }
-  [EventType.VoicePacketSent]: { userId: string; roomId: string; targets: number }
 }
 
 export interface LiveState {
@@ -197,8 +158,6 @@ export interface LiveState {
   initChunk?: string
   mime?: string
 }
-
-export type EventListener<T = unknown> = (payload: T) => void
 
 export interface SecurityLimits {
   maxNameLength: number

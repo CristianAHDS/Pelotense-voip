@@ -39,6 +39,7 @@ export enum WsMessageType {
   AccountsList = 'accounts_list',
   AdminUpdateAccount = 'admin_update_account',
   Heartbeat = 'heartbeat',
+  Typing = 'typing',
   RoomJoined = 'room_joined',
   RoomLeft = 'room_left',
   RoomCreated = 'room_created',
@@ -179,7 +180,6 @@ export interface LoginPayload {
 export interface WelcomePayload {
   id: string
   name: string
-  udpPort: number
   admin?: boolean
   avatar?: string
   email?: string
@@ -257,20 +257,4 @@ export interface VoiceState {
   level: number
   rxLevel: number
   speaking: Record<string, number>
-}
-
-export enum PacketType {
-  VoiceData = 0,
-  Ping = 1,
-  Pong = 2,
-}
-
-export interface VoicePacket {
-  version: number
-  packetType: PacketType
-  userId: string
-  roomId: string
-  sequence: number
-  timestamp: number
-  payload: ArrayBuffer
 }

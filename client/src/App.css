@@ -2808,6 +2808,51 @@ body {
   gap: 2px;
 }
 
+.chat-typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 18px 8px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-3);
+  min-height: 20px;
+}
+
+.chat-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.chat-typing-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
+.chat-typing-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing-dots i {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
 .chat-row {
   display: flex;
   gap: 10px;

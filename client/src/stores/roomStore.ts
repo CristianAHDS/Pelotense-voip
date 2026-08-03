@@ -36,6 +36,7 @@ interface RoomStore {
   currentRoomName: string | null
   messages: ChatMsg[]
   unread: Record<string, number>
+  typing: Record<string, string>
   loadingRooms: boolean
   loadingMessages: boolean
   setRooms: (rooms: RoomInfo[]) => void
@@ -52,6 +53,9 @@ interface RoomStore {
   incrementUnread: (roomId: string) => void
   markRoomRead: (roomId: string) => void
   clearUnread: () => void
+  setTypingUser: (userId: string, userName: string) => void
+  removeTypingUser: (userId: string) => void
+  clearTyping: () => void
   setLoadingRooms: (loading: boolean) => void
   setLoadingMessages: (loading: boolean) => void
 }
@@ -64,6 +68,7 @@ export const useRoomStore = create<RoomStore>((set) => ({
   currentRoomName: restored.currentRoomName,
   messages: [],
   unread: {},
+  typing: {},
   loadingRooms: false,
   loadingMessages: false,
   setRooms: (rooms) => set({ rooms }),
@@ -106,6 +111,16 @@ export const useRoomStore = create<RoomStore>((set) => ({
       return { unread }
     }),
   clearUnread: () => set({ unread: {} }),
+  setTypingUser: (userId, userName) =>
+    set((s) => ({ typing: { ...s.typing, [userId]: userName } })),
+  removeTypingUser: (userId) =>
+    set((s) => {
+      if (!(userId in s.typing)) return s
+      const typing = { ...s.typing }
+      delete typing[userId]
+      return { typing }
+    }),
+  clearTyping: () => set({ typing: {} }),
   setLoadingRooms: (loading) => set({ loadingRooms: loading }),
   setLoadingMessages: (loading) => set({ loadingMessages: loading }),
 }))
