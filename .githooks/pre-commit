@@ -1,0 +1,12 @@
+#!/bin/sh
+# pre-commit: incrementa a versão (build) automaticamente a cada commit e
+# adiciona o version.json ao commit que está sendo criado. Assim o push sempre
+# carrega a versão atualizada. Para funcionar, o repositório usa este diretório
+# como hooksPath:  git config core.hooksPath .githooks
+set -e
+
+node scripts/bump-version.mjs
+
+git add version.json client/public/version.json
+
+exit 0
