@@ -733,6 +733,28 @@ body {
   letter-spacing: 0.2px;
 }
 
+.app-version-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 3px 8px;
+  white-space: nowrap;
+  cursor: default;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.app-version-server {
+  color: var(--accent);
+}
+
+
 .menu-toggle {
   display: none;
   background: none;

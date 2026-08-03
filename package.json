@@ -2,6 +2,11 @@
   "name": "voip-project",
   "private": true,
   "scripts": {
+    "version": "node scripts/bump-version.mjs",
+    "version:major": "node scripts/bump-version.mjs --major",
+    "version:minor": "node scripts/bump-version.mjs --minor",
+    "version:patch": "node scripts/bump-version.mjs --patch",
+    "hooks": "git config core.hooksPath .githooks",
     "server:dev": "cd server && npm run dev",
     "server:dev:jornal": "cd server && npm run dev",
     "server:build": "cd server && npm run build",

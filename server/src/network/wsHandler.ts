@@ -360,7 +360,7 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest, settings: this.getSettingsPayload() },
+      payload: { id: client.id, name: client.name, udpPort: this.udpPort, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest, settings: this.getSettingsPayload(), appVersion: { ...config.appVersion } },
     })
 
     this.broadcast({

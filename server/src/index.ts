@@ -213,6 +213,8 @@ async function main(): Promise<void> {
       status: 'ok',
       clients: clientManager.size(),
       rooms: roomManager.getAll().length,
+      version: `${config.appVersion.version}`,
+      build: config.appVersion.build,
     }
   })
 

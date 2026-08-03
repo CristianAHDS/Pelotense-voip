@@ -1,7 +1,25 @@
 import dotenv from 'dotenv'
 import { LogLevel, SecurityLimits, DEFAULT_SECURITY_LIMITS } from '../types/index.js'
+import { readFileSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
 dotenv.config()
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(__dirname, '..', '..', '..')
+
+function readVersion(): { version: string; build: number } {
+  try {
+    const raw = JSON.parse(readFileSync(resolve(ROOT, 'version.json'), 'utf8'))
+    return {
+      version: typeof raw.version === 'string' ? raw.version : '1.0.0',
+      build: Number.isFinite(raw.build) ? raw.build : 0,
+    }
+  } catch {
+    return { version: '1.0.0', build: 0 }
+  }
+}
 
 function getEnv(key: string, fallback: string): string {
   return process.env[key] ?? fallback
@@ -38,6 +56,7 @@ export const config = {
   adminNames: getList('ADMIN_NAMES', []),
   adminIds: getList('ADMIN_IDS', []),
   dbPath: getEnv('DB_PATH', './data/voip.db'),
+  appVersion: readVersion(),
 }
 
 export const securityLimits: SecurityLimits = {

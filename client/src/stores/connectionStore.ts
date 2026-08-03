@@ -22,6 +22,8 @@ interface ConnectionStore {
   guest: boolean;
   guestMode: boolean;
   settings: SystemSettings;
+  serverVersion: string | null;
+  serverBuild: number | null;
   setConnected: (id: string, name: string, admin?: boolean) => void;
   setDisconnected: () => void;
   setReconnecting: (reconnecting: boolean) => void;
@@ -30,6 +32,7 @@ interface ConnectionStore {
   setGuest: (guest: boolean) => void;
   setGuestMode: (enabled: boolean) => void;
   setSettings: (settings: SystemSettings) => void;
+  setServerVersion: (version: string | null, build: number | null) => void;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set) => ({
@@ -45,14 +48,17 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   guest: false,
   guestMode: false,
   settings: DEFAULT_SETTINGS,
+  serverVersion: null,
+  serverBuild: null,
   setConnected: (id, name, admin = false) =>
     set({ connected: true, id, name, admin, reconnecting: false, loginStep: 'none', loginError: '' }),
   setDisconnected: () =>
-    set({ connected: false, id: null, name: null, admin: false, reconnecting: false, loginStep: 'none', loginError: '', maintenance: false, maintenanceMessage: '', guest: false }),
+    set({ connected: false, id: null, name: null, admin: false, reconnecting: false, loginStep: 'none', loginError: '', maintenance: false, maintenanceMessage: '', guest: false, serverVersion: null, serverBuild: null }),
   setReconnecting: (reconnecting) => set({ reconnecting }),
   setLoginStep: (step, error = '') => set({ loginStep: step, loginError: error }),
   setMaintenance: (enabled, message = '') => set({ maintenance: enabled, maintenanceMessage: message }),
   setGuest: (guest) => set({ guest }),
   setGuestMode: (enabled) => set({ guestMode: enabled }),
   setSettings: (settings) => set({ settings }),
+  setServerVersion: (version, build) => set({ serverVersion: version, serverBuild: build }),
 }));

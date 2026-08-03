@@ -37,6 +37,8 @@ export function MainPage() {
   const cycleTheme = useSettingsStore((s) => s.cycleTheme);
   const language = useSettingsStore((s) => s.language);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
+  const serverVersion = useConnectionStore((s) => s.serverVersion);
+  const serverBuild = useConnectionStore((s) => s.serverBuild);
   const t = useT();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetTab, setSheetTab] = useState<SheetTab>('rooms');
@@ -100,6 +102,23 @@ export function MainPage() {
           <span className="app-title">Rádio Pelotense</span>
           <span className="app-title-freq">99.5 FM</span>
         </h1>
+        <span
+          className="app-version-badge"
+          title={
+            serverVersion
+              ? `UI: ${__APP_VERSION__}\nServidor: v${serverVersion} (build ${serverBuild ?? 0})`
+              : `UI: ${__APP_VERSION__}`
+          }
+        >
+          v{__APP_VERSION__}
+          {serverVersion && (
+            <span className="app-version-server">
+              {' '}
+              · srv {serverVersion}
+              {serverBuild !== null ? ` (${serverBuild})` : ''}
+            </span>
+          )}
+        </span>
         {currentRoomName && (
           <div
             className="current-room-indicator"

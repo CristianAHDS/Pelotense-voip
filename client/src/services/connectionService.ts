@@ -205,6 +205,9 @@ export function connectToServer(address: string, name: string, password: string,
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     useConnectionStore.getState().setGuest(!!payload.guest)
+    if (payload.appVersion) {
+      useConnectionStore.getState().setServerVersion(payload.appVersion.version, payload.appVersion.build)
+    }
     if (payload.settings) {
       useConnectionStore.getState().setSettings(payload.settings)
     }

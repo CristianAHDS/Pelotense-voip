@@ -32,6 +32,18 @@ describe('Login', () => {
     expect(c.id).toBeTruthy()
   })
 
+  it('welcome inclui appVersion (versão do servidor)', async () => {
+    const ws = await connectRaw(server.port)
+    const client = new TestClient(ws)
+    clients.push(client)
+    client.send(WsMessageType.Login, { name: 'Versao', password: 'pass' })
+    const welcome = await client.waitFor(WsMessageType.Welcome)
+    const payload = welcome.payload as { appVersion?: { version: string; build: number } }
+    expect(payload.appVersion).toBeDefined()
+    expect(typeof payload.appVersion?.version).toBe('string')
+    expect(Number.isFinite(payload.appVersion?.build)).toBe(true)
+  })
+
   it('rejeita login sem nome', async () => {
     const ws = await connectRaw(server.port)
     const client = new TestClient(ws)

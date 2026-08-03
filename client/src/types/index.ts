@@ -189,6 +189,7 @@ export interface WelcomePayload {
   onboarding?: boolean
   guest?: boolean
   settings?: SystemSettings
+  appVersion?: { version: string; build: number }
 }
 
 export interface ChatMsg {
