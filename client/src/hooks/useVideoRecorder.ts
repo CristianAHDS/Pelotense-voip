@@ -259,9 +259,8 @@ export function useVideoRecorder() {
       setFacingMode(next)
       setHasStream(true)
       setStreamVersion((s) => s + 1)
-      // Renegociação (novo offer) no mobile: replaceTrack congela o vídeo
-      // para os espectadores no iOS.
-      liveRtc.renegotiateStream(combined)
+      // A live é reiniciada pelo mosaico (encerra e abre de novo) para a nova
+      // câmera aparecer de forma confiável para os espectadores.
       return true
     } catch {
       return false

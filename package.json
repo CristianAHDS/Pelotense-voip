@@ -22,7 +22,7 @@
     "test:server": "cd server && npm test",
     "test:client": "cd client && npm test",
     "e2e": "playwright test",
-    "e2e:server": "npm run client:build && cd server && npm run build && del /q data\\e2e.db* 2>nul & set DB_PATH=./data/e2e.db&& set ADMIN_NAMES=AdminPrint&& npm start"
+    "e2e:server": "npm run client:build && cd server && npm run build && del /q data\\e2e.db* 2>nul & set DB_PATH=./data/e2e.db&& set ADMIN_NAMES=AdminPrint,AdminV2Print&& npm start"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"

@@ -24,6 +24,13 @@ async function register(page: Page, name: string, email: string): Promise<void> 
   await page.waitForSelector('.status-pill--connected', { timeout: 25000 })
 }
 
+// O onboarding "Boas-vindas" aparece no primeiro login e intercepta cliques;
+// pula se estiver na tela.
+async function dismissOnboarding(page: Page): Promise<void> {
+  await page.locator('.onboarding-skip').first().click({ timeout: 8000 }).catch(() => {})
+  await page.waitForTimeout(300)
+}
+
 interface CtxOpts {
   dark: boolean
   creds?: { name: string; email: string; password: string }
@@ -32,6 +39,16 @@ interface CtxOpts {
 async function newContext(browser: Browser, opts: CtxOpts) {
   const ctx = await browser.newContext()
   await ctx.addInitScript((o) => {
+    // Garante que o app conecte no servidor local do e2e (127.0.0.1), ignorando
+    // o host do config remoto/túnel que sobrescreveria o host local no auto-login.
+    const realFetch = window.fetch.bind(window)
+    ;(window as unknown as { fetch: typeof fetch }).fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      if (url.endsWith('config.json') || url.includes('raw.githubusercontent.com/CristianAHDS/Pelotense-voip/main/config.json')) {
+        return Promise.resolve(new Response(JSON.stringify({ host: '127.0.0.1', wsPort: '3001', wssPort: '3003' }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      }
+      return realFetch(input, init)
+    }
     if (o.creds) {
       localStorage.setItem('voip_credentials', JSON.stringify({
         host: '127.0.0.1',
@@ -67,6 +84,7 @@ test('captura screenshots v2 (novo layout) — claro e escuro', async ({ browser
     const appName = `V2${ts}${dark ? 'D' : 'L'}`
     await gotoAndConfigure(app)
     await register(app, appName, `${appName.toLowerCase()}@test.com`)
+    await dismissOnboarding(app)
     const room = app.locator('.main-content .room-item').filter({ hasText: /^Externas/ }).first()
     await room.dblclick()
     await app.waitForSelector('.chat-header-name', { timeout: 25000 })
@@ -74,11 +92,17 @@ test('captura screenshots v2 (novo layout) — claro e escuro', async ({ browser
     await app.screenshot({ path: `docs/screenshots/app-v2${suffix}.png` })
     await appCtx.close()
 
-    // ---------- Painel do admin (conta AdminV2Print criada no banco) ----------
-    const adminCtx = await newContext(browser, { dark, creds: ADMIN })
+    // ---------- Painel do admin (conta AdminV2Print criada no 1º run) ----------
+    const adminCtx = await newContext(browser, { dark, creds: dark ? ADMIN : undefined })
     const admin = await adminCtx.newPage()
-    await admin.goto(BASE)
-    await admin.waitForSelector('.status-pill--connected', { timeout: 25000 })
+    if (!dark) {
+      await gotoAndConfigure(admin)
+      await register(admin, ADMIN.name, ADMIN.email)
+    } else {
+      await admin.goto(BASE)
+      await admin.waitForSelector('.status-pill--connected', { timeout: 25000 })
+    }
+    await dismissOnboarding(admin)
     await admin.click('.btn-admin')
     await admin.waitForSelector('.admin-modal', { timeout: 15000 })
     await admin.waitForTimeout(800)

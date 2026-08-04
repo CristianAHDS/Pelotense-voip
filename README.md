@@ -109,17 +109,33 @@ O app também busca o servidor de uma **URL remota com CORS**, para você trocar
 
 ## Telas
 
-### Modo claro
+### Versão antiga — 31/07/2026
+
+#### Modo claro
 
 | Login / Registro | Salas e chat | Painel do admin |
 | --- | --- | --- |
 | ![Login](docs/screenshots/login.png) | ![Aplicação](docs/screenshots/app.png) | ![Admin](docs/screenshots/admin.png) |
 
-### Modo escuro
+#### Modo escuro
 
 | Login / Registro | Salas e chat | Painel do admin |
 | --- | --- | --- |
 | ![Login dark](docs/screenshots/login-dark.png) | ![Aplicação dark](docs/screenshots/app-dark.png) | ![Admin dark](docs/screenshots/admin-dark.png) |
+
+### Versão nova — 04/08/2026
+
+#### Modo claro
+
+| Login / Registro | Salas e chat | Painel do admin |
+| --- | --- | --- |
+| ![Login v2](docs/screenshots/login-v2.png) | ![Aplicação v2](docs/screenshots/app-v2.png) | ![Admin v2](docs/screenshots/admin-v2.png) |
+
+#### Modo escuro
+
+| Login / Registro | Salas e chat | Painel do admin |
+| --- | --- | --- |
+| ![Login v2 dark](docs/screenshots/login-v2-dark.png) | ![Aplicação v2 dark](docs/screenshots/app-v2-dark.png) | ![Admin v2 dark](docs/screenshots/admin-v2-dark.png) |
 
 ---
 

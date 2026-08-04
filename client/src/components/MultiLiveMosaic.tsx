@@ -315,6 +315,16 @@ export function MultiLiveMosaic() {
     setStarting(false)
   }
 
+  // No mobile, girar a câmera = encerrar a live e abrir outra automaticamente
+  // (mais confiável que trocar a track no meio; os espectadores veem a nova
+  // câmera ao reconectar).
+  async function handleFlip() {
+    liveRtc.stopBroadcast()
+    sendLiveStop()
+    await videoRec.flipCamera()
+    sendLiveStart()
+  }
+
   return (
     <div className="multilive">
       <div className="multilive-header">
@@ -369,7 +379,7 @@ export function MultiLiveMosaic() {
                       {isMobile && (
                         <button
                           className="mosaic-icon-btn mosaic-flip-btn"
-                          onClick={() => void videoRec.flipCamera()}
+                          onClick={() => void handleFlip()}
                           title={t('flipCamera')}
                           aria-label={t('flipCamera')}
                         >
