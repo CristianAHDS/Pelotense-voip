@@ -17,6 +17,7 @@ import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
 import { isMobileDevice } from '../utils/device.ts'
+import { renderTextWithLinks } from '../utils/links.tsx'
 import { useT, tStatic, type TranslateFn } from '../i18n/index.ts'
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -238,6 +239,85 @@ export function ChatPanel() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+    }
+  }
+
+  async function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.kind !== 'file') continue
+
+      const file = item.getAsFile()
+      if (!file) continue
+
+      e.preventDefault()
+
+      if (file.type.startsWith('image/')) {
+        const base64 = await fileToResizedBase64(file)
+        if (!base64) {
+          useToastStore.getState().show('error', t('imageUnreadable'))
+          return
+        }
+        if (imageBase64ExceedsLimit(base64)) {
+          useToastStore.getState().show('error', t('imageTooLarge'))
+          return
+        }
+        const id = generateClientMessageId()
+        useRoomStore.getState().addMessage({
+          id,
+          userId: myId ?? '',
+          userName: myName ?? '',
+          imageData: base64,
+          timestamp: Date.now(),
+          sending: true,
+        })
+        sendChatImageMessage(id, base64)
+        return
+      }
+
+      const isAudio = file.type.startsWith('audio')
+      const isVideo = file.type.startsWith('video')
+      if (isAudio || isVideo) {
+        const base64 = await readFileAsBase64(file)
+        const maxBytes = isAudio
+          ? useConnectionStore.getState().settings.maxAudioBytes
+          : useConnectionStore.getState().settings.maxVideoBytes
+        if (!base64 || file.size > maxBytes) {
+          useToastStore.getState().show('error', t('fileTooLarge'))
+          return
+        }
+        const duration = Math.round(await getMediaDuration(file))
+        const id = generateClientMessageId()
+        if (isAudio) {
+          useRoomStore.getState().addMessage({
+            id,
+            userId: myId ?? '',
+            userName: myName ?? '',
+            audioData: base64,
+            duration,
+            mime: file.type,
+            timestamp: Date.now(),
+            sending: true,
+          })
+          sendChatAudioMessage(id, base64, duration, file.type)
+        } else {
+          useRoomStore.getState().addMessage({
+            id,
+            userId: myId ?? '',
+            userName: myName ?? '',
+            videoData: base64,
+            duration,
+            mime: file.type,
+            timestamp: Date.now(),
+            sending: true,
+          })
+          sendChatVideoMessage(id, base64, duration, file.type)
+        }
+        return
+      }
     }
   }
 
@@ -858,6 +938,7 @@ export function ChatPanel() {
                   value={text}
                   onChange={(e) => { setText(e.target.value); signalTyping(e.target.value) }}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
                   placeholder={t('messagePlaceholder', { room: currentRoomName ?? '' })}
                   className="chat-input"
                 />
@@ -1027,7 +1108,7 @@ function ChatBubble({ msg, isSelf, canDelete, avatarColor, showAvatar, myId, onF
             onLightbox={onLightbox}
           />
         ) : (
-          <div className="chat-bubble-text">{msg.text}</div>
+          <div className="chat-bubble-text">{renderTextWithLinks(msg.text ?? '')}</div>
         )}
         <div className="chat-bubble-reactions">
           {msg.reactions?.map((r) => {

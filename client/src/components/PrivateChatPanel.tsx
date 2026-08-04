@@ -9,6 +9,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
+import { renderTextWithLinks } from '../utils/links.tsx'
 import { ChatMedia } from './ChatMedia.tsx'
 import { useT, tStatic } from '../i18n/index.ts'
 
@@ -26,7 +27,7 @@ function DmMediaBubble({ msg }: { msg: PrivateChatMsg }) {
       />
     )
   }
-  return <div className="chat-bubble-text">{msg.text}</div>
+  return <div className="chat-bubble-text">{renderTextWithLinks(msg.text ?? '')}</div>
 }
 
 export function PrivateChatPanel() {
@@ -93,6 +94,89 @@ export function PrivateChatPanel() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
+    }
+  }
+
+  async function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    if (!activeUserId) return
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.kind !== 'file') continue
+
+      const file = item.getAsFile()
+      if (!file) continue
+
+      e.preventDefault()
+
+      if (file.type.startsWith('image/')) {
+        const base64 = await fileToResizedBase64(file)
+        if (!base64) {
+          useToastStore.getState().show('error', t('imageUnreadable'))
+          return
+        }
+        if (imageBase64ExceedsLimit(base64)) {
+          useToastStore.getState().show('error', t('imageTooLarge'))
+          return
+        }
+        const id = generateClientMessageId()
+        usePrivateChatStore.getState().addMessage({
+          id,
+          fromUserId: myId ?? '',
+          fromUserName: myName ?? '',
+          toUserId: activeUserId,
+          imageData: base64,
+          timestamp: Date.now(),
+          sending: true,
+        })
+        sendPrivateImageMessage(activeUserId, id, base64)
+        return
+      }
+
+      const isAudio = file.type.startsWith('audio')
+      const isVideo = file.type.startsWith('video')
+      if (isAudio || isVideo) {
+        const base64 = await readFileAsBase64(file)
+        const maxBytes = isAudio
+          ? useConnectionStore.getState().settings.maxAudioBytes
+          : useConnectionStore.getState().settings.maxVideoBytes
+        if (!base64 || file.size > maxBytes) {
+          useToastStore.getState().show('error', t('fileTooLarge'))
+          return
+        }
+        const duration = Math.round(await getMediaDuration(file))
+        const id = generateClientMessageId()
+        if (isAudio) {
+          usePrivateChatStore.getState().addMessage({
+            id,
+            fromUserId: myId ?? '',
+            fromUserName: myName ?? '',
+            toUserId: activeUserId,
+            audioData: base64,
+            duration,
+            mime: file.type,
+            timestamp: Date.now(),
+            sending: true,
+          })
+          sendPrivateAudioMessage(activeUserId, id, base64, duration, file.type)
+        } else {
+          usePrivateChatStore.getState().addMessage({
+            id,
+            fromUserId: myId ?? '',
+            fromUserName: myName ?? '',
+            toUserId: activeUserId,
+            videoData: base64,
+            duration,
+            mime: file.type,
+            timestamp: Date.now(),
+            sending: true,
+          })
+          sendPrivateVideoMessage(activeUserId, id, base64, duration, file.type)
+        }
+        return
+      }
     }
   }
 
@@ -448,6 +532,7 @@ export function PrivateChatPanel() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 placeholder={t('dmMessagePlaceholder', { name: activeUserName })}
                 className="chat-input"
               />
