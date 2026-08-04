@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { LiveViewer } from '../components/LiveViewer.tsx'
-import { connectToServer } from '../services/connectionService.ts'
-import { joinRoom } from '../services/connectionService.ts'
+import { connectToServer, joinRoom } from '../services/connectionService.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
-import { useRoomStore } from '../stores/roomStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 
 export function ViewerPage() {
@@ -12,12 +10,10 @@ export function ViewerPage() {
   const port = params.get('port') ?? ''
   const room = params.get('room') ?? 'Ao vivo'
   const connected = useConnectionStore((s) => s.connected)
-  const rooms = useRoomStore((s) => s.rooms)
   const broadcasters = useLiveStore((s) => s.broadcasters)
   const [error, setError] = useState('')
   const [joined, setJoined] = useState(false)
-  const prevConnected = useRef(false)
-  const prevRoomsLen = useRef(0)
+  const joiningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!host || !port) {
@@ -27,23 +23,21 @@ export function ViewerPage() {
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
     const url = `${protocol}://${host}:${port}`
     connectToServer(url, '', '', undefined, 'guest')
+    return () => {
+      if (joiningTimer.current) clearTimeout(joiningTimer.current)
+    }
   }, [])
 
   useEffect(() => {
-    if (!connected) return
-    if (connected && !prevConnected.current) {
-      prevConnected.current = true
+    if (!connected || joined) return
+    joiningTimer.current = setTimeout(() => {
+      joinRoom(room)
+      setJoined(true)
+    }, 500)
+    return () => {
+      if (joiningTimer.current) clearTimeout(joiningTimer.current)
     }
-    if (rooms.length > 0 && rooms.length !== prevRoomsLen.current && !joined) {
-      prevRoomsLen.current = rooms.length
-      const decodedRoom = decodeURIComponent(room)
-      const targetRoom = rooms.find((r) => r.name === room || r.name === decodedRoom)
-      if (targetRoom) {
-        joinRoom(targetRoom.name)
-        setJoined(true)
-      }
-    }
-  }, [connected, rooms])
+  }, [connected, joined])
 
   if (error) {
     return (

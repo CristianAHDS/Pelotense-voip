@@ -511,19 +511,6 @@ export function ChatPanel() {
       <div className="chat-header">
         <span className="chat-header-name">#{currentRoomName}</span>
         <span className="chat-header-count">{t('messagesCount', { count: messages.length })}</span>
-        {isAoVivo && broadcaster && (
-          <button
-            className="chat-header-copy-btn"
-            onClick={copyLiveLinkToClipboard}
-            title={t('copyLiveLink')}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-            {t('copyLiveLink')}
-          </button>
-        )}
         <button
           className="chat-fullscreen-btn"
           onClick={toggleFullscreen}

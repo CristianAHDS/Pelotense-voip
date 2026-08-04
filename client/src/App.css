@@ -4348,11 +4348,26 @@ body {
 .live-viewer-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   padding: 8px 12px;
   background: var(--panel);
   font-size: 12px;
   font-weight: 600;
+}
+
+.live-viewer-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.live-viewer-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .live-viewer-indicator {
@@ -4400,23 +4415,25 @@ body {
 }
 
 .live-viewer-copy-btn {
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: var(--radius-s);
-  background: var(--surface);
-  color: var(--text-2);
-  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
   flex-shrink: 0;
   transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
 }
 
 .live-viewer-copy-btn:hover {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 .live-viewer-video {
