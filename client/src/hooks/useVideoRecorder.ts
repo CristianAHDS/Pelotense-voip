@@ -232,19 +232,34 @@ export function useVideoRecorder() {
       facingMode: { ideal: next },
     }
     try {
-      const stream = await getUserMediaWithMic(constraints, true)
-      const ready = await waitForVideoTrack(stream)
-      if (!ready) {
-        stream.getTracks().forEach((t) => t.stop())
+      // Só VÍDEO na troca: no mobile, pedir áudio de novo é lento ou falha
+      // enquanto o microfone já está capturado (pela live/room voice). A track
+      // de áudio atual é reutilizada; só o vídeo muda.
+      const newVideo = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false })
+      const track = newVideo.getVideoTracks()[0]
+      if (!track) {
+        newVideo.getTracks().forEach((t) => t.stop())
         return false
       }
+
+      // Espera curta para a track destravar; mesmo que demore, faz a troca
+      // (o vídeo pode congelar por um instante, mas o flip acontece — em vez de
+      // ficar travado na câmera antiga).
+      await waitForVideoTrack(newVideo, 1500).catch(() => false)
+
       const old = streamRef.current
-      if (old) old.getTracks().forEach((t) => t.stop())
-      streamRef.current = stream
+      const audioTrack = old?.getAudioTracks()[0]
+      const combined = new MediaStream(track ? [track] : [])
+      if (audioTrack) combined.addTrack(audioTrack)
+
+      // Para só a track de vídeo antiga; mantém a de áudio (reutilizada).
+      if (old) old.getVideoTracks().forEach((t) => t.stop())
+
+      streamRef.current = combined
       setFacingMode(next)
       setHasStream(true)
       setStreamVersion((s) => s + 1)
-      liveRtc.replaceStream(stream)
+      liveRtc.replaceStream(combined)
       return true
     } catch {
       return false

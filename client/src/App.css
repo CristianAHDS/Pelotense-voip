@@ -2851,11 +2851,13 @@ body {
   box-shadow: 0 0 0 1px #e74c3c, 0 0 16px rgba(231, 76, 60, 0.35);
 }
 
-/* Tile em foco (expande e ocupa a largura toda do mosaico) */
+/* Tile em foco (expande, ocupa a largura toda e vai para o fundo via order —
+   sem remontar o componente, para não derrubar a conexão WebRTC). */
 .mosaic-tile--focused {
   grid-column: 1 / -1;
   min-height: 360px;
   border-color: var(--accent);
+  order: 999;
 }
 
 .mosaic-tile-video {

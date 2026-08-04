@@ -380,6 +380,8 @@ const messages: Record<Language, Record<string, string>> = {
     liveJoinedToast: '{name} entrou na transmissão',
     backToMosaic: 'Voltar ao mosaico',
     confirmStart: 'Transmitir',
+    cameraUnavailable: 'Câmera indisponível: acesse via HTTPS/localhost e permita o uso da câmera',
+    cameraStartFailed: 'Não foi possível iniciar a câmera. Verifique a permissão do navegador.',
     you: 'você',
   },
   en: {
@@ -756,6 +758,8 @@ const messages: Record<Language, Record<string, string>> = {
     liveJoinedToast: '{name} joined the broadcast',
     backToMosaic: 'Back to mosaic',
     confirmStart: 'Broadcast',
+    cameraUnavailable: 'Camera unavailable: access via HTTPS/localhost and allow camera access',
+    cameraStartFailed: 'Could not start the camera. Check your browser permission.',
     you: 'you',
   },
 }

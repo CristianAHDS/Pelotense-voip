@@ -161,10 +161,60 @@ export function attachMediaStream(stream: MediaStream, key: string, videoEl?: HT
 export function setStreamMuted(key: string, muted: boolean): void {
   const gain = streamGains.get(key)
   if (gain) gain.gain.value = muted ? 0 : 1
+  // Chamado dentro de um gesto do usuário (clique no mute): aproveita para
+  // retomar o contexto, evitando o bloqueio de autoplay que deixa o áudio parado.
+  void ensure()?.ctx.resume()
 }
 
 // Libera a fonte (e o medidor) quando a live sai da tela.
 export function releaseStream(key: string): void {
   streamGains.delete(key)
   markActive(key, false)
+}
+
+// Analisador de nível por fonte, reutilizando o contexto compartilhado (evita
+// criar um AudioContext por tile, que o Chrome bloqueia por autoplay e gera
+// aviso no console). Não conecta ao destination — só mede o nível.
+export function createStreamLevel(stream: MediaStream, onLevel: (level: number) => void): () => void {
+  const r = ensure()
+  if (!r) return () => {}
+  let raf = 0
+  try {
+    const src = r.ctx.createMediaStreamSource(stream)
+    const analyser = r.ctx.createAnalyser()
+    analyser.fftSize = 256
+    analyser.smoothingTimeConstant = 0.4
+    src.connect(analyser)
+    const data = new Uint8Array(analyser.frequencyBinCount)
+    const loop = () => {
+      analyser.getByteFrequencyData(data)
+      let sum = 0
+      for (let i = 0; i < data.length; i++) sum += data[i]
+      onLevel(Math.min(1, (sum / data.length / 255) * 1.6))
+      raf = requestAnimationFrame(loop)
+    }
+    loop()
+    return () => {
+      cancelAnimationFrame(raf)
+      try { src.disconnect() } catch { /* ignore */ }
+      try { analyser.disconnect() } catch { /* ignore */ }
+    }
+  } catch {
+    return () => { cancelAnimationFrame(raf) }
+  }
+}
+
+// Retoma o contexto compartilhado no primeiro gesto do usuário (clique/tecla/
+// toque): a política de autoplay exige que o AudioContext seja criado/retomado
+// após um gesto para não ficar suspenso (e para não gerar aviso no console).
+function resumeOnFirstGesture(): void {
+  const resume = () => { void ensure()?.ctx.resume() }
+  const events = ['pointerdown', 'keydown', 'touchstart']
+  for (const ev of events) {
+    window.addEventListener(ev, resume, { once: true, passive: true })
+  }
+}
+
+if (typeof window !== 'undefined') {
+  resumeOnFirstGesture()
 }

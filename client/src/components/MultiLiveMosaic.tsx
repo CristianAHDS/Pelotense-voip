@@ -6,7 +6,7 @@ import { useToastStore } from '../stores/toastStore.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import * as liveRtc from '../services/liveRtc.ts'
 import { sendLiveStart, sendLiveStop } from '../services/connectionService.ts'
-import { attachMediaStream, setStreamMuted, releaseStream } from '../audio/audioMeter.ts'
+import { createStreamLevel } from '../audio/audioMeter.ts'
 import { Avatar } from '../ui/Avatar.tsx'
 import { initials } from '../ui/avatar.ts'
 import { isMobileDevice } from '../utils/device.ts'
@@ -61,6 +61,8 @@ function FullscreenBtn({ videoRef, isFullscreen }: { videoRef: React.RefObject<H
 }
 
 // Nível de áudio de uma stream (para destacar o tile de quem está falando).
+// Reutiliza o contexto compartilhado do audioMeter (evita AudioContext por
+// tile, que o Chrome bloqueia por autoplay).
 function useStreamLevel(stream: MediaStream | null): number {
   const [level, setLevel] = useState(0)
   useEffect(() => {
@@ -68,38 +70,7 @@ function useStreamLevel(stream: MediaStream | null): number {
       setLevel(0)
       return
     }
-    let raf = 0
-    let ctx: AudioContext | null = null
-    let src: MediaStreamAudioSourceNode | null = null
-    let analyser: AnalyserNode | null = null
-    const Ctor =
-      (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext
-      ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!Ctor) return
-    try {
-      ctx = new Ctor()
-      src = ctx.createMediaStreamSource(stream)
-      analyser = ctx.createAnalyser()
-      analyser.fftSize = 256
-      src.connect(analyser)
-      const data = new Uint8Array(analyser.frequencyBinCount)
-      const loop = () => {
-        analyser?.getByteFrequencyData(data)
-        let sum = 0
-        for (let i = 0; i < data.length; i++) sum += data[i]
-        setLevel(Math.min(1, (sum / data.length / 255) * 1.6))
-        raf = requestAnimationFrame(loop)
-      }
-      void ctx.resume()
-      loop()
-    } catch {
-      /* sem nível — sem destaque */
-    }
-    return () => {
-      cancelAnimationFrame(raf)
-      try { src?.disconnect() } catch { /* ignore */ }
-      try { ctx?.close() } catch { /* ignore */ }
-    }
+    return createStreamLevel(stream, setLevel)
   }, [stream])
   return level
 }
@@ -139,7 +110,6 @@ function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack }: T
   const level = useStreamLevel(stream)
   const speaking = level > 0.12
   const elapsed = useElapsed(timestamp)
-  const audioKey = `live-${userId}`
 
   useEffect(() => {
     setHasStream(false)
@@ -147,15 +117,22 @@ function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack }: T
     const unsubscribe = liveRtc.startViewing(userId, (s) => {
       const el = videoRef.current
       if (!el || !s) return
+      // O áudio sai pelo próprio <video> (imune ao bloqueio de autoplay do
+      // AudioContext); o mute é controlado por el.muted. O nível (para destacar
+      // quem fala) é medido via createStreamLevel.
       el.srcObject = s
-      attachMediaStream(s, audioKey, el)
-      el.play().catch(() => {})
+      el.play().catch(() => {
+        const onGesture = () => {
+          document.removeEventListener('pointerdown', onGesture)
+          el.play().catch(() => {})
+        }
+        document.addEventListener('pointerdown', onGesture, { once: true })
+      })
       setStream(s)
       setHasStream(true)
     })
     return () => {
       unsubscribe()
-      releaseStream(audioKey)
       if (videoRef.current) videoRef.current.srcObject = null
     }
   }, [userId])
@@ -163,7 +140,7 @@ function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack }: T
   function toggleMute() {
     const next = !muted
     setMuted(next)
-    setStreamMuted(audioKey, next)
+    if (videoRef.current) videoRef.current.muted = next
   }
 
   return (
@@ -309,13 +286,21 @@ export function MultiLiveMosaic() {
 
   async function handleStart() {
     if (starting) return
+    // getUserMedia exige contexto seguro (HTTPS ou localhost) + permissão.
+    if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
+      useToastStore.getState().show('error', t('cameraUnavailable'))
+      return
+    }
     setStarting(true)
     try {
       if (videoRec.devices.length === 0) {
         await videoRec.enumerateDevices()
       }
       const ok = await videoRec.openCamera()
-      if (!ok) return
+      if (!ok) {
+        useToastStore.getState().show('error', t('cameraStartFailed'))
+        return
+      }
       sendLiveStart()
     } finally {
       setStarting(false)
