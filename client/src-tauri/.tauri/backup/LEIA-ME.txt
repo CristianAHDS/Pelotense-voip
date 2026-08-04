@@ -1,0 +1,14 @@
+BACKUP DO UPDATER DO TAURI — RESTAURAR
+=====================================
+
+Este arquivo contém a chave privada de assinatura do auto-update do
+Rádio Pelotense, criptografada (AES-256-GCM + scrypt).
+
+SENHA: está em posse do dono do projeto (guardada fora do GitHub).
+Sem ela este arquivo é inútil. Se perder a senha E a chave, não será
+possível assinar novas atualizações — os usuários parariam de atualizar.
+
+RESTAURAR (se perder a pasta .tauri local):
+  node scripts/encrypt-secrets.mjs --decrypt --pass "SUA-SENHA" --out client/src-tauri/.tauri
+
+E depois apague a pasta `restored` se usou outro destino.
