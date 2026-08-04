@@ -106,7 +106,7 @@ describe('Salas', () => {
     expect(rooms.length).toBe(6)
     expect(rooms.filter((r) => r.fixed).length).toBe(6)
     expect(rooms.map((r) => r.name)).toEqual(
-      expect.arrayContaining(['Externas', 'Trânsito', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados', 'Multilives']),
+      expect.arrayContaining(['Externas', 'Trânsito', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados', 'Live']),
     )
     expect(rooms.map((r) => r.name)).not.toContain('Ao vivo')
   })
@@ -832,34 +832,34 @@ describe('Transmissão ao vivo', () => {
     expect(server.rooms.get(roomId)).toBeUndefined()
   })
 
-  it('multilive: permite dois transmissores simultâneos na sala Multilives', async () => {
+  it('multilive: permite dois transmissores simultâneos na sala Live', async () => {
     const a = await freshClient('MultiA')
-    a.send(WsMessageType.JoinRoom, 'Multilives')
+    a.send(WsMessageType.JoinRoom, 'Live')
     await a.waitFor(WsMessageType.RoomJoined)
     a.send(WsMessageType.LiveStart)
     await a.waitFor(WsMessageType.LiveStarted)
 
     const b = await freshClient('MultiB')
-    b.send(WsMessageType.JoinRoom, 'Multilives')
+    b.send(WsMessageType.JoinRoom, 'Live')
     await b.waitFor(WsMessageType.RoomJoined)
     b.send(WsMessageType.LiveStart)
     // B recebe a própria live (sem takeover) e também fica sabendo da live de A.
     await b.waitFor(WsMessageType.LiveStarted)
     await a.waitFor(WsMessageType.LiveStarted)
 
-    const broadcasts = server.rooms.getLiveBroadcasts(server.rooms.findByName('Multilives')!.id)
+    const broadcasts = server.rooms.getLiveBroadcasts(server.rooms.findByName('Live')!.id)
     expect(broadcasts.map((l) => l.userId).sort()).toEqual([a.id, b.id].sort())
   })
 
   it('multilive: parar a live de um não afeta o outro transmissor', async () => {
     const a = await freshClient('MultiStopA')
-    a.send(WsMessageType.JoinRoom, 'Multilives')
+    a.send(WsMessageType.JoinRoom, 'Live')
     await a.waitFor(WsMessageType.RoomJoined)
     a.send(WsMessageType.LiveStart)
     await a.waitFor(WsMessageType.LiveStarted)
 
     const b = await freshClient('MultiStopB')
-    b.send(WsMessageType.JoinRoom, 'Multilives')
+    b.send(WsMessageType.JoinRoom, 'Live')
     await b.waitFor(WsMessageType.RoomJoined)
     b.send(WsMessageType.LiveStart)
     await b.waitFor(WsMessageType.LiveStarted)
@@ -868,18 +868,18 @@ describe('Transmissão ao vivo', () => {
     const stopped = await a.waitFor(WsMessageType.LiveStopped)
     expect((stopped.payload as { userId: string }).userId).toBe(b.id)
 
-    const broadcasts = server.rooms.getLiveBroadcasts(server.rooms.findByName('Multilives')!.id)
+    const broadcasts = server.rooms.getLiveBroadcasts(server.rooms.findByName('Live')!.id)
     expect(broadcasts.map((l) => l.userId)).toEqual([a.id])
   })
 
-  it('multilive: não permite chat na sala Multilives', async () => {
+  it('multilive: não permite chat na sala Live', async () => {
     const c = await freshClient('MultiChat')
-    c.send(WsMessageType.JoinRoom, 'Multilives')
+    c.send(WsMessageType.JoinRoom, 'Live')
     await c.waitFor(WsMessageType.RoomJoined)
 
     c.send(WsMessageType.ChatMessage, { text: 'oi', id: 'm1' })
     await expect(c.waitFor(WsMessageType.ChatMessage, 700)).rejects.toThrow()
-    const room = server.rooms.findByName('Multilives')!
+    const room = server.rooms.findByName('Live')!
     expect(server.rooms.getLiveCount(room.id)).toBe(0)
   })
 })

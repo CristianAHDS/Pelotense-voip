@@ -63,6 +63,23 @@ export type VideoRecordingResult =
   | { error: 'too-large' }
   | null
 
+// Espera o track de vídeo de uma stream ficar realmente ativo (live e não
+// muted). No mobile, ao trocar de câmera o track novo pode nascer "mudo"
+// (vídeo congelado); substituir a track WebRTC antes disso congela a live
+// para quem assiste, mesmo com o preview local normal.
+function waitForVideoTrack(stream: MediaStream, timeoutMs = 3000): Promise<boolean> {
+  const track = stream.getVideoTracks()[0]
+  if (!track) return Promise.resolve(false)
+  if (track.readyState === 'live' && !track.muted) return Promise.resolve(true)
+  return new Promise<boolean>((resolve) => {
+    const timeout = setTimeout(() => resolve(track.readyState === 'live' && !track.muted), timeoutMs)
+    track.addEventListener('unmute', () => {
+      clearTimeout(timeout)
+      resolve(track.readyState === 'live')
+    }, { once: true })
+  })
+}
+
 export function useVideoRecorder() {
   const [recording, setRecording] = useState(false)
   const [duration, setDuration] = useState(0)
@@ -133,12 +150,20 @@ export function useVideoRecorder() {
   }, [cameraId])
 
   const switchCamera = useCallback(async (newCameraId: string) => {
-    setCameraId(newCameraId)
     const oldStream = streamRef.current
     if (!oldStream) return
 
     try {
       const newStream = await getUserMediaWithMic(videoConstraints(newCameraId), true)
+
+      // Só troca quando a nova câmera estiver entregando frames (no mobile ela
+      // pode nascer "muda"); trocar antes congela a live para os espectadores.
+      const ready = await waitForVideoTrack(newStream)
+      if (!ready) {
+        newStream.getTracks().forEach((t) => t.stop())
+        return
+      }
+      setCameraId(newCameraId)
 
       const wasRecording = recorderRef.current?.state === 'recording'
 
@@ -208,6 +233,11 @@ export function useVideoRecorder() {
     }
     try {
       const stream = await getUserMediaWithMic(constraints, true)
+      const ready = await waitForVideoTrack(stream)
+      if (!ready) {
+        stream.getTracks().forEach((t) => t.stop())
+        return false
+      }
       const old = streamRef.current
       if (old) old.getTracks().forEach((t) => t.stop())
       streamRef.current = stream

@@ -3,6 +3,7 @@ import { create } from 'zustand'
 interface LiveBroadcast {
   userId: string
   userName: string
+  timestamp?: number
 }
 
 interface LiveChunk {

@@ -39,7 +39,7 @@ describe('RoomManager', () => {
     expect(rooms.findByName('Ao vivo')?.disabled).toBe(true)
     expect(rooms.isNameDisabled('Ao vivo')).toBe(true)
     expect(rooms.getAll().some((r) => r.name === 'Ao vivo')).toBe(false)
-    expect(rooms.findByName('Multilives')).toBeDefined()
+    expect(rooms.findByName('Live')).toBeDefined()
   })
 
   it('ordena salas por featured primeiro, depois fixas, depois por criação', () => {
@@ -48,7 +48,7 @@ describe('RoomManager', () => {
     const names = all.map((r) => r.name)
     expect(names[0]).toBe('Retorno ao vivo')
     expect(names[1]).toBe('Boletins gravados')
-    expect(names[2]).toBe('Multilives')
+    expect(names[2]).toBe('Live')
     expect(names[names.length - 1]).toBe('Criada')
   })
 

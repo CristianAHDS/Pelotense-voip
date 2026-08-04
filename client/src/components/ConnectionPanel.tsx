@@ -30,7 +30,7 @@ function resolveDefaults(): { host: string; wsPort: string; wssPort: string } {
       }
     }
   }
-  return { host: envHost || '192.168.8.94', wsPort: envWs || '3001', wssPort: envWss || '3003' }
+  return { host: envHost || '192.168.0.23', wsPort: envWs || '3003', wssPort: envWss || '3003' }
 }
 
 const DEFAULTS = resolveDefaults()
@@ -250,16 +250,11 @@ export function ConnectionPanel() {
       : 'disconnected'
 
   function fillDefault() {
-    // Usa o mesmo host do config/site remoto (prioridade sobre o padrão fixo).
-    void loadAppConfig().then((cfg) => {
-      const v = cfg.host || DEFAULTS.host
-      const ws = cfg.wsPort || DEFAULTS.wsPort
-      const wss = cfg.wssPort || DEFAULTS.wssPort
-      setHost(v)
-      setWsPort(ws)
-      setWssPort(wss)
-      saveStored(v, ws, wss, nickname, email, password)
-    })
+    // Preenche com o padrão fixo da rede local.
+    setHost(DEFAULTS.host)
+    setWsPort(DEFAULTS.wsPort)
+    setWssPort(DEFAULTS.wssPort)
+    saveStored(DEFAULTS.host, DEFAULTS.wsPort, DEFAULTS.wssPort, nickname, email, password)
   }
 
   const authError = localError || loginError

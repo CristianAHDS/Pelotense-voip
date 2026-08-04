@@ -2786,6 +2786,20 @@ body {
   min-width: 0;
 }
 
+.multilive-spectators {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
 .multilive-body {
   padding: 14px 16px 16px;
   display: flex;
@@ -2814,15 +2828,41 @@ body {
   border-color: var(--border-strong);
 }
 
+/* Tile próprio: borda roxa sempre presente, mas sutil quando não estou
+   falando; o mesmo efeito de brilho da vermelha aparece só ao falar. */
 .mosaic-tile--self {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-s);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.mosaic-tile--self:hover {
+  border-color: var(--accent);
+}
+
+/* Quando eu falo, a borda roxa aumenta/intensifica (mesmo efeito da vermelha). */
+.mosaic-tile--self.mosaic-tile--speaking {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 20px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* Destaque do tile de quem está falando */
+.mosaic-tile--speaking {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 1px #e74c3c, 0 0 16px rgba(231, 76, 60, 0.35);
+}
+
+/* Tile em foco (expande e ocupa a largura toda do mosaico) */
+.mosaic-tile--focused {
+  grid-column: 1 / -1;
+  min-height: 360px;
+  border-color: var(--accent);
 }
 
 .mosaic-tile-video {
   width: 100%;
   aspect-ratio: 16 / 9;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   display: block;
   background: #000;
 }
@@ -2856,24 +2896,61 @@ body {
   position: absolute;
   left: 8px;
   bottom: 8px;
-  padding: 3px 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 4px;
   border-radius: var(--radius-full);
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   font-size: 12px;
   font-weight: 600;
   max-width: calc(100% - 16px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   backdrop-filter: blur(2px);
 }
 
-.mosaic-fullscreen-btn {
+.mosaic-tile-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mosaic-tile-avatar-mini {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+}
+
+.mosaic-tile-timer {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+/* Ícones do tile (mudo, tela cheia, voltar) no canto superior direito */
+.mosaic-tile-actions {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.mosaic-icon-btn {
   width: 28px;
   height: 28px;
   border: none;
@@ -2885,10 +2962,10 @@ body {
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(2px);
-  transition: background var(--transition), color var(--transition);
+  transition: background var(--transition);
 }
 
-.mosaic-fullscreen-btn:hover {
+.mosaic-icon-btn:hover {
   background: rgba(0, 0, 0, 0.8);
 }
 
@@ -2959,9 +3036,10 @@ body {
 .mosaic-tile-bar-name {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: #fff;
   font-size: 12px;
   font-weight: 600;
@@ -3025,22 +3103,50 @@ body {
 .mosaic-join-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: 10px;
+  padding: 8px 12px;
   border-radius: var(--radius-m);
   border: 1px dashed var(--border-strong);
   background: var(--panel-2);
 }
 
+.mosaic-join-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
 .mosaic-join-text {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
-  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.3;
 }
 
-.mosaic-join-bar .btn {
+.mosaic-join-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mosaic-join-hint {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.mosaic-join-bar .mosaic-start-live-btn {
   flex-shrink: 0;
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 12px;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(231, 76, 60, 0.35);
+}
+
+.mosaic-join-bar .mosaic-start-live-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c0392b, #a93226);
 }
 
 /* Estado vazio (ninguém transmitindo) */
@@ -3079,6 +3185,48 @@ body {
 .mosaic-cta {
   margin-top: 6px;
   min-width: 170px;
+}
+
+/* Preview da câmera antes de iniciar a transmissão */
+.mosaic-preview {
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-s);
+  background: #000;
+}
+
+.mosaic-preview-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.mosaic-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+}
+
+.mosaic-preview-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mosaic-preview-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 480px) {

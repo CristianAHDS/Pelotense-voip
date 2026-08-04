@@ -1648,7 +1648,7 @@ export class WsHandler {
     for (const live of liveBroadcasts) {
       this.send(client.ws, {
         type: WsMessageType.LiveStarted,
-        payload: { userId: live.userId, userName: live.userName, mime: live.mime },
+        payload: { userId: live.userId, userName: live.userName, mime: live.mime, timestamp: live.timestamp },
       })
       // Avisa o transmissor para criar um RTCPeerConnection com o novo espectador.
       if (live.userId !== client.id) {
@@ -1918,7 +1918,7 @@ export class WsHandler {
     this.rooms.setLiveBroadcast(roomId, { userId: client.id, userName: client.name, timestamp: Date.now(), initChunk: undefined, mime })
     this.broadcastToRoom(roomId, {
       type: WsMessageType.LiveStarted,
-      payload: { userId: client.id, userName: client.name, mime },
+      payload: { userId: client.id, userName: client.name, mime, timestamp: Date.now() },
     }, '')
 
     // Em multilive, garante que o novo transmissor crie oferta para todos os

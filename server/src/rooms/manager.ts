@@ -2,10 +2,10 @@ import { Room, Client, LiveState, ChatMessage } from '../types/index.js'
 import { logger } from '../utils/logger.js'
 import { SqliteStore } from '../storage/index.js'
 
-const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados', 'Multilives']
+const DEFAULT_ROOM_NAMES = ['Externas', 'Trânsito', 'Ao vivo', 'Jornada Esportiva', 'Retorno ao vivo', 'Boletins gravados', 'Live']
 
 // Sala fixa onde várias pessoas transmitem ao vivo simultaneamente (mosaico).
-export const MULTILIVE_ROOM_NAME = 'Multilives'
+export const MULTILIVE_ROOM_NAME = 'Live'
 
 export class RoomManager {
   private rooms = new Map<string, Room>()
@@ -27,8 +27,8 @@ export class RoomManager {
       'Retorno ao vivo': 1,
       'Boletins gravados': 2,
       'Ao vivo': 3,
-      // Multilives assume o destaque/posição da sala "Ao vivo" (desativada).
-      'Multilives': 3,
+      // A sala Live assume o destaque/posição da sala "Ao vivo" (desativada).
+      'Live': 3,
     }
     for (const name of DEFAULT_ROOM_NAMES) {
       const id = this.fixedId(name)

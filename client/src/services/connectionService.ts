@@ -391,8 +391,8 @@ export function connectToServer(address: string, name: string, password: string,
   })
 
   wsClient.on(WsMessageType.LiveStarted, (msg) => {
-    const payload = msg.payload as { userId: string; userName: string; mime?: string }
-    useLiveStore.getState().addBroadcaster({ userId: payload.userId, userName: payload.userName })
+    const payload = msg.payload as { userId: string; userName: string; mime?: string; timestamp?: number }
+    useLiveStore.getState().addBroadcaster({ userId: payload.userId, userName: payload.userName, timestamp: payload.timestamp })
     if (payload.userId === useConnectionStore.getState().id) {
       useLiveStore.getState().setMyMime(payload.mime ?? null)
     }

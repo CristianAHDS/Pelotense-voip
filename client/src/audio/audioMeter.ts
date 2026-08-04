@@ -134,18 +134,37 @@ export function resetMeter(): void {
   useVoiceStore.getState().setRxLevel(0)
 }
 
-// Live (WebRTC): roteia o áudio do MediaStream pelo analyser e silencia o
-// elemento de vídeo para não haver som em dobro (elemento + contexto).
+// Live (WebRTC): roteia o áudio do MediaStream pelo analyser (via um gain por
+// fonte, para permitir mutar cada live separadamente) e silencia o elemento de
+// vídeo para não haver som em dobro (elemento + contexto).
+const streamGains = new Map<string, GainNode>()
+
 export function attachMediaStream(stream: MediaStream, key: string, videoEl?: HTMLMediaElement | null): void {
   const r = ensure()
   if (!r) return
   try {
     const src = r.ctx.createMediaStreamSource(stream)
-    src.connect(r.analyser)
+    const gain = r.ctx.createGain()
+    gain.gain.value = 1
+    streamGains.set(key, gain)
+    src.connect(gain)
+    gain.connect(r.analyser)
     void r.ctx.resume()
   } catch {
     return
   }
   if (videoEl) videoEl.muted = true
   markActive(key, true)
+}
+
+// Muta/desmuta o áudio de UMA live específica (por chave da fonte).
+export function setStreamMuted(key: string, muted: boolean): void {
+  const gain = streamGains.get(key)
+  if (gain) gain.gain.value = muted ? 0 : 1
+}
+
+// Libera a fonte (e o medidor) quando a live sai da tela.
+export function releaseStream(key: string): void {
+  streamGains.delete(key)
+  markActive(key, false)
 }
