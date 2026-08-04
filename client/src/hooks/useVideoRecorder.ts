@@ -259,7 +259,9 @@ export function useVideoRecorder() {
       setFacingMode(next)
       setHasStream(true)
       setStreamVersion((s) => s + 1)
-      liveRtc.replaceStream(combined)
+      // Renegociação (novo offer) no mobile: replaceTrack congela o vídeo
+      // para os espectadores no iOS.
+      liveRtc.renegotiateStream(combined)
       return true
     } catch {
       return false

@@ -158,6 +158,39 @@ export function replaceStream(stream: MediaStream): void {
   broadcasterPreviewPcs.forEach(replace)
 }
 
+// Troca a track de vídeo com RENEGOCIAÇÃO (novo offer) — mais confiável no
+// mobile/iOS, onde `replaceTrack` deixa o vídeo congelado para o espectador.
+// Só renegocia quando a track de vídeo mudou (mantém o áudio intacto).
+export function renegotiateStream(stream: MediaStream): void {
+  localStream = stream
+  const newVideo = stream.getVideoTracks()[0]
+  const newAudio = stream.getAudioTracks()[0]
+  const negotiate = (pc: RTCPeerConnection, peerId: string): void => {
+    let changed = false
+    pc.getSenders().forEach((sender) => {
+      const kind = sender.track?.kind
+      const wants = kind === 'video' ? newVideo : kind === 'audio' ? newAudio : null
+      if (wants && sender.track !== wants) {
+        pc.removeTrack(sender)
+        changed = true
+      }
+    })
+    if (!changed) return
+    const kinds = new Set<string>()
+    pc.getSenders().forEach((s) => { if (s.track) kinds.add(s.track.kind) })
+    if (newVideo && !kinds.has('video')) pc.addTrack(newVideo, stream)
+    if (newAudio && !kinds.has('audio')) pc.addTrack(newAudio, stream)
+    pc.createOffer()
+      .then((offer) => pc.setLocalDescription(offer))
+      .then(() => {
+        if (pc.localDescription) sendSignal(peerId, { sdp: pc.localDescription, kind: 'bc' })
+      })
+      .catch(() => {})
+  }
+  broadcasterPcs.forEach((pc, peerId) => negotiate(pc, peerId))
+  broadcasterPreviewPcs.forEach((pc, peerId) => negotiate(pc, peerId))
+}
+
 // ---------------- Espectador (live da sala + preview) ----------------
 
 // Vários LiveViewers podem existir para o mesmo transmissor (chat + tela cheia).

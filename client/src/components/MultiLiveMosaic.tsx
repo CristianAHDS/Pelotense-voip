@@ -158,11 +158,13 @@ function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack }: T
         </div>
       )}
       <span className="mosaic-tile-badge">● {t('liveBadge')}</span>
-      <span className="mosaic-tile-name">
-        <Avatar id={userId} name={userName} avatar={avatar} maxInitials={1} className="mosaic-tile-avatar-mini" />
-        <span className="mosaic-tile-name-text">{userName}</span>
-        {elapsed && <span className="mosaic-tile-timer">{elapsed}</span>}
-      </span>
+      <div className="mosaic-tile-bar">
+        <span className="mosaic-tile-bar-name">
+          <Avatar id={userId} name={userName} avatar={avatar} maxInitials={1} className="mosaic-tile-avatar-mini" />
+          <span className="mosaic-tile-name-text">{userName}</span>
+          {elapsed && <span className="mosaic-tile-timer">{elapsed}</span>}
+        </span>
+      </div>
       <span className="mosaic-tile-actions">
         {hasStream && (
           <button
