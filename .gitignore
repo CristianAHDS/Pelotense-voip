@@ -9,3 +9,5 @@ client/src-tauri/target/
 # Chaves de assinatura do updater (segredo — nunca commitar)
 client/src-tauri/.tauri/
 client/src-tauri/.env
+# Instaladores locais (distribuídos via GitHub Releases, não versionar)
+installers/

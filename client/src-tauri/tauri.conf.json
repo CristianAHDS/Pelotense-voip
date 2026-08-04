@@ -26,7 +26,6 @@
       "active": true,
       "identifier": "com.radio.pelotense",
       "publisher": "Cristian Raffi Cunha",
-      "createUpdaterArtifacts": true,
       "resources": ["WebView2Loader.dll"],
       "icon": [
         "icons/32x32.png",
@@ -35,7 +34,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "targets": ["nsis"]
+      "targets": ["nsis", "updater"]
     },
     "updater": {
       "active": true,

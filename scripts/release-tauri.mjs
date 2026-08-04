@@ -90,15 +90,19 @@ function main() {
   }
   const files = readdirSync(nsisDir)
   const installer = files.find((f) => /_x64-setup\.exe$/.test(f) && !/\.sig$/.test(f))
-  const sigFile = files.find((f) => /_x64-setup\.exe\.sig$/.test(f))
-  if (!installer || !sigFile) {
-    console.error('ERRO: instalador/assinatura não encontrados no bundle NSIS.', files)
+  const updaterZip = files.find((f) => /_x64-setup\.nsis\.zip$/.test(f))
+  const sigFile = files.find((f) => /_x64-setup\.nsis\.zip\.sig$/.test(f))
+  if (!installer || !updaterZip || !sigFile) {
+    console.error('ERRO: instalador/zip/signature não encontrados no bundle NSIS.', files)
     process.exit(1)
   }
   const signature = readFileSync(resolve(nsisDir, sigFile), 'utf8').trim()
 
   // 5) Manifest do updater (latest.json) com a URL apontando para a release.
-  const downloadUrl = `https://github.com/${REPO}/releases/download/v${version}/${encodeURIComponent(installer)}`
+  // O `gh` substitui espaços por pontos no nome do asset no upload, então a URL
+  // precisa usar o mesmo nome sanitizado para o download não dar 404.
+  const assetName = updaterZip.replace(/ /g, '.')
+  const downloadUrl = `https://github.com/${REPO}/releases/download/v${version}/${encodeURIComponent(assetName)}`
   const manifest = {
     version,
     notes: args.find((a) => !a.startsWith('-') && !/^\d+\.\d+\.\d+$/.test(a)) ?? '',
@@ -128,7 +132,7 @@ function main() {
     console.log(`Release ${tag} já existe. Removendo para recriar...`)
     run(`gh release delete ${tag} --yes --cleanup-tag`)
   }
-  run(`gh release create ${tag} "${resolve(nsisDir, installer)}" "${resolve(nsisDir, sigFile)}" "${manifestPath}" --repo ${REPO} --title "${tag}" --notes "Rádio Pelotense ${version}"`)
+  run(`gh release create ${tag} "${resolve(nsisDir, installer)}" "${resolve(nsisDir, updaterZip)}" "${resolve(nsisDir, sigFile)}" "${manifestPath}" --repo ${REPO} --title "${tag}" --notes "Rádio Pelotense ${version}"`)
   console.log(`\nRelease publicada: https://github.com/${REPO}/releases/tag/${tag}`)
   console.log(`Endpoint do updater: https://github.com/${REPO}/releases/latest/download/latest.json`)
 }

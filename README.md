@@ -272,6 +272,33 @@ Para apontar o cliente para um servidor específico no build, use a variável `V
 VITE_SERVER_HOST=192.168.8.94 npm run dev
 ```
 
+### Build do exe (release com auto-update)
+
+Para gerar o instalador, os artefatos do auto-update e publicar a release no
+GitHub, rode o script **a partir de um caminho sem acentos** (as ferramentas
+MinGW não abrem caminhos com caracteres não-ASCII, ex: "Área de Trabalho"):
+
+```powershell
+.\scripts\release-windows.ps1                 # bump patch + build + publica
+.\scripts\release-windows.ps1 1.0.21          # versão fixa
+.\scripts\release-windows.ps1 -BuildOnly      # só gera o exe, sem publicar
+```
+
+O script copia o projeto para `%TEMP%\voip-release-work` (sem acentos), monta o
+toolchain (LLVM-MinGW para o link + libgcc da WinLibs + wrapper do `windres`) e
+roda o `scripts/release-tauri.mjs`, que gera e publica:
+
+- `Radio Pelotense_<versão>_x64-setup.exe` (instalador)
+- `<...>.nsis.zip` + `.sig` (artefatos do auto-update do Tauri)
+- `latest.json` (manifest que o app consulta em
+  `https://github.com/CristianAHDS/Pelotense-voip/releases/latest/download/latest.json`)
+
+Ao final, o instalador é copiado para a pasta `installers/`. Depois de publicar,
+commite o bump de versão com `npm run release -- "chore: build X.Y.Z"`.
+
+Requisitos: LLVM-MinGW e WinLibs via `winget`, GitHub CLI (`gh`) autenticado e
+chaves de assinatura em `client/src-tauri/.tauri/`.
+
 ---
 
 ## Protocolo
