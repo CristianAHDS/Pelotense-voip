@@ -59,7 +59,7 @@ function resetStores(): void {
   useLiveStore.setState({ broadcasters: [], chunks: [], mime: null, myMime: null, pendingRequest: null, takeoverRequestSent: false, requestDenied: 0 })
   useConnectionStore.setState({ connected: true, id: 'me', name: 'Eu', settings: useConnectionStore.getState().settings })
   useRoomStore.setState({
-    rooms: [], users: [{ id: 'me', name: 'Eu', room: 'live', online: true }],
+    rooms: [],     users: [{ id: 'me', name: 'Eu', room: 'live' }],
     accounts: [], currentRoom: 'live', currentRoomName: 'live', messages: [], unread: {}, typing: {},
     loadingRooms: false, loadingMessages: false,
   })

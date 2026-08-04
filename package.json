@@ -17,6 +17,7 @@
     "client:tauri": "cd client && npm run tauri",
     "tauri:dev": "cd client && npm run tauri dev",
     "tauri:build": "cd client && npm run tauri build",
+    "tauri:release": "node scripts/release-tauri.mjs",
     "serve": "cd client && npm run build && cd ../server && npm run dev",
     "test": "npm run test:server && npm run test:client",
     "test:server": "cd server && npm test",

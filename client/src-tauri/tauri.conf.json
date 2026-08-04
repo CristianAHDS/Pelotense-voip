@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "Radio Pelotense",
-    "version": "1.0.18"
+    "version": "1.0.20"
   },
   "tauri": {
     "allowlist": {
@@ -26,6 +26,7 @@
       "active": true,
       "identifier": "com.radio.pelotense",
       "publisher": "Cristian Raffi Cunha",
+      "createUpdaterArtifacts": true,
       "resources": ["WebView2Loader.dll"],
       "icon": [
         "icons/32x32.png",
@@ -35,6 +36,13 @@
         "icons/icon.ico"
       ],
       "targets": ["nsis"]
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/CristianAHDS/Pelotense-voip/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRCRjY1QTE1NjI0QURCNjgKUldSbzIwcGlGVnIyU3pKWFg2VG51b1Q3UTVEbFZUcVY0SFY1S041TU1rUnJPWGhTZ21Kd2E1Z04K"
     },
     "security": {
       "csp": null

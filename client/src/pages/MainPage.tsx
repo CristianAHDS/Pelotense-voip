@@ -15,6 +15,7 @@ import { SplashScreen } from '../components/SplashScreen.tsx';
 import { WelcomePanel } from '../components/WelcomePanel.tsx';
 import { GlobalAnnouncement } from '../components/GlobalAnnouncement.tsx';
 import { OnboardingTour } from '../components/OnboardingTour.tsx';
+import { UpdatePrompt } from '../components/UpdatePrompt.tsx';
 import { useConnectionStore } from '../stores/connectionStore.ts';
 import { useAccountStore } from '../stores/accountStore.ts';
 import { useRoomStore } from '../stores/roomStore.ts';
@@ -254,6 +255,7 @@ export function MainPage() {
       <Toasts />
       <GlobalAnnouncement />
       <OnboardingTour />
+      <UpdatePrompt />
       <AccountPrefsModal />
       <FullscreenChat />
       <FullscreenDm />

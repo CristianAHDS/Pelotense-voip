@@ -383,6 +383,16 @@ const messages: Record<Language, Record<string, string>> = {
     cameraUnavailable: 'Câmera indisponível: acesse via HTTPS/localhost e permita o uso da câmera',
     cameraStartFailed: 'Não foi possível iniciar a câmera. Verifique a permissão do navegador.',
     you: 'você',
+    // Update (desktop)
+    updateAvailable: 'Atualização disponível',
+    updateAvailableDesc: 'Nova versão {version} do Rádio Pelotense disponível.',
+    updateInstall: 'Instalar agora',
+    updateLater: 'Agora não',
+    updateChecking: 'Verificando atualizações…',
+    updateDownloading: 'Baixando atualização…',
+    updateError: 'Falha ao verificar atualização',
+    updateRetry: 'Tentar novamente',
+    updateInstalling: 'Atualizando…',
   },
   en: {
     appName: 'VoIP',
@@ -761,6 +771,16 @@ const messages: Record<Language, Record<string, string>> = {
     cameraUnavailable: 'Camera unavailable: access via HTTPS/localhost and allow camera access',
     cameraStartFailed: 'Could not start the camera. Check your browser permission.',
     you: 'you',
+    // Update (desktop)
+    updateAvailable: 'Update available',
+    updateAvailableDesc: 'New version {version} of Rádio Pelotense is available.',
+    updateInstall: 'Install now',
+    updateLater: 'Not now',
+    updateChecking: 'Checking for updates…',
+    updateDownloading: 'Downloading update…',
+    updateError: 'Failed to check for updates',
+    updateRetry: 'Try again',
+    updateInstalling: 'Updating…',
   },
 }
 

@@ -10,6 +10,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 const VERSION_FILE = resolve(ROOT, 'version.json')
 
+// Arquivos que também carregam a versão e precisam ficar em sincronia para o
+// updater do Tauri funcionar (o exe embute a versão do Cargo.toml e do
+// tauri.conf.json; o latest.json compara com essa versão).
+const SYNC_FILES = [
+  resolve(ROOT, 'client', 'src-tauri', 'Cargo.toml'),
+  resolve(ROOT, 'client', 'src-tauri', 'tauri.conf.json'),
+]
+
 const args = process.argv.slice(2)
 
 function load() {
@@ -54,5 +62,20 @@ writeFileSync(VERSION_FILE, JSON.stringify(next, null, 2) + '\n')
 // exibir a versão mesmo sem o servidor (e para debug do build do front).
 const publicVersion = resolve(ROOT, 'client', 'public', 'version.json')
 writeFileSync(publicVersion, JSON.stringify(next, null, 2) + '\n')
+
+// Sincroniza a versão no Cargo.toml e no tauri.conf.json (updater do Tauri).
+function syncVersionFile(file) {
+  const raw = readFileSync(file, 'utf8')
+  if (/\.toml$/.test(file)) {
+    const updated = raw.replace(/^version\s*=\s*"[^"]+"/m, `version = "${version}"`)
+    if (updated !== raw) writeFileSync(file, updated)
+  } else {
+    const updated = raw.replace(/("version"\s*:\s*")[^"]+(")/, `$1${version}$2`)
+    if (updated !== raw) writeFileSync(file, updated)
+  }
+}
+for (const f of SYNC_FILES) {
+  syncVersionFile(f)
+}
 
 console.log(`version → ${next.version} (build ${next.build})`)
