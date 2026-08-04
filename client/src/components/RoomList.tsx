@@ -145,7 +145,7 @@ export function RoomList() {
                         data-tooltip={withBot.map((u) => u.name).join('\n')}
                       >
                         {withBot.slice(0, 5).map((u) => (
-                          <Avatar key={u.id} id={u.id} name={u.name} avatar={u.avatar} maxInitials={1} className="room-user-avatar" />
+                          <Avatar key={u.id} id={u.id} name={u.name} avatar={u.avatar} maxInitials={1} className={`room-user-avatar ${speaking[u.id] ? 'room-user-avatar--speaking' : ''}`} />
                         ))}
                         {occupantCount > 5 && (
                           <span className="room-user-more" title={withBot.slice(5).map((u) => u.name).join(', ')}>

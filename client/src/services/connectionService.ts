@@ -224,6 +224,9 @@ export function connectToServer(address: string, name: string, password: string,
     const payload = msg.payload as WelcomePayload
     useConnectionStore.getState().setConnected(payload.id, payload.name, !!payload.admin)
     useConnectionStore.getState().setGuest(!!payload.guest)
+    if (payload.guestMode !== undefined) {
+      useConnectionStore.getState().setGuestMode(payload.guestMode)
+    }
     if (payload.appVersion) {
       useConnectionStore.getState().setServerVersion(payload.appVersion.version, payload.appVersion.build)
     }
@@ -304,6 +307,7 @@ export function connectToServer(address: string, name: string, password: string,
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
     const serverMsgs: ChatMsg[] = payload.messages ?? []
     useRoomStore.getState().setMessages(serverMsgs)
+    useRoomStore.getState().setHasMoreMessages(!!payload.hasMore)
     useRoomStore.getState().markRoomRead(payload.roomId)
     useRoomStore.getState().setLoadingMessages(false)
     voiceOnRoomJoined()
@@ -322,6 +326,8 @@ export function connectToServer(address: string, name: string, password: string,
   wsClient.on(WsMessageType.RoomLeft, () => {
     useRoomStore.getState().setCurrentRoom(null)
     useRoomStore.getState().clearMessages()
+    useRoomStore.getState().setHasMoreMessages(false)
+    useRoomStore.getState().setLoadingMore(false)
     useLiveStore.getState().clearBroadcasters()
     voiceOnRoomLeft()
   })
@@ -562,6 +568,13 @@ function dmKey(payload: PrivateChatMsg): string {
     useAnnouncementStore.getState().show(p.id, p.text, p.durationMs)
   })
 
+  wsClient.on(WsMessageType.ChatHistoryPage, (msg) => {
+    const p = msg.payload as { roomId: string; messages: ChatMsg[]; hasMore: boolean }
+    useRoomStore.getState().prependMessages(p.messages)
+    useRoomStore.getState().setHasMoreMessages(p.hasMore)
+    useRoomStore.getState().setLoadingMore(false)
+  })
+
   wsClient.connect(address)
 }
 
@@ -570,6 +583,15 @@ export function joinRoom(roomName: string): void {
   voiceManager?.resumeOutput()
   useRoomStore.getState().setLoadingMessages(true)
   wsClient.send(WsMessageType.JoinRoom, roomName)
+}
+
+export function requestChatHistoryPage(roomId: string): void {
+  if (!wsClient) return
+  const messages = useRoomStore.getState().messages
+  if (messages.length === 0) return
+  useRoomStore.getState().setLoadingMore(true)
+  const oldest = messages[0]
+  wsClient.send(WsMessageType.ChatHistoryPage, { roomId, before: oldest.timestamp ?? (oldest as any).time ?? 0 })
 }
 
 export function leaveRoom(): void {

@@ -3,7 +3,7 @@ import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
 import { useToastStore } from '../stores/toastStore.ts'
-import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId, resendMessage, sendTyping } from '../services/connectionService.ts'
+import { sendChatMessage, sendChatAudioMessage, sendChatVideoMessage, sendChatImageMessage, sendMessageReaction, sendForwardMessage, deleteMessage, sendLiveStart, sendLiveStop, sendLiveRequestResponse, sendLiveRequestCancel, generateClientMessageId, resendMessage, sendTyping, requestChatHistoryPage } from '../services/connectionService.ts'
 import * as liveRtc from '../services/liveRtc.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
@@ -140,6 +140,8 @@ export function ChatPanel() {
   const currentRoomId = useRoomStore((s) => s.currentRoom)
   const currentRoomName = useRoomStore((s) => s.currentRoomName)
   const loadingMessages = useRoomStore((s) => s.loadingMessages)
+  const hasMoreMessages = useRoomStore((s) => s.hasMoreMessages)
+  const isLoadingMore = useRoomStore((s) => s.isLoadingMore)
   const myId = useConnectionStore((s) => s.id)
   const myName = useConnectionStore((s) => s.name)
   const myAdmin = useConnectionStore((s) => s.admin)
@@ -522,6 +524,17 @@ export function ChatPanel() {
       )}
 
       <div className="chat-messages">
+        {!loadingMessages && hasMoreMessages && (
+          <div className="chat-load-older">
+            <button
+              className="btn btn-load-older"
+              disabled={isLoadingMore}
+              onClick={() => currentRoomId && requestChatHistoryPage(currentRoomId)}
+            >
+              {isLoadingMore ? t('loading') + '...' : t('loadOlderMessages')}
+            </button>
+          </div>
+        )}
         {loadingMessages ? (
           <div aria-busy="true" aria-label={t('loadingMessages')}>
             <div className="skeleton skeleton-line" style={{ width: '55%' }} />

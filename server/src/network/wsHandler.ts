@@ -36,7 +36,7 @@ export class WsHandler {
   // Estado de gestão do sistema (painel admin)
   private maintenanceMode = false
   private maintenanceMessage = ''
-  private guestMode = false
+  private guestMode = true
   private readonly adminLog: Array<{ at: number; by: string; action: string; detail?: string }> = []
   private readonly startedAt = Date.now()
 
@@ -358,7 +358,7 @@ export class WsHandler {
 
     this.send(ws, {
       type: WsMessageType.Welcome,
-      payload: { id: client.id, name: client.name, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, onboarding, guest: client.isGuest, settings: this.getSettingsPayload(), appVersion: { ...config.appVersion } },
+      payload: { id: client.id, name: client.name, admin: client.admin, avatar: client.avatar, email: client.email, maintenance: this.maintenanceMode, maintenanceMessage: this.maintenanceMessage, guestMode: this.guestMode, onboarding, guest: client.isGuest, settings: this.getSettingsPayload(), appVersion: { ...config.appVersion } },
     })
 
     this.broadcast({
@@ -542,6 +542,10 @@ export class WsHandler {
         this.handleOnboardingComplete(client, msg.payload as { deviceId?: string })
         break
 
+      case WsMessageType.ChatHistoryPage:
+        this.handleChatHistoryPage(client, msg.payload as { roomId: string; before: number })
+        break
+
       default:
         logger.warn('WsHandler', `Unknown message type: ${msg.type}`)
     }
@@ -551,6 +555,25 @@ export class WsHandler {
     if (!this.storage) return
     const deviceId = typeof payload.deviceId === 'string' && payload.deviceId ? payload.deviceId : ''
     if (deviceId) this.storage.setDeviceOnboarding(deviceId, true)
+  }
+
+  private handleChatHistoryPage(client: Client, payload: { roomId: string; before: number }): void {
+    if (!client.room || client.room !== payload.roomId) return
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const allMsgs = room.messages as Array<{ timestamp?: number; id?: string }>
+    const before = payload.before
+
+    const older = allMsgs.filter((m) => (m.timestamp ?? 0) < before)
+    const limit = 50
+    const page = older.slice(Math.max(0, older.length - limit))
+    const hasMore = older.length > page.length
+
+    this.send(client.ws, {
+      type: WsMessageType.ChatHistoryPage,
+      payload: { roomId: payload.roomId, messages: page, hasMore },
+    })
   }
 
   private adminResult(ws: WebSocket, cmd: string, ok: boolean, data?: unknown, error?: string): void {
@@ -1639,9 +1662,14 @@ export class WsHandler {
     }
 
     this.rooms.join(room.id, client)
+
+    const allMsgs = room.messages
+    const limit = 50
+    const recent = allMsgs.length > limit ? allMsgs.slice(allMsgs.length - limit) : allMsgs
+
     this.send(client.ws, {
       type: WsMessageType.RoomJoined,
-      payload: { roomId: room.id, roomName: room.name, messages: room.messages },
+      payload: { roomId: room.id, roomName: room.name, messages: recent, hasMore: allMsgs.length > recent.length },
     })
 
     const liveBroadcasts = this.rooms.getLiveBroadcasts(room.id)

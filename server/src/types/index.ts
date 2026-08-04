@@ -131,6 +131,7 @@ export enum WsMessageType {
   GuestState = 'guest_state',
   OnboardingComplete = 'onboarding_complete',
   SettingsState = 'settings_state',
+  ChatHistoryPage = 'chat_history_page',
 }
 
 export interface WsMessage {

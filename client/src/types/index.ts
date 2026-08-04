@@ -93,6 +93,7 @@ export enum WsMessageType {
   GuestState = 'guest_state',
   OnboardingComplete = 'onboarding_complete',
   SettingsState = 'settings_state',
+  ChatHistoryPage = 'chat_history_page',
 }
 
 export interface SystemSettings {
@@ -190,6 +191,7 @@ export interface WelcomePayload {
   maintenanceMessage?: string
   onboarding?: boolean
   guest?: boolean
+  guestMode?: boolean
   settings?: SystemSettings
   appVersion?: { version: string; build: number }
 }

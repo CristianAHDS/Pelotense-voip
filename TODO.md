@@ -90,7 +90,28 @@ Segunda rodada de melhorias visuais, com foco em dar **identidade de rádio** ao
 - [x] **B. Estado vazio do app** 🔥 — Com nada selecionado a tela ficava vazia. ✅ Feito: `WelcomePanel` com o logo da rádio discreto, mensagem e atalhos de "acesso rápido" para entrar em salas.
 - [x] **B. Cores LIVE suavizadas** — Marcação de salas ao vivo era chamativa demais (borda/sombra vermelha forte). ✅ Feito: borda rosa suave, badge translúcido com texto vermelho-claro, blink mais lento e sutil.
 
+- [x] **P1. Anel de status no avatar** 🔥 — Substituir os dots de status online/offline (`.section-status-dot` no cabeçalho e `.user-offline-dot` nos itens) por um anel circular colorido ao redor do avatar: verde com glow para online, cinza translúcido para offline. Mais compacto, moderno e libera espaço horizontal no item. O dot de "falando" (`.user-speaking-dot`) também pode ser integrado como anel pulsante verde-mais-intenso no avatar, eliminando o elemento extra.
+
+- [x] **P2. Barra lateral de destaque no item ativo** ⚡ — No item com chat privado aberto (`.user-item--active`), usar uma borda esquerda de 3px na cor `--accent` (violeta) em vez da borda completa atual + gradiente. Adicionar um leve destaque no fundo (`--accent-soft` com opacidade baixa). Fica mais elegante e menos "caixa colorida".
+
+- [x] **P3. Micro-interação de hover com escala** ⚡ — Adicionar `transform: scale(1.02)` com `transition: transform 0.15s ease` no hover dos itens clicáveis (`.user-item--clickable:hover`), além do fundo atual. Pequeno deslocamento que dá feedback tátil sem ser agressivo. Respeitar `prefers-reduced-motion`.
+
+- [x] **P4. Seção offline colapsível com chevron** ⚡ — Adicionar um botão de toggle (chevron ▾/▸) no título da seção offline (`.user-list-section-title`) para recolher/expandir a lista de usuários offline. Reduz poluição visual quando há muitos offline e o usuário só quer ver os online.
+
+- [x] **P5. Animação de entrada staggered nos itens** ✨ — Ao carregar a lista, os `.user-item` entram com `opacity: 0 → 1` + `translateY(6px → 0)`, com `animation-delay` escalonado por índice (ex: 30ms por item) via CSS custom property ou classes inline. Dá sensação de fluidez e vida à lista. Respeitar `prefers-reduced-motion`.
+
+- [x] **P6. Badge de contagem integrado ao cabeçalho** ✨ — No título do painel (h2 "Pessoas (N)"), transformar o "(N)" em um badge pill sutil com fundo `--panel-2`, borda `--border`, cantos arredondados e fonte semibold. Mais destacado e consistente com outras badges do app.
+
+- [x] **P7. Sombra/elevação sutil nos cards de usuário** ✨ — Adicionar `box-shadow: 0 1px 3px rgba(0,0,0,0.12)` nos `.user-item`, aumentando para `0 2px 6px` no hover. Os itens ficam mais "card" e menos "linha plana", combinando com o visual moderno do restante do app.
+
+- [x] **P8. Separador visual entre online e offline** ✨ — Em vez de apenas `margin-top: 12px` entre as seções, usar um divisor decorativo: uma linha fina horizontal com gradiente (transparente → `--border` → transparente) ou um label "Offline" com estilo de pill discreto no centro.
+
+- [x] **P9. Indicador de mídia no item do usuário** ✨ — Mostrar um ícone sutil (🎙 microfone ou 🎥 câmera) no canto do avatar quando o usuário está com live ativa ou transmitindo, usando o store `liveStore.broadcasters`. Ajuda a identificar rapidamente quem está "no ar" sem precisar do hover.
+
+- [x] **P10. Popup de informações com entrada animada** ✨ — O `UserInfoPopup` atual aparece instantaneamente. Adicionar animação de fade-in + scale (0.95 → 1) com `opacity` em ~150ms e `transform-origin` alinhado ao item de origem, usando a prop `--popup-origin` ou classe de entrada.
+
 ---
+
 
 ## 🛡 Painel do admin — Fase Pro (interface + gestão do sistema)
 

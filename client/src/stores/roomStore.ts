@@ -39,6 +39,8 @@ interface RoomStore {
   typing: Record<string, string>
   loadingRooms: boolean
   loadingMessages: boolean
+  hasMoreMessages: boolean
+  isLoadingMore: boolean
   setRooms: (rooms: RoomInfo[]) => void
   setUsers: (users: UserInfo[]) => void
   setAccounts: (accounts: AccountInfo[]) => void
@@ -49,7 +51,10 @@ interface RoomStore {
   removeMessage: (messageId: string) => void
   markMessageFailed: (messageId: string) => void
   setMessages: (msgs: ChatMsg[]) => void
+  prependMessages: (msgs: ChatMsg[]) => void
   clearMessages: () => void
+  setHasMoreMessages: (v: boolean) => void
+  setLoadingMore: (v: boolean) => void
   incrementUnread: (roomId: string) => void
   markRoomRead: (roomId: string) => void
   clearUnread: () => void
@@ -71,6 +76,8 @@ export const useRoomStore = create<RoomStore>((set) => ({
   typing: {},
   loadingRooms: false,
   loadingMessages: false,
+  hasMoreMessages: false,
+  isLoadingMore: false,
   setRooms: (rooms) => set({ rooms }),
   setUsers: (users) => set({ users }),
   setAccounts: (accounts) => set({ accounts }),
@@ -98,7 +105,10 @@ export const useRoomStore = create<RoomStore>((set) => ({
       ),
     })),
   setMessages: (msgs) => set({ messages: msgs }),
+  prependMessages: (msgs) => set((s) => ({ messages: [...msgs, ...s.messages] })),
   clearMessages: () => set({ messages: [] }),
+  setHasMoreMessages: (v) => set({ hasMoreMessages: v }),
+  setLoadingMore: (v) => set({ isLoadingMore: v }),
   incrementUnread: (roomId) =>
     set((s) => ({
       unread: { ...s.unread, [roomId]: (s.unread[roomId] ?? 0) + 1 },
