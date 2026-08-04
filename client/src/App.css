@@ -2835,6 +2835,30 @@ body {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* Mobile: girar o celular para paisagem com a live ligada cobre a tela com o
+   preview da própria câmera (overlay via CSS, sem depender do Fullscreen API). */
+.mosaic-tile--auto-fs {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  grid-column: 1 / -1;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100dvh;
+  border-radius: 0;
+  border: none;
+  margin: 0;
+}
+
+.mosaic-tile--auto-fs .mosaic-tile-video {
+  width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  aspect-ratio: auto;
+  object-fit: contain;
+  background: #000;
+}
+
 .mosaic-tile--self:hover {
   border-color: var(--accent);
 }

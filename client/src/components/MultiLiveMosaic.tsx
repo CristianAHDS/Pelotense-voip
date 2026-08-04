@@ -215,6 +215,8 @@ export function MultiLiveMosaic() {
   const videoRec = useVideoRecorder()
   const [starting, setStarting] = useState(false)
   const [focusedId, setFocusedId] = useState<string | null>(null)
+  const [isLandscape, setIsLandscape] = useState(false)
+  const [autoFullscreen, setAutoFullscreen] = useState(false)
   const myVideoRef = useRef<HTMLVideoElement>(null)
   const isFullscreen = useFullscreenState()
   const isMobile = isMobileDevice()
@@ -286,6 +288,22 @@ export function MultiLiveMosaic() {
     }
   }, [])
 
+  // No mobile, girar o celular para paisagem com a live ligada entra
+  // automaticamente em tela cheia (overlay via CSS, confiável mesmo onde o
+  // Fullscreen API exige gesto do usuário); voltar para retrato sai.
+  useEffect(() => {
+    if (!isMobile) return
+    const mql = window.matchMedia('(orientation: landscape)')
+    const update = (e: MediaQueryList | MediaQueryListEvent) => setIsLandscape(e.matches)
+    mql.addEventListener('change', update)
+    update(mql)
+    return () => mql.removeEventListener('change', update)
+  }, [isMobile])
+
+  useEffect(() => {
+    setAutoFullscreen(isMobile && amBroadcasting && isLandscape)
+  }, [isMobile, amBroadcasting, isLandscape])
+
   async function handleStart() {
     if (starting) return
     // getUserMedia exige contexto seguro (HTTPS ou localhost) + permissão.
@@ -351,7 +369,7 @@ export function MultiLiveMosaic() {
           <>
             <div className="mosaic-grid">
               {amBroadcasting && (
-                <div className={`mosaic-tile mosaic-tile--self${mySpeaking ? ' mosaic-tile--speaking' : ''}`}>
+                <div className={`mosaic-tile mosaic-tile--self${mySpeaking ? ' mosaic-tile--speaking' : ''}${autoFullscreen ? ' mosaic-tile--auto-fs' : ''}`}>
                   <video ref={myVideoRef} autoPlay playsInline muted className="mosaic-tile-video" />
                   <span className="mosaic-tile-badge">● {t('liveBadge')}</span>
                   <div className="mosaic-tile-bar">
@@ -395,6 +413,16 @@ export function MultiLiveMosaic() {
                     </div>
                   </div>
                   <span className="mosaic-tile-actions">
+                    {autoFullscreen && (
+                      <button
+                        className="mosaic-icon-btn"
+                        onClick={() => setAutoFullscreen(false)}
+                        title={t('backToMosaic')}
+                        aria-label={t('backToMosaic')}
+                      >
+                        ✕
+                      </button>
+                    )}
                     <FullscreenBtn videoRef={myVideoRef} isFullscreen={isFullscreen} />
                   </span>
                 </div>
