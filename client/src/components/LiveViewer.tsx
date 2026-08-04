@@ -4,8 +4,9 @@ import { useConnectionStore } from '../stores/connectionStore.ts'
 import * as liveRtc from '../services/liveRtc.ts'
 import { attachMediaStream, markActive } from '../audio/audioMeter.ts'
 import { useT } from '../i18n/index.ts'
+import { useToastStore } from '../stores/toastStore.ts'
 
-export function LiveViewer() {
+export function LiveViewer({ minimal }: { minimal?: boolean }) {
   const broadcaster = useLiveStore((s) => s.broadcasters[0])
   const myId = useConnectionStore((s) => s.id)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -65,7 +66,31 @@ export function LiveViewer() {
     }
   }
 
+  function copyLiveLink() {
+    if (!broadcaster) return
+    const host = window.location.hostname
+    const protocol = window.location.protocol
+    const stableRoom = 'Ao%20vivo'
+    const url = `${protocol}//${host}/viewer?host=${host}&port=3003&room=${stableRoom}`
+    navigator.clipboard.writeText(url).then(() => {
+      useToastStore.getState().show('success', t('linkCopied'))
+    }).catch(() => {
+      useToastStore.getState().show('error', t('linkCopyError'))
+    })
+  }
+
   if (!broadcaster || broadcaster.userId === myId) return null
+
+  if (minimal) {
+    return (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        className="viewer-video"
+      />
+    )
+  }
 
   return (
     <div className="live-viewer">
@@ -73,6 +98,17 @@ export function LiveViewer() {
         <span className="live-viewer-indicator" />
         <span className="live-viewer-name">{broadcaster.userName}</span>
         <span className="live-viewer-label">{t('liveBadge')}</span>
+        <button
+          className="live-viewer-copy-btn"
+          onClick={copyLiveLink}
+          title={t('copyLiveLink')}
+          aria-label={t('copyLiveLink')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        </button>
         <button
           className="live-viewer-fullscreen-btn"
           onClick={toggleFullscreen}
