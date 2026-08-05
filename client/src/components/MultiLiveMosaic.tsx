@@ -10,6 +10,7 @@ import { createStreamLevel } from '../audio/audioMeter.ts'
 import { Avatar } from '../ui/Avatar.tsx'
 import { initials } from '../ui/avatar.ts'
 import { isMobileDevice } from '../utils/device.ts'
+import { getLiveViewerUrl } from '../utils/appConfig.ts'
 import { useT } from '../i18n/index.ts'
 
 function toggleVideoFullscreen(video: HTMLVideoElement): void {
@@ -217,6 +218,7 @@ export function MultiLiveMosaic() {
   const [focusedId, setFocusedId] = useState<string | null>(null)
   const [isLandscape, setIsLandscape] = useState(false)
   const [autoFullscreen, setAutoFullscreen] = useState(false)
+  const [copied, setCopied] = useState(false)
   const myVideoRef = useRef<HTMLVideoElement>(null)
   const isFullscreen = useFullscreenState()
   const isMobile = isMobileDevice()
@@ -343,6 +345,18 @@ export function MultiLiveMosaic() {
     sendLiveStart()
   }
 
+  function copyLiveLink() {
+    getLiveViewerUrl().then((url) => {
+      navigator.clipboard.writeText(url).then(() => {
+        useToastStore.getState().show('success', t('linkCopied'))
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }).catch(() => {
+        useToastStore.getState().show('error', t('linkCopyError'))
+      })
+    })
+  }
+
   return (
     <div className="multilive">
       <div className="multilive-header">
@@ -353,6 +367,17 @@ export function MultiLiveMosaic() {
         </span>
         <span className="multilive-spectators">👥 {t('multiliveSpectators', { n: spectatorCount })}</span>
         <span className="multilive-hint">{t('multiliveHint')}</span>
+        <button
+          className="multilive-copy-btn"
+          onClick={copyLiveLink}
+          title={t('copyLiveLink')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          <span>{copied ? t('linkCopied') : t('copyLiveLink')}</span>
+        </button>
       </div>
 
       <div className="multilive-body">

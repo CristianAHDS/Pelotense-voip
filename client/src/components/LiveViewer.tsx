@@ -5,6 +5,7 @@ import * as liveRtc from '../services/liveRtc.ts'
 import { attachMediaStream, markActive } from '../audio/audioMeter.ts'
 import { useT } from '../i18n/index.ts'
 import { useToastStore } from '../stores/toastStore.ts'
+import { getLiveViewerUrl } from '../utils/appConfig.ts'
 
 export function LiveViewer({ minimal }: { minimal?: boolean }) {
   const broadcaster = useLiveStore((s) => s.broadcasters[0])
@@ -64,14 +65,14 @@ export function LiveViewer({ minimal }: { minimal?: boolean }) {
 
   function copyLiveLink() {
     if (!broadcaster) return
-    const host = window.location.hostname
-    const url = `${window.location.protocol}//${host}/viewer?host=${host}&port=3003&room=Ao%20vivo`
-    navigator.clipboard.writeText(url).then(() => {
-      useToastStore.getState().show('success', t('linkCopied'))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {
-      useToastStore.getState().show('error', t('linkCopyError'))
+    getLiveViewerUrl().then((url) => {
+      navigator.clipboard.writeText(url).then(() => {
+        useToastStore.getState().show('success', t('linkCopied'))
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }).catch(() => {
+        useToastStore.getState().show('error', t('linkCopyError'))
+      })
     })
   }
 

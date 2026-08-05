@@ -17,6 +17,7 @@ import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
 import { isMobileDevice } from '../utils/device.ts'
+import { getLiveViewerUrl } from '../utils/appConfig.ts'
 import { renderTextWithLinks } from '../utils/links.tsx'
 import { useT, tStatic, type TranslateFn } from '../i18n/index.ts'
 
@@ -505,13 +506,12 @@ export function ChatPanel() {
   }
 
   function copyLiveLinkToClipboard() {
-    const host = window.location.hostname
-    const protocol = window.location.protocol
-    const url = `${protocol}//${host}/viewer?host=${host}&port=3003&room=Ao%20vivo`
-    navigator.clipboard.writeText(url).then(() => {
-      useToastStore.getState().show('success', t('linkCopied'))
-    }).catch(() => {
-      useToastStore.getState().show('error', t('linkCopyError'))
+    getLiveViewerUrl().then((url) => {
+      navigator.clipboard.writeText(url).then(() => {
+        useToastStore.getState().show('success', t('linkCopied'))
+      }).catch(() => {
+        useToastStore.getState().show('error', t('linkCopyError'))
+      })
     })
   }
 
