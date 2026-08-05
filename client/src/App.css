@@ -4455,7 +4455,7 @@ body {
   gap: 4px;
   padding: 4px 10px;
   border: 1px solid var(--accent);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-s);
   background: transparent;
   color: var(--accent);
   font-size: 11px;
