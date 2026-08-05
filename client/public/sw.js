@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voip-client-v3'
+const CACHE_NAME = 'voip-client-v4'
 const APP_SHELL = [
   '/',
   '/index.html',
