@@ -7,6 +7,39 @@ import { useT } from '../i18n/index.ts'
 import { useToastStore } from '../stores/toastStore.ts'
 import { getLiveViewerUrl } from '../utils/appConfig.ts'
 
+// Garante que o <video> nunca fique pausado em streams ao vivo.
+// O navegador pode pausar ao sair do fullscreen — forçamos play sempre.
+function useKeepPlaying(videoRef: React.RefObject<HTMLVideoElement | null>) {
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const el = video
+
+    function resume() {
+      if (el.paused || el.ended) {
+        el.play().catch(() => {})
+      }
+    }
+
+    el.addEventListener('pause', resume)
+
+    function onFsChange() {
+      if (!document.fullscreenElement) {
+        // Aguarda um frame para o navegador estabilizar após sair do fullscreen.
+        requestAnimationFrame(() => resume())
+      }
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    document.addEventListener('webkitfullscreenchange', onFsChange)
+
+    return () => {
+      el.removeEventListener('pause', resume)
+      document.removeEventListener('fullscreenchange', onFsChange)
+      document.removeEventListener('webkitfullscreenchange', onFsChange)
+    }
+  }, [])
+}
+
 export function LiveViewer({ minimal, targetBroadcasterId }: { minimal?: boolean; targetBroadcasterId?: string }) {
   const broadcasters = useLiveStore((s) => s.broadcasters)
   const broadcaster = targetBroadcasterId
@@ -53,6 +86,8 @@ export function LiveViewer({ minimal, targetBroadcasterId }: { minimal?: boolean
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
   }, [])
+
+  useKeepPlaying(videoRef)
 
   function toggleFullscreen() {
     const video = videoRef.current

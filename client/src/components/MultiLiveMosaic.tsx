@@ -113,6 +113,8 @@ function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack, onC
   const speaking = level > 0.12
   const elapsed = useElapsed(timestamp)
 
+  useKeepPlaying(videoRef)
+
   useEffect(() => {
     setHasStream(false)
     setStream(null)
@@ -217,6 +219,38 @@ function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack, onC
   )
 }
 
+// Garante que o <video> de live nunca fique pausado.
+// O navegador pode pausar ao sair do fullscreen — forçamos play sempre.
+function useKeepPlaying(videoRef: React.RefObject<HTMLVideoElement | null>) {
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const el = video
+
+    function resume() {
+      if (el.paused || el.ended) {
+        el.play().catch(() => {})
+      }
+    }
+
+    el.addEventListener('pause', resume)
+
+    function onFsChange() {
+      if (!document.fullscreenElement) {
+        requestAnimationFrame(() => resume())
+      }
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    document.addEventListener('webkitfullscreenchange', onFsChange)
+
+    return () => {
+      el.removeEventListener('pause', resume)
+      document.removeEventListener('fullscreenchange', onFsChange)
+      document.removeEventListener('webkitfullscreenchange', onFsChange)
+    }
+  }, [])
+}
+
 export function MultiLiveMosaic() {
   const t = useT()
   const myId = useConnectionStore((s) => s.id)
@@ -234,6 +268,8 @@ export function MultiLiveMosaic() {
   const myVideoRef = useRef<HTMLVideoElement>(null)
   const isFullscreen = useFullscreenState()
   const isMobile = isMobileDevice()
+
+  useKeepPlaying(myVideoRef)
 
   const amBroadcasting = broadcasters.some((b) => b.userId === myId)
   const others = broadcasters.filter((b) => b.userId !== myId)
