@@ -96,7 +96,7 @@ export function UserList() {
     }
   }
 
-  const offlineAccounts = accounts.filter((a) => !a.online)
+  const offlineAccounts = accounts.filter((a) => !a.online && !a.name.toLowerCase().startsWith('guest'))
 
   function byRole<T extends { id?: string; name?: string; email?: string; admin?: boolean }>(a: T, b: T): number {
     const aMaster = isMasterUser(a) ? 1 : 0
