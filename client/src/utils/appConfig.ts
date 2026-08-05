@@ -68,22 +68,40 @@ async function loadFreshConfig(): Promise<AppConfig> {
   return { ...remote, ...local }
 }
 
-// Monta a URL pública do viewer de live com base no config.json.
-// Para túneis (Cloudflare/ngrok), o wssPort é 443 e o host é o domínio do
-// túnel. Para acesso local direto, usa o hostname atual e porta 3003.
-// `broadcasterId` (opcional) identifica o transmissor específico.
+function isTunnelHost(host: string): boolean {
+  return host.includes('trycloudflare.com')
+    || host.includes('ngrok')
+    || host.includes('lhr.life')
+    || host.includes('fly.dev')
+}
+
+// Monta a URL pública do viewer de live.
+// Se o app está sendo acessado via túnel, usa o mesmo host (acessível de qualquer lugar).
+// Senão, tenta pegar o host do túnel do config.json (atualizado pelo servidor).
+// Fallback: host local (acessível apenas na mesma rede).
 export async function getLiveViewerUrl(broadcasterId?: string, room?: string): Promise<string> {
   const roomParam = encodeURIComponent(room || 'Ao vivo')
   const broadcasterParam = broadcasterId ? `&broadcaster=${encodeURIComponent(broadcasterId)}` : ''
+
+  // host com porta (ex: 192.168.8.94:3000) — necessário para o viewer carregar a página.
+  const pageHost = window.location.host
+  const pageProtocol = window.location.protocol
+  const hostname = window.location.hostname
+
+  // Se já está acessando via túnel público, usa a mesma URL base.
+  if (isTunnelHost(hostname)) {
+    return `${pageProtocol}//${pageHost}/viewer?host=${hostname}&port=443&room=${roomParam}${broadcasterParam}`
+  }
+
+  // Tenta descobrir o túnel público via config.json (servidor atualiza ao iniciar).
   try {
     const config = await loadFreshConfig()
-    const wssPort = config.wssPort || '3003'
-    const isTunnel = !!(config.host && (wssPort === '443' || wssPort === '80'))
-    if (isTunnel) {
-      const host = config.host!
-      return `https://${host}/viewer?host=${host}&port=${wssPort}&room=${roomParam}${broadcasterParam}`
+    if (config.host && isTunnelHost(config.host)) {
+      return `https://${config.host}/viewer?host=${config.host}&port=443&room=${roomParam}${broadcasterParam}`
     }
   } catch { /* fallback local */ }
-  const host = window.location.hostname
-  return `${window.location.protocol}//${host}/viewer?host=${host}&port=3003&room=${roomParam}${broadcasterParam}`
+
+  // Nenhum túnel público disponível — link local (rede local apenas).
+  const localPort = window.location.port || (pageProtocol === 'https:' ? '3443' : '3000')
+  return `${pageProtocol}//${hostname}:${localPort}/viewer?host=${hostname}&port=3003&room=${roomParam}${broadcasterParam}`
 }

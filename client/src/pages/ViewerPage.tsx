@@ -64,6 +64,14 @@ export function ViewerPage() {
     )
   }
 
+  if (broadcaster && !broadcasters.some((b) => b.userId === broadcaster)) {
+    return (
+      <div className="viewer-page">
+        <div className="viewer-error">Câmera não encontrada. O transmissor pode ter encerrado a live.</div>
+      </div>
+    )
+  }
+
   return (
     <div className="viewer-page">
       <LiveViewer minimal targetBroadcasterId={broadcaster} />
