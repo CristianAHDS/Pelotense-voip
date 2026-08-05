@@ -52,11 +52,20 @@ export function loadAppConfig(): Promise<AppConfig> {
     cache = (async () => {
       const local = await loadLocalConfig()
       const remote = await fetchRemoteConfig()
-      // O remoto (site) tem prioridade: é a forma de apontar o IP sem editar localmente.
-      return { ...local, ...remote }
+      // Local (servidor) tem prioridade sobre remoto (GitHub) porque o servidor
+      // atualiza config.json com o host do túnel a cada reinício.
+      return { ...remote, ...local }
     })()
   }
   return cache
+}
+
+// Força recarregar a config (ignora cache). Usado pelo link de live para
+// garantir que o host do túnel está atualizado.
+async function loadFreshConfig(): Promise<AppConfig> {
+  const local = await loadLocalConfig()
+  const remote = await fetchRemoteConfig()
+  return { ...remote, ...local }
 }
 
 // Monta a URL pública do viewer de live com base no config.json.
@@ -67,7 +76,7 @@ export async function getLiveViewerUrl(broadcasterId?: string, room?: string): P
   const roomParam = encodeURIComponent(room || 'Ao vivo')
   const broadcasterParam = broadcasterId ? `&broadcaster=${encodeURIComponent(broadcasterId)}` : ''
   try {
-    const config = await loadAppConfig()
+    const config = await loadFreshConfig()
     const wssPort = config.wssPort || '3003'
     const isTunnel = !!(config.host && (wssPort === '443' || wssPort === '80'))
     if (isTunnel) {
