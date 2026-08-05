@@ -96,11 +96,12 @@ interface TileProps {
   focused: boolean
   onFocus: () => void
   onBack: () => void
+  onCopyLink: (userId: string) => void
 }
 
 // Azulejo de um transmissor (que não seja eu): abre um RTCPeerConnection e
 // mostra a câmera ao vivo dele, com placeholder enquanto o stream não chega.
-function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack }: TileProps) {
+function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack, onCopyLink }: TileProps) {
   const t = useT()
   const videoRef = useRef<HTMLVideoElement>(null)
   const avatar = useRoomStore((s) => s.users.find((u) => u.id === userId)?.avatar)
@@ -190,6 +191,17 @@ function MosaicTile({ userId, userName, timestamp, focused, onFocus, onBack }: T
           </button>
         )}
         <FullscreenBtn videoRef={videoRef} isFullscreen={isFullscreen} />
+        <button
+          className="mosaic-icon-btn"
+          onClick={(e) => { e.stopPropagation(); onCopyLink(userId) }}
+          title={t('copyLiveLink')}
+          aria-label={t('copyLiveLink')}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        </button>
         {focused && (
           <button
             className="mosaic-icon-btn mosaic-back-btn"
@@ -357,6 +369,16 @@ export function MultiLiveMosaic() {
     })
   }
 
+  function copyTileLink(userId: string) {
+    getLiveViewerUrl(userId, 'Live').then((url) => {
+      navigator.clipboard.writeText(url).then(() => {
+        useToastStore.getState().show('success', t('linkCopied'))
+      }).catch(() => {
+        useToastStore.getState().show('error', t('linkCopyError'))
+      })
+    })
+  }
+
   return (
     <div className="multilive">
       <div className="multilive-header">
@@ -462,6 +484,7 @@ export function MultiLiveMosaic() {
                   focused={focusedId === b.userId}
                   onFocus={() => setFocusedId((f) => (f === b.userId ? null : b.userId))}
                   onBack={() => setFocusedId(null)}
+                  onCopyLink={copyTileLink}
                 />
               ))}
             </div>

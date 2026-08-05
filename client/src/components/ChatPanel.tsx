@@ -506,7 +506,8 @@ export function ChatPanel() {
   }
 
   function copyLiveLinkToClipboard() {
-    getLiveViewerUrl().then((url) => {
+    const bId = broadcaster?.userId
+    getLiveViewerUrl(bId).then((url) => {
       navigator.clipboard.writeText(url).then(() => {
         useToastStore.getState().show('success', t('linkCopied'))
       }).catch(() => {

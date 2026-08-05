@@ -62,16 +62,19 @@ export function loadAppConfig(): Promise<AppConfig> {
 // Monta a URL pública do viewer de live com base no config.json.
 // Para túneis (Cloudflare/ngrok), o wssPort é 443 e o host é o domínio do
 // túnel. Para acesso local direto, usa o hostname atual e porta 3003.
-export async function getLiveViewerUrl(): Promise<string> {
+// `broadcasterId` (opcional) identifica o transmissor específico.
+export async function getLiveViewerUrl(broadcasterId?: string, room?: string): Promise<string> {
+  const roomParam = encodeURIComponent(room || 'Ao vivo')
+  const broadcasterParam = broadcasterId ? `&broadcaster=${encodeURIComponent(broadcasterId)}` : ''
   try {
     const config = await loadAppConfig()
     const wssPort = config.wssPort || '3003'
     const isTunnel = !!(config.host && (wssPort === '443' || wssPort === '80'))
     if (isTunnel) {
       const host = config.host!
-      return `https://${host}/viewer?host=${host}&port=${wssPort}&room=Ao%20vivo`
+      return `https://${host}/viewer?host=${host}&port=${wssPort}&room=${roomParam}${broadcasterParam}`
     }
   } catch { /* fallback local */ }
   const host = window.location.hostname
-  return `${window.location.protocol}//${host}/viewer?host=${host}&port=3003&room=Ao%20vivo`
+  return `${window.location.protocol}//${host}/viewer?host=${host}&port=3003&room=${roomParam}${broadcasterParam}`
 }

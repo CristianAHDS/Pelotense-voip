@@ -9,6 +9,7 @@ export function ViewerPage() {
   const host = params.get('host') ?? ''
   const port = params.get('port') ?? ''
   const room = params.get('room') ?? 'Ao vivo'
+  const broadcaster = params.get('broadcaster') || undefined
   const connected = useConnectionStore((s) => s.connected)
   const broadcasters = useLiveStore((s) => s.broadcasters)
   const [error, setError] = useState('')
@@ -58,14 +59,14 @@ export function ViewerPage() {
   if (broadcasters.length === 0) {
     return (
       <div className="viewer-page">
-        <div className="viewer-waiting">Aguardando live...</div>
+        <div className="viewer-waiting">{broadcaster ? 'Aguardando câmera...' : 'Aguardando live...'}</div>
       </div>
     )
   }
 
   return (
     <div className="viewer-page">
-      <LiveViewer minimal />
+      <LiveViewer minimal targetBroadcasterId={broadcaster} />
     </div>
   )
 }

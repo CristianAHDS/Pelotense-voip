@@ -7,8 +7,11 @@ import { useT } from '../i18n/index.ts'
 import { useToastStore } from '../stores/toastStore.ts'
 import { getLiveViewerUrl } from '../utils/appConfig.ts'
 
-export function LiveViewer({ minimal }: { minimal?: boolean }) {
-  const broadcaster = useLiveStore((s) => s.broadcasters[0])
+export function LiveViewer({ minimal, targetBroadcasterId }: { minimal?: boolean; targetBroadcasterId?: string }) {
+  const broadcasters = useLiveStore((s) => s.broadcasters)
+  const broadcaster = targetBroadcasterId
+    ? broadcasters.find((b) => b.userId === targetBroadcasterId)
+    : broadcasters[0]
   const myId = useConnectionStore((s) => s.id)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -65,7 +68,7 @@ export function LiveViewer({ minimal }: { minimal?: boolean }) {
 
   function copyLiveLink() {
     if (!broadcaster) return
-    getLiveViewerUrl().then((url) => {
+    getLiveViewerUrl(broadcaster.userId).then((url) => {
       navigator.clipboard.writeText(url).then(() => {
         useToastStore.getState().show('success', t('linkCopied'))
         setCopied(true)
