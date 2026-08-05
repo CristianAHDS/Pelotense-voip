@@ -7351,23 +7351,6 @@ body {
 }
 
 /* ============================================================
-   #17 Barra de progresso no upload
-   ============================================================ */
-.chat-upload-progress {
-  height: 2px;
-  background: var(--border);
-  border-radius: 1px;
-  overflow: hidden;
-  margin: 0 18px;
-}
-.chat-upload-progress-fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 0.15s ease;
-  border-radius: 1px;
-}
-
-/* ============================================================
    #18 Tooltips customizados
    ============================================================ */
 [data-tooltip] {

@@ -1,6 +1,6 @@
 [package]
 name = "voip-client"
-version = "1.0.50"
+version = "1.0.51"
 description = "Rádio Pelotense 99.5 FM"
 authors = ["Cristian Raffi Cunha"]
 license = ""
