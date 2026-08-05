@@ -1566,12 +1566,7 @@ function ChatBubble({
               className="chat-bubble-status chat-bubble-status--sending"
               title={tStatic('sending')}
             >
-              <span className="chat-status-dots" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-              {tStatic('sending')}
+              <span className="chat-send-progress" />
             </span>
           )}
           {isSelf && msg.failed && (
