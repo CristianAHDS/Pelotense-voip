@@ -7434,3 +7434,31 @@ body {
   transition: height 0.08s ease;
   min-height: 2px;
 }
+
+/* Drag & drop na área de chat */
+.chat-panel--drag-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}
+.chat-drag-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(var(--accent), 0.08);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+  border-radius: var(--radius-m);
+}
+.chat-drag-icon {
+  font-size: 48px;
+}
+.chat-drag-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+}

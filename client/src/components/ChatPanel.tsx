@@ -227,6 +227,72 @@ export function ChatPanel() {
   const toggleFullscreen = useAccountStore((s) => s.toggleFullscreen);
   const t = useT();
   const typingUsers = useRoomStore((s) => s.typing);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCountRef = useRef(0);
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCountRef.current++
+    setIsDragOver(true)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCountRef.current--
+    if (dragCountRef.current <= 0) {
+      dragCountRef.current = 0
+      setIsDragOver(false)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    dragCountRef.current = 0
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+    processDroppedFiles(files)
+  }
+
+  function processDroppedFiles(files: File[]) {
+    const myName = useConnectionStore.getState().name ?? ''
+    const myId = useConnectionStore.getState().id ?? ''
+    files.forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        readFileAsBase64(file).then((b64) => {
+          if (imageBase64ExceedsLimit(b64)) return
+          const id = generateClientMessageId()
+          useRoomStore.getState().addMessage({ id, userId: myId, userName: myName, text: '', imageData: b64, timestamp: Date.now() })
+          sendChatImageMessage(id, b64)
+        })
+      } else if (file.type.startsWith('audio/')) {
+        getMediaDuration(file).then((dur) => {
+          readFileAsBase64(file).then((b64) => {
+            const id = generateClientMessageId()
+            const mime = file.type
+            useRoomStore.getState().addMessage({ id, userId: myId, userName: myName, text: '', audioData: b64, duration: Math.round(dur), mime, timestamp: Date.now() })
+            sendChatAudioMessage(id, b64, Math.round(dur), mime)
+          })
+        })
+      } else if (file.type.startsWith('video/')) {
+        fileToResizedBase64(file).then((b64) => {
+          if (!b64) return
+          const id = generateClientMessageId()
+          const mime = file.type
+          useRoomStore.getState().addMessage({ id, userId: myId, userName: myName, text: '', videoData: b64, mime, timestamp: Date.now() })
+          sendChatVideoMessage(id, b64, 0, mime)
+        })
+      }
+    })
+  }
 
   // Indicador de digitação: sinaliza "typing" enquanto há texto (debounce no
   // envio) e envia "parou de digitar" ao limpar o campo ou após pausa.
@@ -654,7 +720,19 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="chat-panel">
+    <div
+      className={`chat-panel${isDragOver ? ' chat-panel--drag-over' : ''}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDragOver && (
+        <div className="chat-drag-overlay">
+          <span className="chat-drag-icon">📁</span>
+          <span className="chat-drag-text">Solte o arquivo para enviar</span>
+        </div>
+      )}
       <div className="chat-header">
         <span className="chat-header-name">#{currentRoomName}</span>
         <span className="chat-header-count">
