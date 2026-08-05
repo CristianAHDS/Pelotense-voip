@@ -18,15 +18,17 @@ export function Toasts() {
     <div className="toast-container" aria-live="polite" aria-atomic="false">
       {toasts.map((t) => (
         <div key={t.id} className={`toast toast--${t.kind}`} role="status">
-          <span className="toast-icon">{ICONS[t.kind] ?? ''}</span>
-          <span className="toast-message">{t.message}</span>
-          <button
-            className="toast-close"
-            onClick={() => dismiss(t.id)}
-            aria-label={tStatic('close')}
-          >
-            ×
-          </button>
+          <div className="toast-body">
+            <span className="toast-icon">{ICONS[t.kind] ?? ''}</span>
+            <span className="toast-message">{t.message}</span>
+            <button
+              className="toast-close"
+              onClick={() => dismiss(t.id)}
+              aria-label={tStatic('close')}
+            >
+              ×
+            </button>
+          </div>
           <div className="toast-bar" style={{ animationDuration: `${t.duration ?? 3000}ms` }} />
         </div>
       ))}

@@ -7219,20 +7219,27 @@ body {
    #5 Toast notifications reposicionados
    ============================================================ */
 .toast-container {
+  position: fixed;
   bottom: 20px;
   right: 20px;
   top: auto;
   left: auto;
+  display: flex;
   flex-direction: column;
   gap: 8px;
+  z-index: 200;
 }
 .toast {
   animation: toast-slide-in 0.3s ease forwards;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
   min-width: 280px;
   max-width: 400px;
+}
+.toast-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .toast-icon {
   font-size: 18px;
@@ -7241,8 +7248,7 @@ body {
 .toast-bar {
   height: 3px;
   background: rgba(255,255,255,0.2);
-  border-radius: 2px;
-  margin-top: 6px;
+  border-radius: 0 0 2px 2px;
   animation: toast-bar-shrink linear forwards;
 }
 @keyframes toast-slide-in {
