@@ -10,12 +10,13 @@ import { useRoomStore } from '../stores/roomStore.ts';
 import { useConnectionStore } from '../stores/connectionStore.ts';
 import { useLiveStore } from '../stores/liveStore.ts';
 import { useToastStore } from '../stores/toastStore.ts';
-import {
-  sendChatMessage,
-  sendChatAudioMessage,
-  sendChatVideoMessage,
-  sendChatImageMessage,
-  sendMessageReaction,
+  import {
+    sendChatMessage,
+    sendChatAudioMessage,
+    sendChatVideoMessage,
+    sendChatImageMessage,
+    sendChatFileMessage,
+    sendMessageReaction,
   sendForwardMessage,
   deleteMessage,
   sendLiveStart,
@@ -54,7 +55,13 @@ import { getLiveViewerUrl, getJoinRoomUrl } from '../utils/appConfig.ts';
 import { renderTextWithLinks } from '../utils/links.tsx';
 import { useT, tStatic, type TranslateFn } from '../i18n/index.ts';
 
-const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+};
 
 function typingNames(
   typing: Record<string, string>,
@@ -289,6 +296,12 @@ export function ChatPanel() {
           const mime = file.type
           useRoomStore.getState().addMessage({ id, userId: myId, userName: myName, text: '', videoData: b64, mime, timestamp: Date.now() })
           sendChatVideoMessage(id, b64, 0, mime)
+        })
+      } else {
+        readFileAsBase64(file).then((b64) => {
+          const id = generateClientMessageId()
+          useRoomStore.getState().addMessage({ id, userId: myId, userName: myName, text: '', fileData: b64, fileName: file.name, fileSize: file.size, mime: file.type, timestamp: Date.now() })
+          sendChatFileMessage(id, b64, file.name, file.size)
         })
       }
     })
@@ -1494,6 +1507,20 @@ function ChatBubble({
             mime={msg.mime}
             onLightbox={onLightbox}
           />
+        ) : msg.fileData ? (
+          <div className="chat-bubble-file">
+            <span className="chat-bubble-file-icon">📎</span>
+            <span className="chat-bubble-file-name">{msg.fileName ?? 'Arquivo'}</span>
+            <span className="chat-bubble-file-size">{msg.fileSize ? formatFileSize(msg.fileSize) : ''}</span>
+            <a
+              className="chat-bubble-file-download"
+              href={`data:${msg.mime ?? 'application/octet-stream'};base64,${msg.fileData}`}
+              download={msg.fileName ?? 'arquivo'}
+              onClick={(e) => e.stopPropagation()}
+            >
+              ⬇
+            </a>
+          </div>
         ) : (
           <div className="chat-bubble-text">
             {renderTextWithLinks(msg.text ?? '')}

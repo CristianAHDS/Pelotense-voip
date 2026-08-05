@@ -26,6 +26,9 @@ export interface ChatMessage {
   audioData?: string
   videoData?: string
   imageData?: string
+  fileData?: string
+  fileName?: string
+  fileSize?: number
   duration?: number
   mime?: string
   timestamp: number
@@ -91,6 +94,7 @@ export enum WsMessageType {
   ChatAudioMessage = 'chat_audio_message',
   ChatVideoMessage = 'chat_video_message',
   ChatImageMessage = 'chat_image_message',
+  ChatFileMessage = 'chat_file_message',
   ChatMessage = 'chat_message',
   MessageReaction = 'message_reaction',
   ForwardMessage = 'forward_message',
@@ -115,6 +119,7 @@ export enum WsMessageType {
   PrivateAudioMessage = 'private_audio_message',
   PrivateVideoMessage = 'private_video_message',
   PrivateImageMessage = 'private_image_message',
+  PrivateFileMessage = 'private_file_message',
   DeletePrivateMessage = 'delete_private_message',
   PrivateMessageDeleted = 'private_message_deleted',
   ListPrivateMessages = 'list_private_messages',
@@ -171,6 +176,7 @@ export interface SecurityLimits {
   maxAudioMessageBytes: number
   maxVideoMessageBytes: number
   maxImageMessageBytes: number
+  maxFileMessageBytes: number
   maxLiveChunkBytes: number
   maxVoiceFrameBytes: number
   maxAvatarBytes: number
@@ -184,6 +190,7 @@ export const DEFAULT_SECURITY_LIMITS: SecurityLimits = {
   maxAudioMessageBytes: 512 * 1024,
   maxVideoMessageBytes: 1024 * 1024 * 1024,
   maxImageMessageBytes: 5 * 1024 * 1024,
+  maxFileMessageBytes: 20 * 1024 * 1024,
   maxLiveChunkBytes: 2 * 1024 * 1024,
   maxVoiceFrameBytes: 64 * 1024,
   maxAvatarBytes: 2 * 1024 * 1024,

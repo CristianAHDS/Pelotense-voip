@@ -488,6 +488,10 @@ export class WsHandler {
         this.handleChatImageMessage(client, msg.payload as { imageData: string })
         break
 
+      case WsMessageType.ChatFileMessage:
+        this.handleChatFileMessage(client, msg.payload as { fileData: string; fileName: string; fileSize: number })
+        break
+
       case WsMessageType.MessageReaction:
         this.handleMessageReaction(client, msg.payload as { messageId: string; emoji: string })
         break
@@ -1161,6 +1165,37 @@ export class WsHandler {
 
     this.broadcastToRoom(client.room, {
       type: WsMessageType.ChatImageMessage,
+      payload: chatMsg,
+    }, '')
+  }
+
+  private handleChatFileMessage(client: Client, payload: { id?: string; fileData: string; fileName: string; fileSize: number }): void {
+    if (!client.room || !payload.fileData) return
+    if (this.rooms.isMultiLiveRoom(client.room)) return
+    if (client.isGuest) return
+    if (client.restrictions?.chat) return
+    if (this.base64Exceeds(payload.fileData, this.limits.maxFileMessageBytes)) {
+      logger.warn('WsHandler', `File message from ${client.id} exceeds ${this.limits.maxFileMessageBytes} bytes, dropped`)
+      return
+    }
+
+    const room = this.rooms.get(client.room)
+    if (!room) return
+
+    const chatMsg: ChatMessage = {
+      id: typeof payload.id === 'string' && payload.id ? payload.id : this.generateMessageId(),
+      userId: client.id,
+      userName: client.name,
+      fileData: payload.fileData,
+      fileName: payload.fileName,
+      fileSize: payload.fileSize,
+      timestamp: Date.now(),
+    }
+
+    this.rooms.addMessage(room.id, chatMsg)
+
+    this.broadcastToRoom(client.room, {
+      type: WsMessageType.ChatFileMessage,
       payload: chatMsg,
     }, '')
   }

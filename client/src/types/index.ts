@@ -53,6 +53,7 @@ export enum WsMessageType {
   ChatAudioMessage = 'chat_audio_message',
   ChatVideoMessage = 'chat_video_message',
   ChatImageMessage = 'chat_image_message',
+  ChatFileMessage = 'chat_file_message',
   MessageReaction = 'message_reaction',
   ForwardMessage = 'forward_message',
   PrivateMessage = 'private_message',
@@ -78,6 +79,7 @@ export enum WsMessageType {
   PrivateAudioMessage = 'private_audio_message',
   PrivateVideoMessage = 'private_video_message',
   PrivateImageMessage = 'private_image_message',
+  PrivateFileMessage = 'private_file_message',
   DeletePrivateMessage = 'delete_private_message',
   PrivateMessageDeleted = 'private_message_deleted',
   ListPrivateMessages = 'list_private_messages',
@@ -204,14 +206,15 @@ export interface ChatMsg {
   audioData?: string
   videoData?: string
   imageData?: string
+  fileData?: string
+  fileName?: string
+  fileSize?: number
   duration?: number
   mime?: string
   timestamp: number
   forwarded?: boolean
   reactions?: MessageReaction[]
-  // apenas no cliente: marca mensagem otimista ainda não confirmada pelo servidor
   sending?: boolean
-  // apenas no cliente: envio falhou (timeout) e pode ser reenviado
   failed?: boolean
 }
 
@@ -233,12 +236,13 @@ export interface PrivateChatMsg {
   audioData?: string
   videoData?: string
   imageData?: string
+  fileData?: string
+  fileName?: string
+  fileSize?: number
   duration?: number
   mime?: string
   timestamp: number
-  // apenas no cliente: marca mensagem otimista ainda não confirmada pelo servidor
   sending?: boolean
-  // apenas no cliente: envio falhou (timeout) e pode ser reenviado
   failed?: boolean
 }
 

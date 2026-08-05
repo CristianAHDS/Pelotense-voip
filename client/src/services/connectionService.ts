@@ -147,6 +147,7 @@ function messageBody(payload: ChatMsg): string {
   if (payload.audioData) return tStatic('notifVoiceMsg')
   if (payload.videoData) return tStatic('notifVideoMsg')
   if (payload.imageData) return tStatic('notifImageMsg')
+  if (payload.fileData) return `📎 ${payload.fileName ?? tStatic('notifFileMsg')}`
   return tStatic('notifNewMsg')
 }
 
@@ -369,6 +370,10 @@ export function connectToServer(address: string, name: string, password: string,
   })
 
   wsClient.on(WsMessageType.ChatImageMessage, (msg) => {
+    onRoomChatMessage(msg.payload as ChatMsg)
+  })
+
+  wsClient.on(WsMessageType.ChatFileMessage, (msg) => {
     onRoomChatMessage(msg.payload as ChatMsg)
   })
 
@@ -653,6 +658,12 @@ export function sendChatVideoMessage(id: string, videoData: string, duration: nu
 export function sendChatImageMessage(id: string, imageData: string): void {
   if (!wsClient) { console.error('sendChatImageMessage: wsClient is null'); return }
   wsClient.send(WsMessageType.ChatImageMessage, { id, imageData })
+  trackSend(id)
+}
+
+export function sendChatFileMessage(id: string, fileData: string, fileName: string, fileSize: number): void {
+  if (!wsClient) return
+  wsClient.send(WsMessageType.ChatFileMessage, { id, fileData, fileName, fileSize })
   trackSend(id)
 }
 
