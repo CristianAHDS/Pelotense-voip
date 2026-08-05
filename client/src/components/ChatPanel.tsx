@@ -18,7 +18,7 @@ import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
 import { isMobileDevice } from '../utils/device.ts'
-import { getLiveViewerUrl } from '../utils/appConfig.ts'
+import { getLiveViewerUrl, getJoinRoomUrl } from '../utils/appConfig.ts'
 import { renderTextWithLinks } from '../utils/links.tsx'
 import { useT, tStatic, type TranslateFn } from '../i18n/index.ts'
 
@@ -596,15 +596,16 @@ export function ChatPanel() {
         <button
           className="chat-invite-btn"
           onClick={() => {
-            const url = `${window.location.protocol}//${window.location.host}/?join=${encodeURIComponent(currentRoomName ?? '')}`
-            navigator.clipboard.writeText(url).then(() => {
-              useToastStore.getState().show('success', t('linkCopied'))
-            }).catch(() => {
-              useToastStore.getState().show('error', t('linkCopyError'))
+            getJoinRoomUrl(currentRoomName ?? '').then((url) => {
+              navigator.clipboard.writeText(url).then(() => {
+                useToastStore.getState().show('success', t('linkCopied'))
+              }).catch(() => {
+                useToastStore.getState().show('error', t('linkCopyError'))
+              })
             })
           }}
-          title="Copiar link da sala"
-          aria-label="Copiar link da sala"
+          title={t('copyLiveLink')}
+          aria-label={t('copyLiveLink')}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

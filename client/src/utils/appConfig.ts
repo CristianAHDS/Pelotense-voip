@@ -112,3 +112,25 @@ export async function getLiveViewerUrl(broadcasterId?: string, room?: string): P
   const localPort = window.location.port || (pageProtocol === 'https:' ? '3443' : '3000')
   return `${pageProtocol}//${hostname}:${localPort}/viewer?host=${hostname}&port=3003&room=${roomParam}${broadcasterParam}`
 }
+
+// Monta a URL pública para convidar alguém a entrar numa sala como guest.
+// Acesso via /join que conecta como guest e redireciona para a sala.
+export async function getJoinRoomUrl(roomName: string): Promise<string> {
+  const roomParam = encodeURIComponent(roomName)
+  const hostname = window.location.hostname
+  const pageProtocol = window.location.protocol
+
+  if (isTunnelHost(hostname)) {
+    return `${pageProtocol}//${window.location.host}/join?room=${roomParam}&host=${hostname}&port=443`
+  }
+
+  try {
+    const config = await loadFreshConfig()
+    if (config.host && isTunnelHost(config.host)) {
+      return `https://${config.host}/join?room=${roomParam}&host=${config.host}&port=443`
+    }
+  } catch { /* fallback local */ }
+
+  const localPort = window.location.port || (pageProtocol === 'https:' ? '3443' : '3000')
+  return `${pageProtocol}//${hostname}:${localPort}/join?room=${roomParam}&host=${hostname}&port=3001`
+}
