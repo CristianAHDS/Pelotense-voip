@@ -73,13 +73,17 @@ function resolveBinary(cmd: string, fallbacks: string[]): string {
   return cmd
 }
 
-// Atualiza o config.json da raiz do projeto (ao lado do exe) com o túnel atual,
-// para o app desktop usar o link novo automaticamente.
+// Atualiza o config.json da raiz do projeto (ao lado do exe) e também o
+// client/dist/config.json (servido pelo navegador via Fastify static).
+// Assim tanto o app desktop quanto o browser SPA pegam o túnel atualizado.
 function writePublicConfig(url: string): void {
   try {
     const host = new URL(url).hostname
-    const dest = join(__dirname, '..', '..', 'config.json')
-    writeFileSync(dest, JSON.stringify({ host, wsPort: '3001', wssPort: '443' }, null, 2))
+    const content = JSON.stringify({ host, wsPort: '3001', wssPort: '443' }, null, 2)
+    const rootDest = join(__dirname, '..', '..', 'config.json')
+    const distDest = join(__dirname, '..', '..', 'client', 'dist', 'config.json')
+    writeFileSync(rootDest, content)
+    writeFileSync(distDest, content)
     logger.info('Tunnel', `config.json atualizado: ${host} (porta 443)`)
   } catch { /* ignore */ }
 }

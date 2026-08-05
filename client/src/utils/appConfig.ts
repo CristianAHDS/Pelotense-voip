@@ -47,14 +47,21 @@ async function fetchRemoteConfig(): Promise<AppConfig> {
   return {}
 }
 
+function mergeConfig(remote: AppConfig, local: AppConfig): AppConfig {
+  // Local (servidor) tem prioridade, mas valores vazios não sobrescrevem o remoto.
+  const merged: AppConfig = { ...remote }
+  if (local.host) merged.host = local.host
+  if (local.wsPort) merged.wsPort = local.wsPort
+  if (local.wssPort) merged.wssPort = local.wssPort
+  return merged
+}
+
 export function loadAppConfig(): Promise<AppConfig> {
   if (!cache) {
     cache = (async () => {
       const local = await loadLocalConfig()
       const remote = await fetchRemoteConfig()
-      // Local (servidor) tem prioridade sobre remoto (GitHub) porque o servidor
-      // atualiza config.json com o host do túnel a cada reinício.
-      return { ...remote, ...local }
+      return mergeConfig(remote, local)
     })()
   }
   return cache
@@ -65,7 +72,7 @@ export function loadAppConfig(): Promise<AppConfig> {
 async function loadFreshConfig(): Promise<AppConfig> {
   const local = await loadLocalConfig()
   const remote = await fetchRemoteConfig()
-  return { ...remote, ...local }
+  return mergeConfig(remote, local)
 }
 
 function isTunnelHost(host: string): boolean {
