@@ -596,7 +596,7 @@ export function ChatPanel() {
         <button
           className="chat-invite-btn"
           onClick={() => {
-            getJoinRoomUrl(currentRoomName ?? '').then((url) => {
+            getJoinRoomUrl('Live').then((url) => {
               navigator.clipboard.writeText(url).then(() => {
                 useToastStore.getState().show('success', t('linkCopied'))
               }).catch(() => {

@@ -2,11 +2,12 @@ import React, { useEffect, useState, useRef, Suspense, lazy } from 'react'
 import { connectToServer, joinRoom } from '../services/connectionService.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useRoomStore } from '../stores/roomStore.ts'
+import { useLiveStore } from '../stores/liveStore.ts'
 import { loadAppConfig } from '../utils/appConfig.ts'
+import { useT } from '../i18n/index.ts'
 
-const ChatPanel = lazy(() => import('../components/ChatPanel.tsx').then(m => ({ default: m.ChatPanel })))
+const MultiLiveMosaic = lazy(() => import('../components/MultiLiveMosaic.tsx').then(m => ({ default: m.MultiLiveMosaic })))
 
-// Detecta se o hostname parece ser um túnel público.
 function isTunnelHost(host: string): boolean {
   return host.includes('trycloudflare.com')
     || host.includes('ngrok')
@@ -16,16 +17,18 @@ function isTunnelHost(host: string): boolean {
 
 export function JoinPage() {
   const params = new URLSearchParams(window.location.search)
-  const room = params.get('room') ?? ''
+  const room = params.get('room') ?? 'Live'
   const connected = useConnectionStore((s) => s.connected)
   const currentRoom = useRoomStore((s) => s.currentRoomName)
+  const broadcasters = useLiveStore((s) => s.broadcasters)
   const [status, setStatus] = useState('Conectando...')
   const [error, setError] = useState('')
   const joiningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef = useRef(false)
+  const t = useT()
 
   useEffect(() => {
-    if (startedRef.current || !room) return
+    if (startedRef.current) return
     startedRef.current = true
 
     loadAppConfig().then((cfg) => {
@@ -80,14 +83,6 @@ export function JoinPage() {
     )
   }
 
-  if (!room) {
-    return (
-      <div className="viewer-page">
-        <div className="viewer-error">Link inválido: sala não especificada.</div>
-      </div>
-    )
-  }
-
   if (!connected || status) {
     return (
       <div className="viewer-page">
@@ -100,9 +95,28 @@ export function JoinPage() {
     return (
       <div className="app-container" style={{ minHeight: '100vh' }}>
         <div className="app-bg" aria-hidden="true" />
-        <Suspense fallback={<div className="viewer-loading">Carregando chat...</div>}>
-          <ChatPanel />
-        </Suspense>
+        <header className="app-header" style={{ justifyContent: 'center' }}>
+          <h1>
+            <img src="/img/radio-logo.png" alt="" className="app-logo" />
+            <span className="app-title">Rádio Pelotense</span>
+            <span className="app-title-freq">99.5 FM</span>
+          </h1>
+        </header>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '0 16px 16px' }}>
+          {broadcasters.length === 0 ? (
+            <div className="empty-state" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <span className="empty-state-icon" style={{ fontSize: 48 }}>📡</span>
+                <span className="empty-state-title" style={{ display: 'block', marginTop: 12 }}>Nenhuma live no ar</span>
+                <span className="empty-state-hint" style={{ display: 'block', marginTop: 4 }}>Volte quando houver transmissões ao vivo.</span>
+              </div>
+            </div>
+          ) : (
+            <Suspense fallback={<div className="viewer-loading">Carregando lives...</div>}>
+              <MultiLiveMosaic />
+            </Suspense>
+          )}
+        </main>
       </div>
     )
   }
