@@ -3600,6 +3600,8 @@ body {
   box-shadow: var(--shadow-s);
   position: relative;
   transition: background var(--transition);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
 }
 
 .chat-bubble:has(.chat-bubble-audio) {
@@ -6625,6 +6627,25 @@ body {
   align-items: center;
   justify-content: center;
   transition: color var(--transition), background var(--transition);
+}
+
+.chat-invite-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition), background var(--transition);
+}
+
+.chat-invite-btn:hover {
+  color: var(--accent);
+  background: var(--surface);
 }
 
 .chat-fullscreen-btn:hover {

@@ -7,7 +7,7 @@ export function requestNotificationPermission(): void {
   }
 }
 
-export function notifyNewMessage(title: string, body: string): void {
+export function notifyNewMessage(title: string, body: string, onClick?: () => void): void {
   const isVisible = typeof document !== 'undefined' && !document.hidden
   const hasFocus = typeof document !== 'undefined' && document.hasFocus()
   if (isVisible && hasFocus) return
@@ -17,8 +17,23 @@ export function notifyNewMessage(title: string, body: string): void {
       n.onclick = () => {
         window.focus()
         n.close()
+        onClick?.()
       }
     } catch { /* permissão negada ou indisponível */ }
   }
-  playMessageSound()
+  if (!isVisible || !hasFocus) {
+    playMessageSound()
+  }
+}
+
+export function notifyMention(userName: string, roomName: string, body: string): void {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+  try {
+    const n = new Notification(`@${userName} em #${roomName}`, {
+      body,
+      tag: 'mention',
+      silent: true,
+    })
+    n.onclick = () => { window.focus(); n.close() }
+  } catch { /* ignore */ }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { ConnectionPanel } from '../components/ConnectionPanel.tsx';
 import { RoomList } from '../components/RoomList.tsx';
 import { UserList } from '../components/UserList.tsx';
@@ -9,7 +9,6 @@ import { Toasts } from '../components/Toasts.tsx';
 import { AccountPrefsModal } from '../components/AccountPrefsModal.tsx';
 import { FullscreenChat } from '../components/FullscreenChat.tsx';
 import { FullscreenDm } from '../components/FullscreenDm.tsx';
-import { AdminPanel } from '../components/AdminPanel.tsx';
 import { MiniPlayer } from '../components/MiniPlayer.tsx';
 import { SplashScreen } from '../components/SplashScreen.tsx';
 import { WelcomePanel } from '../components/WelcomePanel.tsx';
@@ -22,6 +21,8 @@ import { useRoomStore } from '../stores/roomStore.ts';
 import { usePrivateChatStore } from '../stores/privateChatStore.ts';
 import { useSettingsStore, applyTheme } from '../stores/settingsStore.ts';
 import { useT } from '../i18n/index.ts';
+
+const AdminPanel = lazy(() => import('../components/AdminPanel.tsx').then(m => ({ default: m.AdminPanel })));
 
 type SheetTab = 'rooms' | 'users' | 'connection';
 
@@ -259,7 +260,9 @@ export function MainPage() {
       <AccountPrefsModal />
       <FullscreenChat />
       <FullscreenDm />
-      <AdminPanel />
+      <Suspense fallback={null}>
+        <AdminPanel />
+      </Suspense>
     </div>
   );
 }

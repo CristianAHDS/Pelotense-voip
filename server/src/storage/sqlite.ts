@@ -150,6 +150,15 @@ export class SqliteStore {
         onboarding INTEGER NOT NULL DEFAULT 0,
         createdAt INTEGER
       );
+      CREATE TABLE IF NOT EXISTS action_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        at INTEGER NOT NULL,
+        by_user TEXT NOT NULL,
+        action TEXT NOT NULL,
+        detail TEXT,
+        target TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_action_log_at ON action_log(at);
     `)
     // Migração: versões anteriores não tinham as colunas id/email/confirmação.
     const cols = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{ name: string }>
@@ -634,5 +643,18 @@ export class SqliteStore {
 
   countDevices(): number {
     return (this.db.prepare('SELECT COUNT(*) AS n FROM devices').get() as { n: number }).n
+  }
+
+  addActionLog(by: string, action: string, detail?: string, target?: string): void {
+    this.db.prepare(`
+      INSERT INTO action_log (at, by_user, action, detail, target)
+      VALUES (@at, @by, @action, @detail, @target)
+    `).run({ at: Date.now(), by: by, action, detail: detail ?? null, target: target ?? null })
+  }
+
+  getActionLog(limit: number = 50, offset: number = 0): Array<{ at: number; by: string; action: string; detail?: string; target?: string }> {
+    return this.db.prepare(
+      'SELECT at, by_user as by, action, detail, target FROM action_log ORDER BY at DESC LIMIT ? OFFSET ?'
+    ).all(limit, offset) as any[]
   }
 }

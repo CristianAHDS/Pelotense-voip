@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, Suspense, lazy } from 'react'
 import { useRoomStore } from '../stores/roomStore.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useLiveStore } from '../stores/liveStore.ts'
@@ -8,11 +8,12 @@ import * as liveRtc from '../services/liveRtc.ts'
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts'
 import { useVideoRecorder } from '../hooks/useVideoRecorder.ts'
 import { useAccountStore } from '../stores/accountStore.ts'
-import { LiveViewer } from './LiveViewer.tsx'
 import { RadioBot } from './RadioBot.tsx'
-import { MultiLiveMosaic } from './MultiLiveMosaic.tsx'
 import { ChatMedia } from './ChatMedia.tsx'
 import { RADIO_ROOM_NAME, MULTILIVE_ROOM_NAME } from '../ui/radioBot.ts'
+
+const LiveViewer = lazy(() => import('./LiveViewer.tsx').then(m => ({ default: m.LiveViewer })))
+const MultiLiveMosaic = lazy(() => import('./MultiLiveMosaic.tsx').then(m => ({ default: m.MultiLiveMosaic })))
 import type { ChatMsg, RoomInfo } from '../types/index.ts'
 import { userColor, initials } from '../ui/avatar.ts'
 import { fileToResizedBase64, imageBase64ExceedsLimit, readFileAsBase64, getMediaDuration } from '../utils/image.ts'
@@ -582,7 +583,7 @@ export function ChatPanel() {
   if (currentRoomName === MULTILIVE_ROOM_NAME) {
     return (
       <div className="chat-panel chat-panel--multilive">
-        <MultiLiveMosaic />
+        <Suspense fallback={null}><MultiLiveMosaic /></Suspense>
       </div>
     )
   }
@@ -592,6 +593,24 @@ export function ChatPanel() {
       <div className="chat-header">
         <span className="chat-header-name">#{currentRoomName}</span>
         <span className="chat-header-count">{t('messagesCount', { count: messages.length })}</span>
+        <button
+          className="chat-invite-btn"
+          onClick={() => {
+            const url = `${window.location.protocol}//${window.location.host}/?join=${encodeURIComponent(currentRoomName ?? '')}`
+            navigator.clipboard.writeText(url).then(() => {
+              useToastStore.getState().show('success', t('linkCopied'))
+            }).catch(() => {
+              useToastStore.getState().show('error', t('linkCopyError'))
+            })
+          }}
+          title="Copiar link da sala"
+          aria-label="Copiar link da sala"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+        </button>
         <button
           className="chat-fullscreen-btn"
           onClick={toggleFullscreen}
@@ -608,7 +627,7 @@ export function ChatPanel() {
       </div>
 
       {isAoVivo && broadcaster && broadcaster.userId !== myId && (
-        <LiveViewer />
+        <Suspense fallback={null}><LiveViewer /></Suspense>
       )}
 
       {isRadioRoom && (

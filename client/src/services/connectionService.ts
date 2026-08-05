@@ -13,7 +13,7 @@ import { useAnnouncementStore } from '../stores/announcementStore.ts'
 import { useOnboardingStore } from '../stores/onboardingStore.ts'
 import { getDeviceId } from '../utils/device.ts'
 import { radioPlayer } from './radioStream.ts'
-import { notifyNewMessage, requestNotificationPermission } from './notifications.ts'
+import { notifyNewMessage, requestNotificationPermission, notifyMention } from './notifications.ts'
 import { chatHistory } from './historyStore.ts'
 import * as liveRtc from './liveRtc.ts'
 import { tStatic } from '../i18n/index.ts'
@@ -163,6 +163,10 @@ function onRoomChatMessage(payload: ChatMsg): void {
       `#${useRoomStore.getState().currentRoomName ?? tStatic('roomFallback')}`,
       `${payload.userName}: ${messageBody(payload)}`
     )
+  }
+  const myName = useConnectionStore.getState().name
+  if (myName && payload.text && payload.text.includes(`@${myName}`)) {
+    notifyMention(payload.userName, useRoomStore.getState().currentRoomName ?? '', messageBody(payload))
   }
 }
 

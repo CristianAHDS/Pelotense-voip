@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useConnection } from '../hooks/useConnection.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
 import { useAccountStore, clearAccountPrefs } from '../stores/accountStore.ts'
-import { connectToServer } from '../services/connectionService.ts'
+import { connectToServer, joinRoom } from '../services/connectionService.ts'
 import { useT } from '../i18n/index.ts'
 import { isTauri } from '../utils/isTauri.ts'
 import { loadAppConfig } from '../utils/appConfig.ts'
@@ -122,6 +122,22 @@ export function ConnectionPanel() {
         const protocol = IS_HTTPS ? 'wss' : 'ws'
         const port = IS_HTTPS ? wssCfg : wsCfg
         connectToServer(`${protocol}://${hostCfg}:${port}`, stored.name, stored.password, stored.email, 'login')
+      } else if (!autoConnectRef.current && !useConnectionStore.getState().connected) {
+        autoConnectRef.current = true
+        const joinParam = new URLSearchParams(window.location.search).get('join')
+        if (joinParam) {
+          const protocol = IS_HTTPS ? 'wss' : 'ws'
+          const port = IS_HTTPS ? wssCfg : wsCfg
+          connectToServer(`${protocol}://${hostCfg}:${port}`, '', '', undefined, 'guest')
+          // Aguarda a conexão e entra na sala
+          const checkInterval = setInterval(() => {
+            if (useConnectionStore.getState().connected) {
+              clearInterval(checkInterval)
+              joinRoom(decodeURIComponent(joinParam))
+            }
+          }, 300)
+          setTimeout(() => clearInterval(checkInterval), 10000)
+        }
       } else {
         autoConnectRef.current = true
       }

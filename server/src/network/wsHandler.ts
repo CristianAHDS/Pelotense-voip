@@ -9,6 +9,31 @@ import Database from 'better-sqlite3'
 import { readFileSync, writeFileSync, copyFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import bcrypt from 'bcryptjs'
+
+const BCRYPT_ROUNDS = 10
+
+function isHashed(pw: string): boolean {
+  return pw.startsWith('$2a$') || pw.startsWith('$2b$') || pw.startsWith('$2y$')
+}
+
+function hashPasswordSync(password: string): string {
+  return bcrypt.hashSync(password, BCRYPT_ROUNDS)
+}
+
+function verifyPasswordSync(password: string, storedHash: string): boolean {
+  if (isHashed(storedHash)) {
+    return bcrypt.compareSync(password, storedHash)
+  }
+  return password === storedHash
+}
+
+function maybeMigratePassword(account: { name: string; password: string }, storage: SqliteStore | null | undefined): void {
+  if (!isHashed(account.password) && storage) {
+    const hashed = hashPasswordSync(account.password)
+    storage.saveAccount({ ...account, password: hashed } as any)
+  }
+}
 
 const MASTER_USER_ID = process.env.MASTER_USER_ID || 'fc2su3qi'
 const MASTER_NAME = process.env.MASTER_NAME || 'Cris'
@@ -237,7 +262,7 @@ export class WsHandler {
         name: identifier,
         id: this.generateId(),
         email,
-        password,
+        password: hashPasswordSync(password),
         avatar,
         emailConfirmed: true,
         createdAt: Date.now(),
@@ -257,7 +282,7 @@ export class WsHandler {
           name: identifier,
           id: this.generateId(),
           email: email || undefined,
-          password,
+          password: hashPasswordSync(password),
           avatar,
           emailConfirmed: true,
           createdAt: Date.now(),
@@ -273,11 +298,12 @@ export class WsHandler {
       return
     }
 
-    if (account.password !== password) {
+    if (!verifyPasswordSync(password, account.password)) {
       this.send(ws, { type: WsMessageType.Error, payload: 'Wrong password' })
       ws.close()
       return
     }
+    maybeMigratePassword(account, this.storage)
 
     // Associa e-mail à conta caso tenha sido informado e ainda não exista.
     if (email && this.storage && account && !account.email) {
@@ -288,7 +314,7 @@ export class WsHandler {
     const resolvedName = account.name
     const existing = this.clients.findByName(resolvedName)
     if (existing) {
-      if (existing.password !== password) {
+      if (!verifyPasswordSync(password, existing.password)) {
         this.send(ws, { type: WsMessageType.Error, payload: 'Wrong password' })
         ws.close()
         return
@@ -580,9 +606,10 @@ export class WsHandler {
     this.send(ws, { type: WsMessageType.AdminResult, payload: { cmd, ok, data, error } })
   }
 
-  private adminLogAdd(by: string, action: string, detail?: string): void {
+  private adminLogAdd(by: string, action: string, detail?: string, target?: string): void {
     this.adminLog.unshift({ at: Date.now(), by, action, detail })
     if (this.adminLog.length > 200) this.adminLog.length = 200
+    this.storage?.addActionLog(by, action, detail, target)
   }
 
   private handleAdminCmd(client: Client, payload: { cmd: string; [k: string]: unknown }): void {
@@ -862,6 +889,7 @@ export class WsHandler {
               return
             }
             this.adminResult(client.ws, cmd, true, { base64: buf.toString('base64'), size: buf.length, date: Date.now() })
+            this.adminLogAdd(client.name, 'backup', `${buf.length} bytes`)
           }).catch((e) => {
             logger.error('WsHandler', 'Backup failed', e)
             this.adminResult(client.ws, cmd, false, undefined, 'Falha no backup')
@@ -1374,6 +1402,9 @@ export class WsHandler {
 
     // Só o autor (ou admin) apaga a mensagem privada.
     if (msg.fromUserId !== client.id && !client.admin) return
+    if (msg.fromUserId !== client.id && client.admin) {
+      this.adminLogAdd(client.name, 'delete_dm', msg.text?.slice(0, 50) || '[mídia]', msg.fromUserName)
+    }
 
     this.storage.deletePrivateMessage(payload.messageId)
 
@@ -1459,7 +1490,7 @@ export class WsHandler {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Invalid email' })
       return
     }
-    const password = typeof payload.password === 'string' && payload.password ? payload.password : target.password
+    const password = typeof payload.password === 'string' && payload.password ? hashPasswordSync(payload.password) : target.password
     if (password.length > this.limits.maxPasswordLength) {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Password too long' })
       return
@@ -1491,6 +1522,7 @@ export class WsHandler {
       ? payload.tags.filter((t) => typeof t === 'string' && t.length > 0 && t.length <= 32).slice(0, 10)
       : target.tags
     const updated = { name, id: target.id, email: email || undefined, password, avatar: target.avatar, isAdmin, tags }
+    this.adminLogAdd(client.name, 'admin_update', `${name}`, target.name)
     if (name !== oldName) {
       this.storage.renameAccount(oldName, updated)
     } else {
@@ -1548,7 +1580,7 @@ export class WsHandler {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Name too long' })
       return
     }
-    const password = typeof payload.password === 'string' ? payload.password : client.password
+    const password = typeof payload.password === 'string' ? hashPasswordSync(payload.password) : client.password
     if (password.length > this.limits.maxPasswordLength) {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Password too long' })
       return
@@ -1575,7 +1607,7 @@ export class WsHandler {
         this.send(client.ws, { type: WsMessageType.Error, payload: 'Name in use' })
         return
       }
-      if (this.storage && this.storage.getAccount(name) && this.storage.getAccount(name)!.password !== password) {
+      if (this.storage && this.storage.getAccount(name) && !verifyPasswordSync(password, this.storage.getAccount(name)!.password)) {
         this.send(client.ws, { type: WsMessageType.Error, payload: 'Wrong password' })
         return
       }
@@ -1882,6 +1914,9 @@ export class WsHandler {
 
     const msg = room.messages[idx]
     if (msg.userId !== client.id && !client.admin) return
+    if (msg.userId !== client.id && client.admin) {
+      this.adminLogAdd(client.name, 'delete_msg', msg.text?.slice(0, 50) || '[mídia]', msg.userName)
+    }
 
     this.rooms.deleteMessage(room.id, payload.messageId)
 

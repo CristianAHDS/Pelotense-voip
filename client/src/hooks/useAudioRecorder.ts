@@ -62,7 +62,7 @@ export function useAudioRecorder() {
             ? 'audio/webm;codecs=opus'
             : 'audio/webm'
 
-          const recorder = new MediaRecorder(stream, { mimeType })
+          const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 32000 })
           recorderRef.current = recorder
 
           recorder.ondataavailable = (e) => {
