@@ -23,6 +23,7 @@ export function JoinPage() {
   const broadcasters = useLiveStore((s) => s.broadcasters)
   const [status, setStatus] = useState('Conectando...')
   const [error, setError] = useState('')
+  const [entered, setEntered] = useState(false)
   const joiningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef = useRef(false)
   const t = useT()
@@ -91,7 +92,57 @@ export function JoinPage() {
     )
   }
 
-  if (currentRoom) {
+  if (currentRoom && !entered) {
+    return (
+      <div className="app-container" style={{ minHeight: '100vh' }}>
+        <div className="app-bg" aria-hidden="true" />
+        <header className="app-header" style={{ justifyContent: 'center' }}>
+          <h1>
+            <img src="/img/radio-logo.png" alt="" className="app-logo" />
+            <span className="app-title">Rádio Pelotense</span>
+            <span className="app-title-freq">99.5 FM</span>
+          </h1>
+        </header>
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+          {broadcasters.length === 0 ? (
+            <div style={{ textAlign: 'center' }}>
+              <span className="empty-state-icon" style={{ fontSize: 48 }}>📡</span>
+              <span className="empty-state-title" style={{ display: 'block', marginTop: 12 }}>Nenhuma live no ar</span>
+              <span className="empty-state-hint" style={{ display: 'block', marginTop: 4 }}>Volte quando houver transmissões ao vivo.</span>
+            </div>
+          ) : (
+            <>
+              <span style={{ fontSize: 64 }}>🎥</span>
+              <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)' }}>
+                {broadcasters.length} {broadcasters.length === 1 ? 'live no ar' : 'lives no ar'}
+              </span>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 16, padding: '12px 32px', marginTop: 8 }}
+                onClick={() => {
+                  setEntered(true)
+                  // Força resume do AudioContext após gesto do usuário
+                  try {
+                    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext
+                    if (AudioCtx) {
+                      // Resume qualquer AudioContext existente
+                      document.querySelectorAll('video, audio').forEach((el) => {
+                        (el as HTMLMediaElement).play().catch(() => {})
+                      })
+                    }
+                  } catch {}
+                }}
+              >
+                Assistir agora
+              </button>
+            </>
+          )}
+        </main>
+      </div>
+    )
+  }
+
+  if (currentRoom && entered) {
     return (
       <div className="app-container" style={{ minHeight: '100vh' }}>
         <div className="app-bg" aria-hidden="true" />
