@@ -1,13 +1,26 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, Suspense, lazy } from 'react'
 import { connectToServer, joinRoom } from '../services/connectionService.ts'
 import { useConnectionStore } from '../stores/connectionStore.ts'
+import { useRoomStore } from '../stores/roomStore.ts'
 import { loadAppConfig } from '../utils/appConfig.ts'
+
+const ChatPanel = lazy(() => import('../components/ChatPanel.tsx').then(m => ({ default: m.ChatPanel })))
+
+// Detecta se o hostname parece ser um túnel público.
+function isTunnelHost(host: string): boolean {
+  return host.includes('trycloudflare.com')
+    || host.includes('ngrok')
+    || host.includes('lhr.life')
+    || host.includes('fly.dev')
+}
 
 export function JoinPage() {
   const params = new URLSearchParams(window.location.search)
   const room = params.get('room') ?? ''
   const connected = useConnectionStore((s) => s.connected)
+  const currentRoom = useRoomStore((s) => s.currentRoomName)
   const [status, setStatus] = useState('Conectando...')
+  const [error, setError] = useState('')
   const joiningTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startedRef = useRef(false)
 
@@ -16,16 +29,30 @@ export function JoinPage() {
     startedRef.current = true
 
     loadAppConfig().then((cfg) => {
-      const host = params.get('host') || cfg.host || window.location.hostname
-      const wssPort = cfg.wssPort || '443'
-      const isTunnel = !!(cfg.host && (wssPort === '443' || wssPort === '80'))
-      const protocol = isTunnel || window.location.protocol === 'https:' ? 'wss' : 'ws'
-      const port = isTunnel ? wssPort : (window.location.protocol === 'https:' ? '3003' : '3001')
+      const hostParam = params.get('host')
+      const portParam = params.get('port')
+      let host: string
+      let port: string
+      let protocol: string
 
-      const wsUrl = `${protocol}://${host}:${port}`
-      connectToServer(wsUrl, '', '', undefined, 'guest')
+      if (hostParam && portParam) {
+        host = hostParam
+        port = portParam
+        protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+      } else if (cfg.host && isTunnelHost(cfg.host)) {
+        host = cfg.host
+        port = '443'
+        protocol = 'wss'
+      } else {
+        host = window.location.hostname
+        protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+        port = window.location.protocol === 'https:' ? '3003' : '3001'
+      }
+
+      setStatus(`Conectando a ${host}...`)
+      connectToServer(`${protocol}://${host}:${port}`, '', '', undefined, 'guest')
     }).catch(() => {
-      setStatus('Erro ao carregar configuração')
+      setError('Erro ao carregar configuração do servidor')
     })
 
     return () => {
@@ -34,23 +61,24 @@ export function JoinPage() {
   }, [])
 
   useEffect(() => {
-    if (!connected) return
-    if (!room) {
-      setStatus('Sala não especificada')
-      return
-    }
+    if (!connected || !room) return
     setStatus('Entrando na sala...')
     joiningTimer.current = setTimeout(() => {
       joinRoom(room)
-      // Redireciona para a página principal após entrar na sala
-      setTimeout(() => {
-        window.location.replace('/')
-      }, 800)
+      setStatus('')
     }, 500)
     return () => {
       if (joiningTimer.current) clearTimeout(joiningTimer.current)
     }
-  }, [connected])
+  }, [connected, room])
+
+  if (error) {
+    return (
+      <div className="viewer-page">
+        <div className="viewer-error">{error}</div>
+      </div>
+    )
+  }
 
   if (!room) {
     return (
@@ -60,9 +88,28 @@ export function JoinPage() {
     )
   }
 
+  if (!connected || status) {
+    return (
+      <div className="viewer-page">
+        <div className="viewer-loading">{status || 'Conectando...'}</div>
+      </div>
+    )
+  }
+
+  if (currentRoom) {
+    return (
+      <div className="app-container" style={{ minHeight: '100vh' }}>
+        <div className="app-bg" aria-hidden="true" />
+        <Suspense fallback={<div className="viewer-loading">Carregando chat...</div>}>
+          <ChatPanel />
+        </Suspense>
+      </div>
+    )
+  }
+
   return (
     <div className="viewer-page">
-      <div className="viewer-loading">{status}</div>
+      <div className="viewer-loading">Entrando na sala #{room}...</div>
     </div>
   )
 }
