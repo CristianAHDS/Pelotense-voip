@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 
-// V2.16 — Splash de abertura com a identidade da rádio. Some sozinho.
 export function SplashScreen() {
   const [phase, setPhase] = useState<'visible' | 'fading' | 'gone'>('visible')
 
@@ -13,6 +12,16 @@ export function SplashScreen() {
     }
   }, [])
 
+  const particles = useMemo(() =>
+    Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      size: `${4 + Math.random() * 8}px`,
+      delay: `${Math.random() * 3}s`,
+      duration: `${4 + Math.random() * 6}s`,
+    })),
+  [])
+
   if (phase === 'gone') return null
 
   return (
@@ -20,6 +29,21 @@ export function SplashScreen() {
       className={`splash-screen${phase === 'fading' ? ' splash-screen--fading' : ''}`}
       aria-hidden="true"
     >
+      <div className="splash-particles">
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            className="splash-particle"
+            style={{
+              left: p.left,
+              width: p.size,
+              height: p.size,
+              animationDelay: p.delay,
+              animationDuration: p.duration,
+            }}
+          />
+        ))}
+      </div>
       <div className="splash-logo-box">
         <img src="/img/radio-logo.png" alt="" className="splash-logo-img" />
       </div>

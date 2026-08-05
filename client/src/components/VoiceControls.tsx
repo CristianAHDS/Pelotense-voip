@@ -167,6 +167,17 @@ export function VoiceControls({ compact }: Props) {
         >
           {micDisabled ? t('muted') : muted ? t('unmute') : t('mute')}
         </button>
+        {!muted && !micDisabled && level > 0.02 && (
+          <div className="voice-wave">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div
+                key={i}
+                className="voice-wave-bar"
+                style={{ height: `${Math.min(24, 3 + level * 40 * (0.5 + Math.random() * 0.5))}px` }}
+              />
+            ))}
+          </div>
+        )}
         {micDevices.length > 1 && (
           <select
             className="voice-bar-mic-select"

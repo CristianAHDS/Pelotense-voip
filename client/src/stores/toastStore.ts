@@ -6,6 +6,7 @@ export interface Toast {
   id: number
   kind: ToastKind
   message: string
+  duration?: number
 }
 
 interface ToastStore {

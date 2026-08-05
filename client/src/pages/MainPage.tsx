@@ -46,6 +46,15 @@ export function MainPage() {
   const [sheetTab, setSheetTab] = useState<SheetTab>('rooms');
 
   useEffect(() => {
+    const onScroll = () => {
+      const scrolled = window.scrollY > 10
+      document.querySelector('.app-header')?.classList.toggle('app-header--scrolled', scrolled)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
     setSheetOpen(false);
   }, [connected]);
 

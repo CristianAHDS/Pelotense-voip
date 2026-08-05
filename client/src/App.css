@@ -3121,7 +3121,7 @@ body {
 }
 
 .multilive-count--live {
-  color: #e74c3c;
+  color: var(--red);
   border-color: rgba(231, 76, 60, 0.35);
   background: rgba(231, 76, 60, 0.08);
 }
@@ -3130,7 +3130,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #e74c3c;
+  background: var(--red);
   animation: live-pulse 1.5s ease-in-out infinite;
 }
 
@@ -3257,9 +3257,9 @@ body {
 
 /* Destaque do tile de quem está falando */
 .mosaic-tile--speaking {
-  border-color: #e74c3c;
+  border-color: var(--red);
   box-shadow:
-    0 0 0 1px #e74c3c,
+    0 0 0 1px var(--red),
     0 0 16px rgba(231, 76, 60, 0.35);
 }
 
@@ -3298,7 +3298,7 @@ body {
   gap: 4px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: #e74c3c;
+  background: var(--red);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -3414,7 +3414,7 @@ body {
   height: 20px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.15);
-  border-top-color: #e74c3c;
+  border-top-color: var(--red);
   animation: mosaic-spin 0.8s linear infinite;
 }
 
@@ -3556,7 +3556,7 @@ body {
   min-height: 32px;
   padding: 6px 12px;
   font-size: 12px;
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  background: linear-gradient(135deg, var(--red), #c0392b);
   color: #fff;
   box-shadow: 0 2px 10px rgba(231, 76, 60, 0.35);
 }
@@ -4712,11 +4712,11 @@ body {
    Live
    ============================================================ */
 .live-viewer {
-  background: #0a0a0a;
+  background: var(--bg);
   border-radius: 10px;
   overflow: hidden;
   margin: 10px 14px 0;
-  border: 1px solid #e74c3c;
+  border: 1px solid var(--red);
 }
 
 .live-viewer-header {
@@ -4748,7 +4748,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #e74c3c;
+  background: var(--red);
   animation: live-pulse 1.5s ease-in-out infinite;
 }
 
@@ -4768,7 +4768,7 @@ body {
 }
 
 .live-viewer-label {
-  color: #e74c3c;
+  color: var(--red);
   font-size: 10px;
   letter-spacing: 1px;
 }
@@ -4938,7 +4938,7 @@ body {
 }
 
 .live-broadcast-overlay .chat-video-preview-box {
-  border: 2px solid #e74c3c;
+  border: 2px solid var(--red);
 }
 
 .live-indicator {
@@ -4947,14 +4947,14 @@ body {
   gap: 6px;
   font-size: 12px;
   font-weight: 700;
-  color: #e74c3c;
+  color: var(--red);
 }
 
 .live-indicator-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #e74c3c;
+  background: var(--red);
   animation: live-pulse 1.5s ease-in-out infinite;
 }
 
@@ -4964,7 +4964,7 @@ body {
 
 .chat-live-btn:hover {
   background: rgba(231, 76, 60, 0.15);
-  color: #e74c3c;
+  color: var(--red);
 }
 
 .chat-live-btn.active {
@@ -4990,7 +4990,7 @@ body {
   border-radius: 6px;
   border: none;
   background: rgba(231, 76, 60, 0.2);
-  color: #e74c3c;
+  color: var(--red);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -7196,4 +7196,258 @@ body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ============================================================
+   #4 Transição suave entre tiles do mosaico
+   ============================================================ */
+.mosaic-tile {
+  transition: transform 0.3s ease, min-height 0.3s ease, grid-column 0.3s ease, border-color 0.2s ease;
+}
+.mosaic-tile--focused {
+  transition: transform 0.35s ease, min-height 0.35s ease, grid-column 0.35s ease;
+}
+
+/* ============================================================
+   #5 Toast notifications reposicionados
+   ============================================================ */
+.toast-container {
+  bottom: 20px;
+  right: 20px;
+  top: auto;
+  left: auto;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  animation: toast-slide-in 0.3s ease forwards;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 280px;
+  max-width: 400px;
+}
+.toast-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.toast-bar {
+  height: 3px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  margin-top: 6px;
+  animation: toast-bar-shrink linear forwards;
+}
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(60px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-bar-shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* ============================================================
+   #8 Header com blur adaptativo
+   ============================================================ */
+.app-header {
+  transition: backdrop-filter 0.3s ease, box-shadow 0.3s ease;
+}
+.app-header--scrolled {
+  backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 1px 12px rgba(0,0,0,0.3);
+}
+
+/* ============================================================
+   #9 Scrollbar customizada
+   ============================================================ */
+.chat-messages::-webkit-scrollbar,
+.user-list::-webkit-scrollbar,
+.room-list::-webkit-scrollbar,
+.admin-panel-body::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-messages::-webkit-scrollbar-track,
+.user-list::-webkit-scrollbar-track,
+.room-list::-webkit-scrollbar-track,
+.admin-panel-body::-webkit-scrollbar-track {
+  background: var(--surface);
+  border-radius: 3px;
+}
+.chat-messages::-webkit-scrollbar-thumb,
+.user-list::-webkit-scrollbar-thumb,
+.room-list::-webkit-scrollbar-thumb,
+.admin-panel-body::-webkit-scrollbar-thumb {
+  background: var(--text-3);
+  border-radius: 3px;
+}
+.chat-messages::-webkit-scrollbar-thumb:hover,
+.user-list::-webkit-scrollbar-thumb:hover,
+.room-list::-webkit-scrollbar-thumb:hover,
+.admin-panel-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ============================================================
+   #10 Placeholder animado no input
+   ============================================================ */
+.chat-input-wrap textarea::placeholder {
+  animation: placeholder-blink 1.4s ease-in-out infinite;
+}
+@keyframes placeholder-blink {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ============================================================
+   #12 Splash screen com partículas
+   ============================================================ */
+.splash-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.splash-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: particle-float linear infinite;
+}
+@keyframes particle-float {
+  0% { opacity: 0; transform: translateY(100vh) scale(0); }
+  10% { opacity: 0.25; }
+  90% { opacity: 0.15; }
+  100% { opacity: 0; transform: translateY(-10vh) scale(1.5); }
+}
+
+/* ============================================================
+   #15 Indicador de novas mensagens
+   ============================================================ */
+.chat-new-msg-indicator {
+  position: sticky;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  animation: new-msg-bounce 0.4s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+@keyframes new-msg-bounce {
+  0% { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  60% { transform: translateX(-50%) translateY(-4px); }
+  100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+/* ============================================================
+   #17 Barra de progresso no upload
+   ============================================================ */
+.chat-upload-progress {
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+  margin: 0 18px;
+}
+.chat-upload-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s ease;
+  border-radius: 1px;
+}
+
+/* ============================================================
+   #18 Tooltips customizados
+   ============================================================ */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: var(--shadow-m);
+  animation: tooltip-fade-in 0.1s ease;
+  pointer-events: none;
+}
+@keyframes tooltip-fade-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ============================================================
+   #20 Dark/light toggle com animação
+   ============================================================ */
+.theme-toggle {
+  transition: transform 0.4s ease, color 0.3s ease;
+}
+.theme-toggle:hover {
+  transform: rotate(180deg);
+}
+body {
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* ============================================================
+   #21 Reconexão com contagem regressiva
+   ============================================================ */
+.connection-retry-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--amber);
+  padding: 4px 0;
+}
+.connection-retry-btn {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 4px 12px;
+  border-radius: var(--radius-s);
+  background: var(--amber);
+  color: #000;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+/* ============================================================
+   #22 Voice bar mobile com onda
+   ============================================================ */
+.voice-wave {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 24px;
+  padding: 0 4px;
+}
+.voice-wave-bar {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: height 0.08s ease;
+  min-height: 2px;
 }
