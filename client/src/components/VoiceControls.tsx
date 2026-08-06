@@ -1,102 +1,116 @@
-import React, { useEffect, useState, useRef } from 'react'
-import { useVoice } from '../hooks/useVoice.ts'
-import { useMicTest } from '../hooks/useMicTest.ts'
-import { useConnectionStore } from '../stores/connectionStore.ts'
-import { useRoomStore } from '../stores/roomStore.ts'
-import { useVoiceStore } from '../stores/voiceStore.ts'
-import { getVoiceManager } from '../services/connectionService.ts'
-import type { MicrophoneInfo } from '../audio/index.ts'
-import { isTauri } from '../utils/isTauri.ts'
-import { useT } from '../i18n/index.ts'
+import React, { useEffect, useState, useRef } from 'react';
+import { useVoice } from '../hooks/useVoice.ts';
+import { useMicTest } from '../hooks/useMicTest.ts';
+import { useConnectionStore } from '../stores/connectionStore.ts';
+import { useRoomStore } from '../stores/roomStore.ts';
+import { useVoiceStore } from '../stores/voiceStore.ts';
+import { getVoiceManager } from '../services/connectionService.ts';
+import type { MicrophoneInfo } from '../audio/index.ts';
+import { isTauri } from '../utils/isTauri.ts';
+import { useT } from '../i18n/index.ts';
 
 interface Props {
-  compact?: boolean
+  compact?: boolean;
 }
 
-const IS_HTTPS = window.location.protocol === 'https:' || isTauri()
-const HTTPS_CLIENT_PORT = 3443
-const HTTPS_HOST = `${window.location.hostname}:${HTTPS_CLIENT_PORT}`
-const MIC_DEVICE_KEY = 'voip_mic_device'
+const IS_HTTPS = window.location.protocol === 'https:' || isTauri();
+const HTTPS_CLIENT_PORT = 3443;
+const HTTPS_HOST = `${window.location.hostname}:${HTTPS_CLIENT_PORT}`;
+const MIC_DEVICE_KEY = 'voip_mic_device';
 
 function loadSavedMic(): string {
   try {
-    return localStorage.getItem(MIC_DEVICE_KEY) ?? ''
-  } catch { /* ignore */ }
-  return ''
+    return localStorage.getItem(MIC_DEVICE_KEY) ?? '';
+  } catch {
+    /* ignore */
+  }
+  return '';
 }
 
 function saveMicDevice(deviceId: string): void {
   try {
-    localStorage.setItem(MIC_DEVICE_KEY, deviceId)
-  } catch { /* ignore */ }
+    localStorage.setItem(MIC_DEVICE_KEY, deviceId);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function VoiceControls({ compact }: Props) {
-  const t = useT()
-  const { muted, volume, level, rxLevel, noiseSuppression, toggleMute, setVolume } = useVoice()
-  const micTest = useMicTest()
-  const prevMutedRef = useRef(false)
-  const connected = useConnectionStore((s) => s.connected)
-  const currentRoomName = useRoomStore((s) => s.currentRoomName)
-  const micDisabled = currentRoomName === 'Boletins gravados'
-  const [micDevices, setMicDevices] = useState<MicrophoneInfo[]>([])
-  const [micDevice, setMicDevice] = useState(loadSavedMic)
+  const t = useT();
+  const {
+    muted,
+    volume,
+    level,
+    rxLevel,
+    noiseSuppression,
+    toggleMute,
+    setVolume,
+  } = useVoice();
+  const micTest = useMicTest();
+  const prevMutedRef = useRef(false);
+  const connected = useConnectionStore((s) => s.connected);
+  const currentRoomName = useRoomStore((s) => s.currentRoomName);
+  const micDisabled = currentRoomName === 'Boletins gravados';
+  const [micDevices, setMicDevices] = useState<MicrophoneInfo[]>([]);
+  const [micDevice, setMicDevice] = useState(loadSavedMic);
   useEffect(() => {
     if (currentRoomName === 'Boletins gravados') {
-      const state = useVoiceStore.getState()
+      const state = useVoiceStore.getState();
       if (!state.muted) {
-        state.setMuted(true)
+        state.setMuted(true);
       }
     }
-  }, [currentRoomName])
+  }, [currentRoomName]);
 
   useEffect(() => {
-    if (!connected) return
-    const vm = getVoiceManager()
-    if (!vm) return
-    let cancelled = false
+    if (!connected) return;
+    const vm = getVoiceManager();
+    if (!vm) return;
+    let cancelled = false;
     vm.listMicrophones().then((devices) => {
-      if (cancelled) return
-      setMicDevices(devices)
-      const saved = loadSavedMic()
+      if (cancelled) return;
+      setMicDevices(devices);
+      const saved = loadSavedMic();
       if (devices.some((d) => d.deviceId === saved)) {
-        setMicDevice(saved)
-        void vm.setMicrophone(saved)
+        setMicDevice(saved);
+        void vm.setMicrophone(saved);
       }
-    })
-    return () => { cancelled = true }
-  }, [connected])
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
 
   function handleMicChange(deviceId: string): void {
-    setMicDevice(deviceId)
-    saveMicDevice(deviceId)
-    const vm = getVoiceManager()
-    void vm?.setMicrophone(deviceId)
+    setMicDevice(deviceId);
+    saveMicDevice(deviceId);
+    const vm = getVoiceManager();
+    void vm?.setMicrophone(deviceId);
   }
 
   function handleMicTest(): void {
     if (micTest.testing) {
-      micTest.stop()
-      useVoiceStore.getState().setMuted(prevMutedRef.current)
+      micTest.stop();
+      useVoiceStore.getState().setMuted(prevMutedRef.current);
     } else {
-      prevMutedRef.current = muted
-      useVoiceStore.getState().setMuted(true)
-      micTest.start()
+      prevMutedRef.current = muted;
+      useVoiceStore.getState().setMuted(true);
+      micTest.start();
     }
   }
 
   function handleNoiseSuppression(): void {
-    const newValue = !noiseSuppression
-    useVoiceStore.getState().setNoiseSuppression(newValue)
-    const vm = getVoiceManager()
-    void vm?.setNoiseSuppression(newValue)
+    const newValue = !noiseSuppression;
+    useVoiceStore.getState().setNoiseSuppression(newValue);
+    const vm = getVoiceManager();
+    void vm?.setNoiseSuppression(newValue);
   }
 
-  const pct = Math.round((Number.isFinite(level) ? level : 0) * 100)
-  const bars = compact ? 8 : 10
-  const filled = Math.round((Number.isFinite(level) ? level : 0) * bars)
-  const rxPct = Math.round((Number.isFinite(rxLevel) ? rxLevel : 0) * 100)
-  const rxFilled = Math.round((Number.isFinite(rxLevel) ? rxLevel : 0) * bars)
+  const pct = Math.round((Number.isFinite(level) ? level : 0) * 100);
+  const bars = compact ? 8 : 10;
+  const filled = Math.round((Number.isFinite(level) ? level : 0) * bars);
+  const rxPct = Math.round((Number.isFinite(rxLevel) ? rxLevel : 0) * 100);
+  const rxFilled = Math.round((Number.isFinite(rxLevel) ? rxLevel : 0) * bars);
 
   if (!IS_HTTPS) {
     if (compact) {
@@ -133,7 +147,7 @@ export function VoiceControls({ compact }: Props) {
             HTTPS
           </a>
         </div>
-      )
+      );
     }
 
     return (
@@ -146,7 +160,11 @@ export function VoiceControls({ compact }: Props) {
         </div>
         <div className="wss-hint" style={{ marginTop: 8 }}>
           {t('micHttpsHintPre')}
-          <a href={`https://${HTTPS_HOST}/`} target="_blank" rel="noopener noreferrer">
+          <a
+            href={`https://${HTTPS_HOST}/`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             https://{HTTPS_HOST}/
           </a>
           {t('micHttpsHintPost')}
@@ -161,7 +179,7 @@ export function VoiceControls({ compact }: Props) {
           <div className="vu-meter-value">--%</div>
         </div>
       </div>
-    )
+    );
   }
 
   if (compact) {
@@ -170,7 +188,7 @@ export function VoiceControls({ compact }: Props) {
         <button
           onClick={toggleMute}
           disabled={!connected || micDisabled}
-          className={`voice-bar-mic ${(muted || micDisabled) ? 'muted' : 'unmuted'}`}
+          className={`voice-bar-mic ${muted || micDisabled ? 'muted' : 'unmuted'}`}
         >
           {micDisabled ? t('muted') : muted ? t('unmute') : t('mute')}
         </button>
@@ -180,7 +198,9 @@ export function VoiceControls({ compact }: Props) {
               <div
                 key={i}
                 className="voice-wave-bar"
-                style={{ height: `${Math.min(24, 3 + level * 40 * (0.5 + Math.random() * 0.5))}px` }}
+                style={{
+                  height: `${Math.min(24, 3 + level * 40 * (0.5 + Math.random() * 0.5))}px`,
+                }}
               />
             ))}
           </div>
@@ -208,7 +228,11 @@ export function VoiceControls({ compact }: Props) {
               <div
                 key={i}
                 className={`vu-bar ${i < filled ? 'vu-bar--active' : ''} ${
-                  i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+                  i >= bars * 0.7
+                    ? 'vu-bar--high'
+                    : i >= bars * 0.4
+                      ? 'vu-bar--mid'
+                      : 'vu-bar--low'
                 }`}
               />
             ))}
@@ -221,12 +245,18 @@ export function VoiceControls({ compact }: Props) {
               <div
                 key={i}
                 className={`vu-bar ${i < rxFilled ? 'vu-bar--active' : ''} ${
-                  i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+                  i >= bars * 0.7
+                    ? 'vu-bar--high'
+                    : i >= bars * 0.4
+                      ? 'vu-bar--mid'
+                      : 'vu-bar--low'
                 }`}
               />
             ))}
           </div>
-          <span className="voice-bar-vu-label voice-bar-vu-label--rx">{t('rxPct', { n: rxPct })}</span>
+          <span className="voice-bar-vu-label voice-bar-vu-label--rx">
+            {t('rxPct', { n: rxPct })}
+          </span>
         </div>
         <div className="voice-bar-volume">
           <label>{t('vol')}</label>
@@ -240,7 +270,7 @@ export function VoiceControls({ compact }: Props) {
           />
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -250,7 +280,7 @@ export function VoiceControls({ compact }: Props) {
         <button
           onClick={toggleMute}
           disabled={!connected || micDisabled}
-          className={`btn btn-mic ${(muted || micDisabled) ? 'muted' : 'unmuted'}`}
+          className={`btn btn-mic ${muted || micDisabled ? 'muted' : 'unmuted'}`}
         >
           {micDisabled ? t('muted') : muted ? t('unmute') : t('mute')}
         </button>
@@ -290,10 +320,16 @@ export function VoiceControls({ compact }: Props) {
           onClick={handleNoiseSuppression}
           role="switch"
           aria-checked={noiseSuppression}
-          title={noiseSuppression ? t('noiseSuppressionOff') : t('noiseSuppressionOn')}
+          title={
+            noiseSuppression
+              ? t('noiseSuppressionOff')
+              : t('noiseSuppressionOn')
+          }
         >
           <span className="noise-suppression-knob">
-            <span className="noise-suppression-icon">{noiseSuppression ? '✓' : '✕'}</span>
+            <span className="noise-suppression-icon">
+              {noiseSuppression ? '✓' : '✕'}
+            </span>
           </span>
         </button>
         <span className="noise-suppression-text">{t('noiseSuppression')}</span>
@@ -314,12 +350,18 @@ export function VoiceControls({ compact }: Props) {
                   <div
                     key={i}
                     className={`vu-bar ${i < Math.round(micTest.level * bars) ? 'vu-bar--active' : ''} ${
-                      i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+                      i >= bars * 0.7
+                        ? 'vu-bar--high'
+                        : i >= bars * 0.4
+                          ? 'vu-bar--mid'
+                          : 'vu-bar--low'
                     }`}
                   />
                 ))}
               </div>
-              <div className="vu-meter-value">{Math.round(micTest.level * 100)}%</div>
+              <div className="vu-meter-value">
+                {Math.round(micTest.level * 100)}%
+              </div>
             </div>
             <span className="mic-test-hint">{t('micTestHint')}</span>
           </div>
@@ -332,7 +374,11 @@ export function VoiceControls({ compact }: Props) {
             <div
               key={i}
               className={`vu-bar ${i < filled ? 'vu-bar--active' : ''} ${
-                i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+                i >= bars * 0.7
+                  ? 'vu-bar--high'
+                  : i >= bars * 0.4
+                    ? 'vu-bar--mid'
+                    : 'vu-bar--low'
               }`}
             />
           ))}
@@ -346,7 +392,11 @@ export function VoiceControls({ compact }: Props) {
             <div
               key={i}
               className={`vu-bar ${i < rxFilled ? 'vu-bar--active' : ''} ${
-                i >= bars * 0.7 ? 'vu-bar--high' : i >= bars * 0.4 ? 'vu-bar--mid' : 'vu-bar--low'
+                i >= bars * 0.7
+                  ? 'vu-bar--high'
+                  : i >= bars * 0.4
+                    ? 'vu-bar--mid'
+                    : 'vu-bar--low'
               }`}
             />
           ))}
@@ -354,5 +404,5 @@ export function VoiceControls({ compact }: Props) {
         <div className="vu-meter-value">{rxPct}%</div>
       </div>
     </div>
-  )
+  );
 }

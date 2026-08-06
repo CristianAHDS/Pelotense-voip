@@ -2668,17 +2668,17 @@ body {
   margin-top: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-s);
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
 
 .noise-suppression-text {
   font-size: 13px;
-  color: var(--text);
   font-weight: 500;
+  color: var(--text-2);
   user-select: none;
 }
 
@@ -2696,7 +2696,7 @@ body {
 
 .noise-suppression-toggle.on {
   background: var(--accent);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .noise-suppression-toggle.off {
@@ -2704,11 +2704,7 @@ body {
 }
 
 .noise-suppression-toggle:hover {
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 50%, transparent);
-}
-
-.noise-suppression-toggle.off:hover {
-  background: color-mix(in srgb, var(--border-strong) 80%, var(--text-2));
+  opacity: 0.9;
 }
 
 .noise-suppression-knob {
@@ -7545,7 +7541,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(var(--accent), 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   backdrop-filter: blur(2px);
   pointer-events: none;
   border-radius: var(--radius-m);
