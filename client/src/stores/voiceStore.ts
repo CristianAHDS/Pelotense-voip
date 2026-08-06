@@ -8,6 +8,7 @@ interface VoiceStore extends VoiceState {
   setVolume: (volume: number) => void
   setLevel: (level: number) => void
   setRxLevel: (level: number) => void
+  setNoiseSuppression: (enabled: boolean) => void
   toggleMute: () => void
   markSpeaking: (userId: string) => void
   pruneSpeaking: () => void
@@ -19,11 +20,13 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
   volume: 0.8,
   level: 0,
   rxLevel: 0,
+  noiseSuppression: true,
   speaking: {},
   setMuted: (muted) => set({ muted }),
   setVolume: (volume) => set({ volume }),
   setLevel: (level) => set({ level }),
   setRxLevel: (rxLevel) => set({ rxLevel }),
+  setNoiseSuppression: (noiseSuppression) => set({ noiseSuppression }),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
   markSpeaking: (userId) =>
     set((s) => ({ speaking: { ...s.speaking, [userId]: Date.now() } })),

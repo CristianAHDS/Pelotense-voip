@@ -12,6 +12,7 @@ export class Microphone {
   private context: AudioContext | null = null
   private onData: AudioDataCallback | null = null
   private deviceId: string | null = null
+  private _noiseSuppression: boolean = true
 
   setOnData(callback: AudioDataCallback): void {
     this.onData = callback
@@ -19,6 +20,23 @@ export class Microphone {
 
   setDeviceId(deviceId: string | null): void {
     this.deviceId = deviceId
+  }
+
+  get noiseSuppression(): boolean {
+    return this._noiseSuppression
+  }
+
+  async setNoiseSuppression(enabled: boolean): Promise<void> {
+    this._noiseSuppression = enabled
+    const track = this.stream?.getAudioTracks()[0]
+    if (track) {
+      try {
+        await track.applyConstraints({ noiseSuppression: enabled })
+      } catch {
+        // applyConstraints pode falhar se o navegador não suporta alterar
+        // noiseSuppression em tempo real; nesse caso mantemos o valor atual
+      }
+    }
   }
 
   async listDevices(): Promise<MicrophoneInfo[]> {
@@ -43,7 +61,7 @@ export class Microphone {
 
       const audioConstraints: MediaTrackConstraints = {
         echoCancellation: true,
-        noiseSuppression: true,
+        noiseSuppression: this._noiseSuppression,
         sampleRate: 48000,
         channelCount: 1,
       }

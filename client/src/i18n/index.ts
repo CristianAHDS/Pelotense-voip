@@ -273,6 +273,9 @@ const messages: Record<Language, Record<string, string>> = {
     rxPct: 'RX {n}%',
     micHttpsHintPre: 'Para ativar o microfone, acesse ',
     micHttpsHintPost: ' e aceite o certificado SSL.',
+    noiseSuppression: 'Supressão de ruído',
+    noiseSuppressionOn: 'Ligada',
+    noiseSuppressionOff: 'Desligada',
     // Conexão
     authLabel: 'Autenticação',
     serverLabel: 'Servidor',
@@ -666,6 +669,9 @@ const messages: Record<Language, Record<string, string>> = {
     rxPct: 'RX {n}%',
     micHttpsHintPre: 'To enable the microphone, open ',
     micHttpsHintPost: ' and accept the SSL certificate.',
+    noiseSuppression: 'Noise suppression',
+    noiseSuppressionOn: 'On',
+    noiseSuppressionOff: 'Off',
     // Connection
     authLabel: 'Authentication',
     serverLabel: 'Server',

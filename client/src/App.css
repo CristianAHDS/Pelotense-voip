@@ -2664,6 +2664,51 @@ body {
   margin-top: 12px;
 }
 
+.noise-suppression-control {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.noise-suppression-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.noise-suppression-label input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+.noise-suppression-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.noise-suppression-status.on {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+
+.noise-suppression-status.off {
+  background: color-mix(in srgb, var(--text-2) 15%, transparent);
+  color: var(--text-2);
+}
+
 .mic-test-control {
   margin-top: 12px;
 }

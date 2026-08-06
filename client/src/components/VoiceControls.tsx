@@ -33,7 +33,7 @@ function saveMicDevice(deviceId: string): void {
 
 export function VoiceControls({ compact }: Props) {
   const t = useT()
-  const { muted, volume, level, rxLevel, toggleMute, setVolume } = useVoice()
+  const { muted, volume, level, rxLevel, noiseSuppression, toggleMute, setVolume } = useVoice()
   const micTest = useMicTest()
   const prevMutedRef = useRef(false)
   const connected = useConnectionStore((s) => s.connected)
@@ -83,6 +83,13 @@ export function VoiceControls({ compact }: Props) {
       useVoiceStore.getState().setMuted(true)
       micTest.start()
     }
+  }
+
+  function handleNoiseSuppression(): void {
+    const newValue = !noiseSuppression
+    useVoiceStore.getState().setNoiseSuppression(newValue)
+    const vm = getVoiceManager()
+    void vm?.setNoiseSuppression(newValue)
   }
 
   const pct = Math.round((Number.isFinite(level) ? level : 0) * 100)
@@ -276,6 +283,19 @@ export function VoiceControls({ compact }: Props) {
           value={volume}
           onChange={(e) => setVolume(parseFloat(e.target.value))}
         />
+      </div>
+      <div className="noise-suppression-control">
+        <label className="noise-suppression-label">
+          <input
+            type="checkbox"
+            checked={noiseSuppression}
+            onChange={handleNoiseSuppression}
+          />
+          <span>{t('noiseSuppression')}</span>
+        </label>
+        <span className={`noise-suppression-status ${noiseSuppression ? 'on' : 'off'}`}>
+          {noiseSuppression ? t('noiseSuppressionOn') : t('noiseSuppressionOff')}
+        </span>
       </div>
       <div className="mic-test-control">
         <button

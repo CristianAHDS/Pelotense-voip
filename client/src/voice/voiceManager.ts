@@ -42,6 +42,10 @@ export class VoiceManager {
     return true;
   }
 
+  async setNoiseSuppression(enabled: boolean): Promise<void> {
+    await this.microphone.setNoiseSuppression(enabled);
+  }
+
   async startMicrophone(): Promise<boolean> {
     if (this.active) {
       return true;

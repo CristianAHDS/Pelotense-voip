@@ -264,5 +264,6 @@ export interface VoiceState {
   volume: number
   level: number
   rxLevel: number
+  noiseSuppression: boolean
   speaking: Record<string, number>
 }
