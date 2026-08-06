@@ -285,17 +285,18 @@ export function VoiceControls({ compact }: Props) {
         />
       </div>
       <div className="noise-suppression-control">
-        <label className="noise-suppression-label">
-          <input
-            type="checkbox"
-            checked={noiseSuppression}
-            onChange={handleNoiseSuppression}
-          />
-          <span>{t('noiseSuppression')}</span>
-        </label>
-        <span className={`noise-suppression-status ${noiseSuppression ? 'on' : 'off'}`}>
-          {noiseSuppression ? t('noiseSuppressionOn') : t('noiseSuppressionOff')}
-        </span>
+        <button
+          className={`noise-suppression-toggle ${noiseSuppression ? 'on' : 'off'}`}
+          onClick={handleNoiseSuppression}
+          role="switch"
+          aria-checked={noiseSuppression}
+          title={noiseSuppression ? t('noiseSuppressionOff') : t('noiseSuppressionOn')}
+        >
+          <span className="noise-suppression-knob">
+            <span className="noise-suppression-icon">{noiseSuppression ? '✓' : '✕'}</span>
+          </span>
+        </button>
+        <span className="noise-suppression-text">{t('noiseSuppression')}</span>
       </div>
       <div className="mic-test-control">
         <button

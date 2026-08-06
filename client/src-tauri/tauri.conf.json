@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "Radio Pelotense",
-    "version": "1.0.57"
+    "version": "1.0.58"
   },
   "tauri": {
     "allowlist": {

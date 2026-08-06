@@ -2668,45 +2668,83 @@ body {
   margin-top: 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  border-radius: 6px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
 }
 
-.noise-suppression-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.noise-suppression-text {
   font-size: 13px;
   color: var(--text);
-  cursor: pointer;
-}
-
-.noise-suppression-label input[type="checkbox"] {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  margin: 0;
-}
-
-.noise-suppression-status {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
   font-weight: 500;
+  user-select: none;
 }
 
-.noise-suppression-status.on {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+.noise-suppression-toggle {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.25s ease;
+  flex-shrink: 0;
+}
+
+.noise-suppression-toggle.on {
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.noise-suppression-toggle.off {
+  background: var(--border-strong);
+}
+
+.noise-suppression-toggle:hover {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.noise-suppression-toggle.off:hover {
+  background: color-mix(in srgb, var(--border-strong) 80%, var(--text-2));
+}
+
+.noise-suppression-knob {
+  position: absolute;
+  top: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.noise-suppression-toggle.on .noise-suppression-knob {
+  left: 21px;
+}
+
+.noise-suppression-toggle.off .noise-suppression-knob {
+  left: 3px;
+}
+
+.noise-suppression-icon {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.noise-suppression-toggle.on .noise-suppression-icon {
   color: var(--accent);
 }
 
-.noise-suppression-status.off {
-  background: color-mix(in srgb, var(--text-2) 15%, transparent);
-  color: var(--text-2);
+.noise-suppression-toggle.off .noise-suppression-icon {
+  color: var(--text-3);
 }
 
 .mic-test-control {
