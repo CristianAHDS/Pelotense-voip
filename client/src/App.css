@@ -7565,3 +7565,32 @@ body {
 .chat-bubble-file-download:hover {
   background: var(--accent-strong);
 }
+.chat-bubble-file--pending {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.chat-bubble-file-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.5;
+}
+.chat-bubble-file-loading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-3);
+}
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: loading-pulse 1s ease-in-out infinite;
+}
+@keyframes loading-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}

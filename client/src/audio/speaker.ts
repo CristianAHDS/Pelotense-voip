@@ -24,6 +24,43 @@ export class Speaker {
   // (jitter buffer). O corte afeta apenas o falante atrasado, não os demais.
   private static readonly MAX_LOOKAHEAD_SECONDS = 0.3;
 
+  private gestureResumed = false;
+
+  constructor() {
+    this.resumeOnGesture();
+  }
+
+  private resumeOnGesture(): void {
+    if (typeof window === 'undefined') return;
+    const resume = () => {
+      if (this.gestureResumed) return;
+      const ctx = this.context;
+      if (ctx && ctx.state === 'suspended') {
+        void ctx.resume().then(() => { this.gestureResumed = true; }).catch(() => {});
+      }
+    };
+    const events = ['pointerdown', 'keydown', 'touchstart'];
+    for (const ev of events) {
+      window.addEventListener(ev, resume, { passive: true });
+    }
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          const ctx = this.context;
+          if (ctx && ctx.state === 'suspended') {
+            void ctx.resume().catch(() => {});
+          }
+        }
+      });
+    }
+    window.addEventListener('focus', () => {
+      const ctx = this.context;
+      if (ctx && ctx.state === 'suspended') {
+        void ctx.resume().catch(() => {});
+      }
+    });
+  }
+
   private ensureContext(): AudioContext | null {
     if (!this.context) {
       try {

@@ -137,6 +137,8 @@ export enum WsMessageType {
   OnboardingComplete = 'onboarding_complete',
   SettingsState = 'settings_state',
   ChatHistoryPage = 'chat_history_page',
+  FetchFileData = 'fetch_file_data',
+  FileDataResult = 'file_data_result',
 }
 
 export interface WsMessage {

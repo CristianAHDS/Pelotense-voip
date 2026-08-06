@@ -584,6 +584,11 @@ function dmKey(payload: PrivateChatMsg): string {
     useRoomStore.getState().setLoadingMore(false)
   })
 
+  wsClient.on(WsMessageType.FileDataResult, (msg) => {
+    const p = msg.payload as ChatMsg
+    useRoomStore.getState().updateMessage(p)
+  })
+
   wsClient.connect(address)
 }
 
@@ -601,6 +606,10 @@ export function requestChatHistoryPage(roomId: string): void {
   useRoomStore.getState().setLoadingMore(true)
   const oldest = messages[0]
   wsClient.send(WsMessageType.ChatHistoryPage, { roomId, before: oldest.timestamp ?? (oldest as any).time ?? 0 })
+}
+
+export function fetchMessageFileData(roomId: string, messageId: string): void {
+  wsClient?.send(WsMessageType.FetchFileData, { roomId, messageId })
 }
 
 export function leaveRoom(): void {

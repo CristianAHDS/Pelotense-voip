@@ -27,6 +27,7 @@ import { useToastStore } from '../stores/toastStore.ts';
   resendMessage,
   sendTyping,
   requestChatHistoryPage,
+  fetchMessageFileData,
 } from '../services/connectionService.ts';
 import * as liveRtc from '../services/liveRtc.ts';
 import { useAudioRecorder } from '../hooks/useAudioRecorder.ts';
@@ -351,6 +352,52 @@ export function ChatPanel() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const pendingQueueRef = useRef<Set<string>>(new Set());
+  const queueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!currentRoomId) {
+      if (queueTimerRef.current) {
+        clearTimeout(queueTimerRef.current);
+        queueTimerRef.current = null;
+      }
+      pendingQueueRef.current.clear();
+      return;
+    }
+    const pending = messages.filter((m) => m.filePending && m.id && !pendingQueueRef.current.has(m.id));
+    if (pending.length === 0) return;
+    for (const m of pending) {
+      if (m.id) pendingQueueRef.current.add(m.id);
+    }
+    processQueue(currentRoomId);
+  }, [messages, currentRoomId]);
+
+  useEffect(() => {
+    return () => {
+      if (queueTimerRef.current) {
+        clearTimeout(queueTimerRef.current);
+        queueTimerRef.current = null;
+      }
+      pendingQueueRef.current.clear();
+    };
+  }, []);
+
+  function processQueue(roomId: string): void {
+    if (queueTimerRef.current) return;
+    const next = (): void => {
+      const pendingIds = Array.from(pendingQueueRef.current);
+      if (pendingIds.length === 0) {
+        queueTimerRef.current = null;
+        return;
+      }
+      const id = pendingIds[0];
+      if (roomId) fetchMessageFileData(roomId, id);
+      pendingQueueRef.current.delete(id);
+      queueTimerRef.current = setTimeout(next, 300);
+    };
+    next();
+  }
 
   useEffect(() => {
     if (requestDenied === 0) return;
@@ -1496,7 +1543,19 @@ function ChatBubble({
         {msg.forwarded && (
           <div className="chat-bubble-forwarded">{tStatic('forwarded')}</div>
         )}
-        {msg.audioData || msg.videoData || msg.imageData ? (
+        {msg.filePending ? (
+          <div className="chat-bubble-file chat-bubble-file--pending">
+            <div className="chat-bubble-file-skeleton">
+              <span className="chat-bubble-file-icon">📎</span>
+              <span className="chat-bubble-file-name">{msg.fileName || (msg.mime?.startsWith('audio') ? 'Audio' : msg.mime?.startsWith('video') ? 'Video' : msg.mime?.startsWith('image') ? 'Imagem' : 'Arquivo')}</span>
+              <span className="chat-bubble-file-size">{msg.fileSize ? formatFileSize(msg.fileSize) : ''}</span>
+            </div>
+            <div className="chat-bubble-file-loading">
+              <span className="loading-dot" />
+              {' '}Carregando...
+            </div>
+          </div>
+        ) : (msg.audioData || msg.videoData || msg.imageData) ? (
           <ChatMedia
             audioData={msg.audioData}
             videoData={msg.videoData}

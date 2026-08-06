@@ -184,7 +184,9 @@ function AdminUsers({ onEdit }: { onEdit: (a: EditState['account']) => void }) {
   const [banReason, setBanReason] = useState('')
 
   const q = query.trim().toLowerCase()
+  const isGuest = (name: string) => name.toLowerCase().startsWith('guest')
   const filtered = accounts.filter((a) => {
+    if (isGuest(a.name)) return false
     if (filter === 'online' && !a.online) return false
     if (filter === 'offline' && a.online) return false
     if (filter === 'admin' && !a.admin) return false

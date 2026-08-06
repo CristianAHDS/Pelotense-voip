@@ -9,6 +9,7 @@ export class VoiceManager {
   private speaker: Speaker;
   private audioCodec: AudioCodec;
   private active: boolean = false;
+  private destroyed: boolean = false;
   private onSendAudio: ((data: ArrayBuffer) => void) | null = null;
   private smoothLevel: number = 0;
   private smoothRxLevel: number = 0;
@@ -43,7 +44,11 @@ export class VoiceManager {
   }
 
   async setNoiseSuppression(enabled: boolean): Promise<void> {
-    await this.microphone.setNoiseSuppression(enabled);
+    const changed = await this.microphone.setNoiseSuppression(enabled);
+    if (!changed && this.active) {
+      this.stopMicrophone();
+      await this.startMicrophone();
+    }
   }
 
   async startMicrophone(): Promise<boolean> {
@@ -72,6 +77,7 @@ export class VoiceManager {
     void this.speaker.resume();
 
     this.microphone.setOnData((data: Float32Array) => {
+      if (this.destroyed) return;
       const { muted } = useVoiceStore.getState()
 
       if (muted) {
@@ -135,6 +141,7 @@ export class VoiceManager {
     void this.audioCodec
       .decode(data)
       .then((pcm) => {
+        if (this.destroyed) return;
         let sum = 0;
         for (let i = 0; i < pcm.length; i++) {
           const v = pcm[i];
@@ -165,6 +172,7 @@ export class VoiceManager {
   }
 
   destroy(): void {
+    this.destroyed = true;
     this.stopMicrophone();
     this.speaker.destroy();
     this.audioCodec.destroy();

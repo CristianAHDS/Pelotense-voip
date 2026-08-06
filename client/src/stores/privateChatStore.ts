@@ -40,6 +40,7 @@ interface PrivateChatStore {
   removeMessage: (messageId: string) => void
   markMessageFailed: (messageId: string) => void
   setMessages: (userId: string, msgs: PrivateChatMsg[]) => void
+  updateMessage: (msg: PrivateChatMsg) => void
 }
 
 export const usePrivateChatStore = create<PrivateChatStore>((set) => ({
@@ -99,5 +100,16 @@ export const usePrivateChatStore = create<PrivateChatStore>((set) => ({
           ? { ...s.unread, [key]: true }
           : s.unread,
       }
+    }),
+  updateMessage: (msg) =>
+    set((s) => {
+      if (!msg.id) return s
+      const messages = Object.fromEntries(
+        Object.entries(s.messages).map(([k, list]) => [
+          k,
+          list.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)),
+        ])
+      )
+      return { messages }
     }),
 }))

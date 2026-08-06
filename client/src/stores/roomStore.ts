@@ -52,6 +52,7 @@ interface RoomStore {
   markMessageFailed: (messageId: string) => void
   setMessages: (msgs: ChatMsg[]) => void
   prependMessages: (msgs: ChatMsg[]) => void
+  updateMessage: (msg: ChatMsg) => void
   clearMessages: () => void
   setHasMoreMessages: (v: boolean) => void
   setLoadingMore: (v: boolean) => void
@@ -106,6 +107,12 @@ export const useRoomStore = create<RoomStore>((set) => ({
     })),
   setMessages: (msgs) => set({ messages: msgs }),
   prependMessages: (msgs) => set((s) => ({ messages: [...msgs, ...s.messages] })),
+  updateMessage: (msg) =>
+    set((s) => ({
+      messages: msg.id
+        ? s.messages.map((m) => (m.id === msg.id ? { ...m, ...msg, filePending: false } : m))
+        : s.messages,
+    })),
   clearMessages: () => set({ messages: [] }),
   setHasMoreMessages: (v) => set({ hasMoreMessages: v }),
   setLoadingMore: (v) => set({ isLoadingMore: v }),

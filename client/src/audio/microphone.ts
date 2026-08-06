@@ -26,17 +26,18 @@ export class Microphone {
     return this._noiseSuppression
   }
 
-  async setNoiseSuppression(enabled: boolean): Promise<void> {
+  async setNoiseSuppression(enabled: boolean): Promise<boolean> {
     this._noiseSuppression = enabled
     const track = this.stream?.getAudioTracks()[0]
     if (track) {
       try {
         await track.applyConstraints({ noiseSuppression: enabled })
+        return true
       } catch {
-        // applyConstraints pode falhar se o navegador não suporta alterar
-        // noiseSuppression em tempo real; nesse caso mantemos o valor atual
+        return false
       }
     }
+    return true
   }
 
   async listDevices(): Promise<MicrophoneInfo[]> {

@@ -576,6 +576,10 @@ export class WsHandler {
         this.handleChatHistoryPage(client, msg.payload as { roomId: string; before: number })
         break
 
+      case WsMessageType.FetchFileData:
+        this.handleFetchFileData(client, msg.payload as { roomId: string; messageId: string })
+        break
+
       default:
         logger.warn('WsHandler', `Unknown message type: ${msg.type}`)
     }
@@ -602,7 +606,38 @@ export class WsHandler {
 
     this.send(client.ws, {
       type: WsMessageType.ChatHistoryPage,
-      payload: { roomId: payload.roomId, messages: page, hasMore },
+      payload: { roomId: payload.roomId, messages: this.stripFileData(page as any), hasMore },
+    })
+  }
+
+  private handleFetchFileData(client: Client, payload: { roomId: string; messageId: string }): void {
+    const room = this.rooms.get(payload.roomId)
+    if (!room) return
+    const msg = room.messages.find((m: any) => m.id === payload.messageId)
+    if (!msg) return
+    this.send(client.ws, {
+      type: WsMessageType.FileDataResult,
+      payload: msg,
+    })
+  }
+
+  private stripFileData(messages: ChatMessage[]): ChatMessage[] {
+    return messages.map((m: any) => {
+      if (!m.audioData && !m.videoData && !m.imageData && !m.fileData) return m
+      return {
+        id: m.id,
+        userId: m.userId,
+        userName: m.userName,
+        text: m.text,
+        fileName: m.fileName,
+        fileSize: m.fileSize,
+        duration: m.duration,
+        mime: m.mime,
+        timestamp: m.timestamp,
+        forwarded: m.forwarded,
+        reactions: m.reactions,
+        filePending: true,
+      }
     })
   }
 
@@ -1736,7 +1771,7 @@ export class WsHandler {
 
     this.send(client.ws, {
       type: WsMessageType.RoomJoined,
-      payload: { roomId: room.id, roomName: room.name, messages: recent, hasMore: allMsgs.length > recent.length },
+      payload: { roomId: room.id, roomName: room.name, messages: this.stripFileData(recent as any), hasMore: allMsgs.length > recent.length },
     })
 
     const liveBroadcasts = this.rooms.getLiveBroadcasts(room.id)
