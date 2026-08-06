@@ -790,7 +790,7 @@ export function ChatPanel() {
       {isDragOver && (
         <div className="chat-drag-overlay">
           <span className="chat-drag-icon">📁</span>
-          <span className="chat-drag-text">Solte o arquivo para enviar</span>
+          <span className="chat-drag-text">{t('dropFileToSend')}</span>
         </div>
       )}
       <div className="chat-header">

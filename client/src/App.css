@@ -279,7 +279,6 @@ body {
   position: absolute;
   border-radius: 50%;
   filter: blur(100px);
-  will-change: transform;
 }
 
 .app-bg::before {
@@ -5520,6 +5519,13 @@ body {
     gap: 12px;
   }
 
+  .mobile-sheet-body .room-list,
+  .mobile-sheet-body .user-list,
+  .mobile-sheet-body .connection-panel {
+    overflow: visible;
+    flex: none;
+  }
+
   .mobile-sheet-backdrop {
     display: none;
   }
@@ -5619,6 +5625,12 @@ body {
 
   .current-room-indicator-label {
     display: none;
+  }
+
+  .app-header-actions .theme-toggle,
+  .app-header-actions .lang-toggle {
+    padding: 4px 6px;
+    font-size: 13px;
   }
 
   .main-content {
@@ -7272,15 +7284,27 @@ body {
   opacity: 0.8;
 }
 
-/* Reduced motion */
+/* Reduced motion — only decorative animations, keep functional */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  .app-bg,
+  .voice-wave-bar,
+  .eq-bar,
+  .room-eq,
+  .chat-typing-dots,
+  .live-pulse,
+  .voice-glow,
+  .avatar-speak-pulse,
+  .avatar-ring-speak,
+  .live-dot-pulse,
+  .recording-pulse {
+    animation: none !important;
+  }
+  .mosaic-tile,
+  .mosaic-tile--focused {
+    transition: none !important;
+  }
+  .skeleton {
+    animation: none !important;
   }
 }
 
@@ -7523,8 +7547,13 @@ body {
   width: 3px;
   border-radius: 2px;
   background: var(--accent);
-  transition: height 0.08s ease;
-  min-height: 2px;
+  height: 6px;
+  animation: voice-wave-bounce 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes voice-wave-bounce {
+  0% { height: 3px; opacity: 0.4; }
+  100% { height: 22px; opacity: 1; }
 }
 
 /* Drag & drop na área de chat */

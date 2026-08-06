@@ -198,9 +198,7 @@ export function VoiceControls({ compact }: Props) {
               <div
                 key={i}
                 className="voice-wave-bar"
-                style={{
-                  height: `${Math.min(24, 3 + level * 40 * (0.5 + Math.random() * 0.5))}px`,
-                }}
+                style={{ animationDelay: `${i * 0.12}s` }}
               />
             ))}
           </div>
@@ -275,7 +273,7 @@ export function VoiceControls({ compact }: Props) {
 
   return (
     <div className="panel voice-controls">
-      <h2>Voice</h2>
+      <h2>{t('voiceTitle')}</h2>
       <div className="voice-controls-row">
         <button
           onClick={toggleMute}
