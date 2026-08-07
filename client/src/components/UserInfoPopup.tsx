@@ -19,8 +19,8 @@ export interface TooltipUser {
 
 function statusColor(status: string): string {
   if (status === 'Disponível' || status === 'Available') return 'green'
-  if (status === 'Ocupado' || status === 'Busy') return 'red'
-  if (status === 'Ausente' || status === 'Away') return 'amber'
+  if (status === 'Ocupado' || status === 'Busy') return 'amber'
+  if (status === 'Ausente' || status === 'Away') return 'red'
   return 'green'
 }
 

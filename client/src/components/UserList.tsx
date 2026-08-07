@@ -13,6 +13,14 @@ import { UserInfoPopup, TooltipUser } from './UserInfoPopup.tsx'
 import { RADIO_ROOM_NAME } from '../ui/radioBot.ts'
 import { isMasterUser, tagColor, tagLabel } from '../ui/admin.ts'
 
+function ringStatusClass(status: string | undefined): string {
+  if (!status) return ''
+  if (status === 'Disponível' || status === 'Available') return 'user-avatar-ring--available'
+  if (status === 'Ocupado' || status === 'Busy') return 'user-avatar-ring--busy'
+  if (status === 'Ausente' || status === 'Away') return 'user-avatar-ring--away'
+  return ''
+}
+
 interface PopoverState {
   user: TooltipUser
   left: number
@@ -145,7 +153,7 @@ export function UserList() {
                 onMouseMove={(e) => schedulePopover(user, e.currentTarget)}
                 onMouseLeave={hidePopover}
               >
-                <span className={`user-avatar-ring user-avatar-ring--online ${isSpeaking ? 'user-avatar-ring--speaking' : ''}`}>
+                <span className={`user-avatar-ring user-avatar-ring--online ${ringStatusClass(user.status)} ${isSpeaking ? 'user-avatar-ring--speaking' : ''}`}>
                   <Avatar id={user.id} name={user.name} avatar={user.avatar} />
                   {isBroadcasting && <span className="user-avatar-live-icon" title={t('liveBadge')} />}
                 </span>
@@ -212,7 +220,7 @@ export function UserList() {
                   onMouseMove={(e) => acc.id && schedulePopover(acc, e.currentTarget)}
                   onMouseLeave={hidePopover}
                 >
-                  <span className="user-avatar-ring user-avatar-ring--offline">
+                  <span className={`user-avatar-ring user-avatar-ring--offline ${ringStatusClass(acc.status)}`}>
                     <Avatar id={acc.id ?? acc.name} name={acc.name} avatar={acc.avatar} />
                   </span>
                   <span className="user-name">

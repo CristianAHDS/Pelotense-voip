@@ -313,8 +313,8 @@ export function AccountPrefsModal() {
                 >
                   <option value="">{t('statusNone')}</option>
                   <option value={t('statusAvailable')}>🟢 {t('statusAvailable')}</option>
-                  <option value={t('statusBusy')}>🔴 {t('statusBusy')}</option>
-                  <option value={t('statusAway')}>🟡 {t('statusAway')}</option>
+                  <option value={t('statusBusy')}>🟡 {t('statusBusy')}</option>
+                  <option value={t('statusAway')}>🔴 {t('statusAway')}</option>
                 </select>
               </div>
 
