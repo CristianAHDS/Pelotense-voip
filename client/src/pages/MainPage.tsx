@@ -30,6 +30,7 @@ export function MainPage() {
   const connected = useConnectionStore((s) => s.connected);
   const reconnecting = useConnectionStore((s) => s.reconnecting);
   const connectedName = useConnectionStore((s) => s.name);
+  const latency = useConnectionStore((s) => s.latency);
   const isAdmin = useConnectionStore((s) => s.admin);
   const maintenance = useConnectionStore((s) => s.maintenance);
   const maintenanceMessage = useConnectionStore((s) => s.maintenanceMessage);
@@ -138,6 +139,12 @@ export function MainPage() {
           <span className="status-pill-dot" />
           <span>{statusLabel}</span>
         </div>
+        {connected && latency >= 0 && (
+          <div className="latency-indicator" title={`${latency}ms`}>
+            <span className={`latency-dot ${latency < 80 ? 'good' : latency < 200 ? 'ok' : 'bad'}`} />
+            <span className="latency-value">{latency}ms</span>
+          </div>
+        )}
         {connected && isAdmin && maintenance && (
           <div
             className="maintenance-pill"

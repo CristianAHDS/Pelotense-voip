@@ -195,6 +195,10 @@ export function connectToServer(address: string, name: string, password: string,
   reconnecting = false
   initVoice()
 
+  wsClient.setOnLatency((ms) => {
+    useConnectionStore.getState().setLatency(ms)
+  })
+
   wsClient.on('connected', () => {
     const avatar = useAccountStore.getState().avatar
     const payload: LoginPayload = { name, password, email: email || undefined, avatar: avatar || undefined, intent, deviceId: getDeviceId() }

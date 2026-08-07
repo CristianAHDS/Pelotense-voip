@@ -8,6 +8,8 @@ export class WsClient {
   private url: string = ''
   private handlers = new Map<string, Set<MessageHandler>>()
   private binaryHandlers = new Set<BinaryHandler>()
+  private lastPingTime: number = 0
+  private onLatencyCb: ((ms: number) => void) | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private intentionalDisconnect: boolean = false
@@ -57,6 +59,10 @@ export class WsClient {
       }
       try {
         const msg: WsMessage = JSON.parse(event.data)
+        if (msg.type === WsMessageType.Heartbeat && this.lastPingTime) {
+          const rtt = Date.now() - this.lastPingTime
+          this.onLatencyCb?.(rtt)
+        }
         this.emit(msg.type, msg)
         this.emit('*', msg)
       } catch {
@@ -139,6 +145,10 @@ export class WsClient {
     this.binaryHandlers.delete(handler)
   }
 
+  setOnLatency(cb: (ms: number) => void): void {
+    this.onLatencyCb = cb
+  }
+
   private emit(type: string, msg: WsMessage): void {
     this.handlers.get(type)?.forEach((h) => h(msg))
   }
@@ -146,6 +156,7 @@ export class WsClient {
   private startHeartbeat(): void {
     this.stopHeartbeat()
     this.heartbeatTimer = setInterval(() => {
+      this.lastPingTime = Date.now()
       this.send(WsMessageType.Heartbeat)
     }, 5000)
   }

@@ -24,6 +24,7 @@ interface ConnectionStore {
   settings: SystemSettings;
   serverVersion: string | null;
   serverBuild: number | null;
+  latency: number;
   setConnected: (id: string, name: string, admin?: boolean) => void;
   setDisconnected: () => void;
   setReconnecting: (reconnecting: boolean) => void;
@@ -33,6 +34,7 @@ interface ConnectionStore {
   setGuestMode: (enabled: boolean) => void;
   setSettings: (settings: SystemSettings) => void;
   setServerVersion: (version: string | null, build: number | null) => void;
+  setLatency: (ms: number) => void;
 }
 
 export const useConnectionStore = create<ConnectionStore>((set) => ({
@@ -50,10 +52,11 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   settings: DEFAULT_SETTINGS,
   serverVersion: null,
   serverBuild: null,
+  latency: -1,
   setConnected: (id, name, admin = false) =>
     set({ connected: true, id, name, admin, reconnecting: false, loginStep: 'none', loginError: '' }),
   setDisconnected: () =>
-    set({ connected: false, id: null, name: null, admin: false, reconnecting: false, loginStep: 'none', loginError: '', maintenance: false, maintenanceMessage: '', guest: false, serverVersion: null, serverBuild: null }),
+    set({ connected: false, id: null, name: null, admin: false, reconnecting: false, loginStep: 'none', loginError: '', maintenance: false, maintenanceMessage: '', guest: false, serverVersion: null, serverBuild: null, latency: -1 }),
   setReconnecting: (reconnecting) => set({ reconnecting }),
   setLoginStep: (step, error = '') => set({ loginStep: step, loginError: error }),
   setMaintenance: (enabled, message = '') => set({ maintenance: enabled, maintenanceMessage: message }),
@@ -61,4 +64,5 @@ export const useConnectionStore = create<ConnectionStore>((set) => ({
   setGuestMode: (enabled) => set({ guestMode: enabled }),
   setSettings: (settings) => set({ settings }),
   setServerVersion: (version, build) => set({ serverVersion: version, serverBuild: build }),
+  setLatency: (latency) => set({ latency }),
 }));
