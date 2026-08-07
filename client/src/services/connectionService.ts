@@ -314,20 +314,31 @@ export function connectToServer(address: string, name: string, password: string,
   wsClient.on(WsMessageType.RoomJoined, async (msg) => {
     const payload = msg.payload as any
     useRoomStore.getState().setCurrentRoom(payload.roomId, payload.roomName)
-    const serverMsgs: ChatMsg[] = payload.messages ?? []
+    let serverMsgs: ChatMsg[] = payload.messages ?? []
+    if (payload.roomId && serverMsgs.length > 0) {
+      const local = await chatHistory.loadRoomMessages(payload.roomId)
+      if (local && local.length > 0) {
+        serverMsgs = serverMsgs.map((srv) => {
+          const cached = local.find((c) => c.id && c.id === srv.id)
+          if (cached && !cached.filePending && (cached.audioData || cached.videoData || cached.imageData || cached.fileData)) {
+            return { ...srv, audioData: cached.audioData, videoData: cached.videoData, imageData: cached.imageData, fileData: cached.fileData, filePending: false }
+          }
+          return srv
+        })
+      }
+    }
     useRoomStore.getState().setMessages(serverMsgs)
     useRoomStore.getState().setHasMoreMessages(!!payload.hasMore)
     useRoomStore.getState().markRoomRead(payload.roomId)
     useRoomStore.getState().setLoadingMessages(false)
     voiceOnRoomJoined()
-    if (payload.roomId) {
-      if (serverMsgs.length > 0) {
-        void chatHistory.saveRoomMessages(payload.roomId, serverMsgs)
-      } else {
-        const local = await chatHistory.loadRoomMessages(payload.roomId)
-        if (local && local.length > 0) {
-          useRoomStore.getState().setMessages(local)
-        }
+    if (payload.roomId && serverMsgs.length > 0) {
+      void chatHistory.saveRoomMessages(payload.roomId, serverMsgs)
+    }
+    if (payload.roomId && serverMsgs.length === 0) {
+      const local = await chatHistory.loadRoomMessages(payload.roomId)
+      if (local && local.length > 0) {
+        useRoomStore.getState().setMessages(local)
       }
     }
   })
@@ -591,6 +602,10 @@ function dmKey(payload: PrivateChatMsg): string {
   wsClient.on(WsMessageType.FileDataResult, (msg) => {
     const p = msg.payload as ChatMsg
     useRoomStore.getState().updateMessage(p)
+    const roomId = useRoomStore.getState().currentRoom
+    if (roomId) {
+      void chatHistory.saveRoomMessages(roomId, useRoomStore.getState().messages)
+    }
   })
 
   wsClient.connect(address)
