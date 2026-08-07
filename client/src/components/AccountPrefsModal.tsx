@@ -305,15 +305,17 @@ export function AccountPrefsModal() {
 
               <div className="field">
                 <label className="field-label" htmlFor="acc-status">{t('profileStatus')}</label>
-                <input
+                <select
                   id="acc-status"
-                  type="text"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  placeholder={t('profileStatusPlaceholder')}
-                  maxLength={80}
                   className="input"
-                />
+                >
+                  <option value="">{t('statusNone')}</option>
+                  <option value={t('statusAvailable')}>🟢 {t('statusAvailable')}</option>
+                  <option value={t('statusBusy')}>🔴 {t('statusBusy')}</option>
+                  <option value={t('statusAway')}>🟡 {t('statusAway')}</option>
+                </select>
               </div>
 
               <div className="field">

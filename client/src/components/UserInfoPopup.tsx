@@ -17,6 +17,13 @@ export interface TooltipUser {
   tags?: string[]
 }
 
+function statusColor(status: string): string {
+  if (status === 'Disponível' || status === 'Available') return 'green'
+  if (status === 'Ocupado' || status === 'Busy') return 'red'
+  if (status === 'Ausente' || status === 'Away') return 'amber'
+  return 'green'
+}
+
 export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
   user: TooltipUser
   left: number
@@ -96,14 +103,20 @@ export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
         </div>
       </div>
 
-      {user.status && (
-        <div className="user-info-status">
-          <span className="user-info-status-dot" />
-          <span>{user.status}</span>
+      {user.bio && (
+        <div className="admin-user-edit-tags admin-user-edit-tags--inline">
+          <span className="admin-user-edit-admin-label admin-user-edit-tags-label">{t('profileBio')}</span>
+          <span className="admin-user-edit-admin-hint">{user.bio}</span>
         </div>
       )}
-      {user.bio && (
-        <div className="user-info-bio">{user.bio}</div>
+      {user.status && (
+        <div className="admin-user-edit-tags admin-user-edit-tags--inline">
+          <span className="admin-user-edit-admin-label admin-user-edit-tags-label">{t('profileStatus')}</span>
+          <span className="admin-user-edit-admin-hint user-info-status-text">
+            <span className={`user-info-status-dot ${statusColor(user.status)}`} />
+            {user.status}
+          </span>
+        </div>
       )}
 
       <div className="admin-user-edit-tags admin-user-edit-tags--inline">
