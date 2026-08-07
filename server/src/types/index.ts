@@ -10,6 +10,8 @@ export interface Client {
   admin: boolean
   avatar?: string
   email?: string
+  status?: string
+  bio?: string
   tags?: string[]
   // Convidado (modo guest): sem conta, sem texto/privado — só áudio/vídeo/live.
   isGuest?: boolean

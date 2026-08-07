@@ -33,6 +33,8 @@ export interface Account {
   email?: string
   password: string
   avatar?: string
+  status?: string
+  bio?: string
   emailConfirmed?: boolean
   confirmCode?: string
   isAdmin?: boolean
@@ -46,6 +48,8 @@ interface AccountRow {
   email: string | null
   password: string
   avatar: string | null
+  status: string | null
+  bio: string | null
   emailConfirmed: number | null
   confirmCode: string | null
   isAdmin: number | null
@@ -67,6 +71,8 @@ function mapAccount(row: AccountRow): Account {
     email: row.email ?? undefined,
     password: row.password,
     avatar: row.avatar ?? undefined,
+    status: row.status ?? undefined,
+    bio: row.bio ?? undefined,
     emailConfirmed: row.emailConfirmed === 1,
     confirmCode: row.confirmCode ?? undefined,
     isAdmin: row.isAdmin === 1,
@@ -182,6 +188,12 @@ export class SqliteStore {
     }
     if (!cols.some((c) => c.name === 'createdAt')) {
       this.db.exec('ALTER TABLE accounts ADD COLUMN createdAt INTEGER')
+    }
+    if (!cols.some((c) => c.name === 'status')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN status TEXT')
+    }
+    if (!cols.some((c) => c.name === 'bio')) {
+      this.db.exec('ALTER TABLE accounts ADD COLUMN bio TEXT')
     }
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email)')
 
@@ -454,12 +466,14 @@ export class SqliteStore {
     return mapAccount(row)
   }
 
-  getAllAccounts(): Array<{ id?: string; name: string; email?: string; avatar?: string; emailConfirmed?: boolean; isAdmin?: boolean; tags?: string[] }> {
-    const rows = this.db.prepare('SELECT name, id, email, avatar, emailConfirmed, isAdmin, tags FROM accounts ORDER BY name COLLATE NOCASE').all() as Array<{
+  getAllAccounts(): Array<{ id?: string; name: string; email?: string; avatar?: string; status?: string; bio?: string; emailConfirmed?: boolean; isAdmin?: boolean; tags?: string[] }> {
+    const rows = this.db.prepare('SELECT name, id, email, avatar, status, bio, emailConfirmed, isAdmin, tags FROM accounts ORDER BY name COLLATE NOCASE').all() as Array<{
       name: string
       id: string | null
       email: string | null
       avatar: string | null
+      status: string | null
+      bio: string | null
       emailConfirmed: number | null
       isAdmin: number | null
       tags: string | null
@@ -469,6 +483,8 @@ export class SqliteStore {
       name: r.name,
       email: r.email ?? undefined,
       avatar: r.avatar ?? undefined,
+      status: r.status ?? undefined,
+      bio: r.bio ?? undefined,
       emailConfirmed: r.emailConfirmed === 1,
       isAdmin: r.isAdmin === 1,
       tags: r.tags ? JSON.parse(r.tags) : undefined,
@@ -491,13 +507,15 @@ export class SqliteStore {
 
   saveAccount(account: Account): void {
     this.db.prepare(`
-      INSERT INTO accounts (name, id, email, password, avatar, emailConfirmed, confirmCode, isAdmin, tags, createdAt)
-      VALUES (@name, @id, @email, @password, @avatar, COALESCE(@emailConfirmed, 0), @confirmCode, COALESCE(@isAdmin, 0), @tags, @createdAt)
+      INSERT INTO accounts (name, id, email, password, avatar, status, bio, emailConfirmed, confirmCode, isAdmin, tags, createdAt)
+      VALUES (@name, @id, @email, @password, @avatar, @status, @bio, COALESCE(@emailConfirmed, 0), @confirmCode, COALESCE(@isAdmin, 0), @tags, @createdAt)
       ON CONFLICT(name) DO UPDATE SET
         id = COALESCE(@id, id),
         email = COALESCE(@email, email),
         password = @password,
         avatar = COALESCE(@avatar, avatar),
+        status = COALESCE(@status, status),
+        bio = COALESCE(@bio, bio),
         emailConfirmed = COALESCE(@emailConfirmed, emailConfirmed),
         confirmCode = @confirmCode,
         isAdmin = COALESCE(@isAdmin, isAdmin),
@@ -509,6 +527,8 @@ export class SqliteStore {
       email: account.email ?? null,
       password: account.password,
       avatar: account.avatar ?? null,
+      status: account.status ?? null,
+      bio: account.bio ?? null,
       emailConfirmed: account.emailConfirmed === undefined ? null : account.emailConfirmed ? 1 : 0,
       confirmCode: account.confirmCode ?? null,
       isAdmin: account.isAdmin === undefined ? null : account.isAdmin ? 1 : 0,

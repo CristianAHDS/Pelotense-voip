@@ -542,9 +542,9 @@ function dmKey(payload: PrivateChatMsg): string {
   })
 
   wsClient.on(WsMessageType.ProfileUpdated, (msg) => {
-    const payload = msg.payload as { id: string; name: string; avatar?: string }
+    const payload = msg.payload as { id: string; name: string; avatar?: string; status?: string; bio?: string }
     useConnectionStore.getState().setConnected(payload.id, payload.name, useConnectionStore.getState().admin)
-    useAccountStore.getState().setPrefs({ name: payload.name, avatar: payload.avatar ?? '' })
+    useAccountStore.getState().setPrefs({ name: payload.name, avatar: payload.avatar ?? '', status: payload.status ?? '', bio: payload.bio ?? '' })
   })
 
   wsClient.on(WsMessageType.Error, (msg) => {
@@ -783,7 +783,7 @@ export function requestPrivateHistory(withUserId: string): void {
   wsClient.send(WsMessageType.ListPrivateMessages, { withUserId })
 }
 
-export function sendUpdateProfile(profile: { name?: string; email?: string; password?: string; avatar?: string }): void {
+export function sendUpdateProfile(profile: { name?: string; email?: string; password?: string; avatar?: string; status?: string; bio?: string }): void {
   if (!wsClient) { console.error('sendUpdateProfile: wsClient is null'); return }
   wsClient.send(WsMessageType.UpdateProfile, profile)
 }

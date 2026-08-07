@@ -12,6 +12,8 @@ export interface TooltipUser {
   name: string
   avatar?: string
   admin?: boolean
+  status?: string
+  bio?: string
   tags?: string[]
 }
 
@@ -93,6 +95,16 @@ export function UserInfoPopup({ user, left, top, onMouseEnter, onMouseLeave }: {
           </span>
         </div>
       </div>
+
+      {user.status && (
+        <div className="user-info-status">
+          <span className="user-info-status-dot" />
+          <span>{user.status}</span>
+        </div>
+      )}
+      {user.bio && (
+        <div className="user-info-bio">{user.bio}</div>
+      )}
 
       <div className="admin-user-edit-tags admin-user-edit-tags--inline">
         <span className="admin-user-edit-admin-label admin-user-edit-tags-label">{t('tags')}</span>

@@ -24,6 +24,8 @@ export function AccountPrefsModal() {
   const savedEmail = useAccountStore((s) => s.email)
   const savedPassword = useAccountStore((s) => s.password)
   const savedAvatar = useAccountStore((s) => s.avatar)
+  const savedStatus = useAccountStore((s) => s.status)
+  const savedBio = useAccountStore((s) => s.bio)
   const savePrefs = useAccountStore((s) => s.savePrefs)
   const closePrefs = useAccountStore((s) => s.closePrefs)
   const connectedName = useConnectionStore((s) => s.name)
@@ -34,6 +36,8 @@ export function AccountPrefsModal() {
   const [email, setEmail] = useState(savedEmail)
   const [password, setPassword] = useState(savedPassword)
   const [avatar, setAvatar] = useState(savedAvatar)
+  const [status, setStatus] = useState(savedStatus)
+  const [bio, setBio] = useState(savedBio)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -51,11 +55,13 @@ export function AccountPrefsModal() {
       setEmail(savedEmail)
       setPassword(savedPassword)
       setAvatar(savedAvatar)
+      setStatus(savedStatus)
+      setBio(savedBio)
       setError('')
       setEditSrc(null)
       setEditImage(null)
     }
-  }, [prefsOpen, savedName, savedEmail, savedPassword, savedAvatar, connectedName])
+  }, [prefsOpen, savedName, savedEmail, savedPassword, savedAvatar, savedStatus, savedBio, connectedName])
 
   useEffect(() => {
     if (!editImage || !canvasRef.current) return
@@ -180,9 +186,9 @@ export function AccountPrefsModal() {
       return
     }
     const trimmed = name.trim()
-    savePrefs({ name: trimmed, email, password, avatar })
+    savePrefs({ name: trimmed, email, password, avatar, status, bio })
     if (connected) {
-      sendUpdateProfile({ name: trimmed, email: email || undefined, password, avatar: avatar || undefined })
+      sendUpdateProfile({ name: trimmed, email: email || undefined, password, avatar: avatar || undefined, status: status || undefined, bio: bio || undefined })
     }
     closePrefs()
   }
@@ -294,6 +300,32 @@ export function AccountPrefsModal() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input"
+                />
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor="acc-status">{t('profileStatus')}</label>
+                <input
+                  id="acc-status"
+                  type="text"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  placeholder={t('profileStatusPlaceholder')}
+                  maxLength={80}
+                  className="input"
+                />
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor="acc-bio">{t('profileBio')}</label>
+                <textarea
+                  id="acc-bio"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder={t('profileBioPlaceholder')}
+                  maxLength={200}
+                  className="input account-prefs-bio"
+                  rows={3}
                 />
               </div>
             </div>

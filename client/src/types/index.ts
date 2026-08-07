@@ -16,6 +16,8 @@ export interface UserInfo {
   room: string | null
   admin?: boolean
   avatar?: string
+  status?: string
+  bio?: string
   tags?: string[]
 }
 
@@ -24,6 +26,8 @@ export interface AccountInfo {
   name: string
   email?: string
   avatar?: string
+  status?: string
+  bio?: string
   admin?: boolean
   online?: boolean
   tags?: string[]

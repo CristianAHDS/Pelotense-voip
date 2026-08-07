@@ -333,6 +333,8 @@ export class WsHandler {
       admin: isMaster(account) || this.adminNames.includes(resolvedName) || this.adminIds.includes(id) || account.isAdmin === true,
       avatar: avatar ?? account.avatar,
       email: account.email,
+      status: account.status,
+      bio: account.bio,
       tags: account.tags,
       isGuest: isGuestIntent,
       ws,
@@ -1517,13 +1519,15 @@ export class WsHandler {
       || a.isAdmin === true
   }
 
-  private buildAccountsList(): Array<{ id?: string; name: string; email?: string; avatar?: string; admin: boolean; online: boolean; tags?: string[] }> {
+  private buildAccountsList(): Array<{ id?: string; name: string; email?: string; avatar?: string; status?: string; bio?: string; admin: boolean; online: boolean; tags?: string[] }> {
     const onlineIds = new Set(this.clients.getAll().map((c) => c.id))
     return this.storage!.getAllAccounts().map((a) => ({
       id: a.id,
       name: a.name,
       email: a.email,
       avatar: a.avatar,
+      status: a.status,
+      bio: a.bio,
       admin: this.isAccountAdmin(a),
       online: !!a.id && onlineIds.has(a.id),
       tags: a.tags,
@@ -1640,7 +1644,7 @@ export class WsHandler {
     })
   }
 
-  private handleUpdateProfile(client: Client, payload: { name?: string; email?: string; password?: string; avatar?: string }): void {
+  private handleUpdateProfile(client: Client, payload: { name?: string; email?: string; password?: string; avatar?: string; status?: string; bio?: string }): void {
     const name = typeof payload.name === 'string' ? payload.name.trim() : client.name
     if (!name) {
       this.send(client.ws, { type: WsMessageType.Error, payload: 'Name required' })
@@ -1690,19 +1694,26 @@ export class WsHandler {
     if (payload.avatar !== undefined) {
       client.avatar = payload.avatar || undefined
     }
+    if (payload.status !== undefined) {
+      client.status = payload.status || undefined
+    }
+    if (payload.bio !== undefined) {
+      client.bio = payload.bio || undefined
+    }
 
     if (this.storage) {
       const id = client.id
+      const accountBase = { name, id, email: client.email, password, avatar: client.avatar, status: client.status, bio: client.bio, isAdmin: client.admin, tags: client.tags }
       if (name !== oldName) {
-        this.storage.renameAccount(oldName, { name, id, email: client.email, password, avatar: client.avatar, isAdmin: client.admin, tags: client.tags })
+        this.storage.renameAccount(oldName, accountBase)
       } else {
-        this.storage.saveAccount({ name, id, email: client.email, password, avatar: client.avatar, isAdmin: client.admin, tags: client.tags })
+        this.storage.saveAccount(accountBase)
       }
     }
 
     this.send(client.ws, {
       type: WsMessageType.ProfileUpdated,
-      payload: { id: client.id, name, email: client.email, avatar: client.avatar },
+      payload: { id: client.id, name, email: client.email, avatar: client.avatar, status: client.status, bio: client.bio },
     })
     this.broadcast({
       type: WsMessageType.UserList,
@@ -2222,13 +2233,15 @@ export class WsHandler {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
-  private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean; avatar?: string; tags?: string[] } {
+  private toUserPayload(client: Client): { id: string; name: string; room: string | null; admin: boolean; avatar?: string; status?: string; bio?: string; tags?: string[] } {
     return {
       id: client.id,
       name: client.name,
       room: client.room,
       admin: client.admin,
       avatar: client.avatar,
+      status: client.status,
+      bio: client.bio,
       tags: client.tags,
     }
   }

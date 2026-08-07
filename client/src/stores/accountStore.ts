@@ -2,12 +2,16 @@ import { create } from 'zustand'
 
 const CREDENTIALS_KEY = 'voip_credentials'
 const AVATAR_KEY = 'voip_avatar'
+const STATUS_KEY = 'voip_status'
+const BIO_KEY = 'voip_bio'
 
 export interface AccountPrefs {
   name: string
   email: string
   password: string
   avatar: string
+  status: string
+  bio: string
 }
 
 function loadCredentials(): { name: string; email: string; password: string } {
@@ -32,6 +36,14 @@ function loadAvatar(): string {
   return ''
 }
 
+function loadStatus(): string {
+  try { return localStorage.getItem(STATUS_KEY) ?? '' } catch { return '' }
+}
+
+function loadBio(): string {
+  try { return localStorage.getItem(BIO_KEY) ?? '' } catch { return '' }
+}
+
 function persistAvatar(avatar: string): void {
   try {
     if (avatar) localStorage.setItem(AVATAR_KEY, avatar)
@@ -39,9 +51,25 @@ function persistAvatar(avatar: string): void {
   } catch { /* ignore */ }
 }
 
+function persistStatus(status: string): void {
+  try {
+    if (status) localStorage.setItem(STATUS_KEY, status)
+    else localStorage.removeItem(STATUS_KEY)
+  } catch { /* ignore */ }
+}
+
+function persistBio(bio: string): void {
+  try {
+    if (bio) localStorage.setItem(BIO_KEY, bio)
+    else localStorage.removeItem(BIO_KEY)
+  } catch { /* ignore */ }
+}
+
 export function clearAccountPrefs(): void {
   try {
     localStorage.removeItem(AVATAR_KEY)
+    localStorage.removeItem(STATUS_KEY)
+    localStorage.removeItem(BIO_KEY)
   } catch { /* ignore */ }
 }
 
@@ -58,6 +86,8 @@ interface AccountStore {
   email: string
   password: string
   avatar: string
+  status: string
+  bio: string
   prefsOpen: boolean
   chatFullscreen: boolean
   dmFullscreen: boolean
@@ -79,6 +109,8 @@ export const useAccountStore = create<AccountStore>((set) => ({
   email: initial.email,
   password: initial.password,
   avatar: loadAvatar(),
+  status: loadStatus(),
+  bio: loadBio(),
   prefsOpen: false,
   chatFullscreen: false,
   dmFullscreen: false,
@@ -89,11 +121,15 @@ export const useAccountStore = create<AccountStore>((set) => ({
       email: prefs.email ?? s.email,
       password: prefs.password ?? s.password,
       avatar: prefs.avatar ?? s.avatar,
+      status: prefs.status ?? s.status,
+      bio: prefs.bio ?? s.bio,
     })),
   savePrefs: (prefs) => {
     persistAvatar(prefs.avatar)
+    persistStatus(prefs.status)
+    persistBio(prefs.bio)
     persistCredentials(prefs.name, prefs.email, prefs.password)
-    set({ name: prefs.name, email: prefs.email, password: prefs.password, avatar: prefs.avatar })
+    set({ name: prefs.name, email: prefs.email, password: prefs.password, avatar: prefs.avatar, status: prefs.status, bio: prefs.bio })
   },
   openPrefs: () => set({ prefsOpen: true }),
   closePrefs: () => set({ prefsOpen: false }),
@@ -102,4 +138,3 @@ export const useAccountStore = create<AccountStore>((set) => ({
   openAdmin: () => set({ adminOpen: true }),
   closeAdmin: () => set({ adminOpen: false }),
 }))
-
