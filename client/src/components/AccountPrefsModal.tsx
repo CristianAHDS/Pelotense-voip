@@ -4,6 +4,7 @@ import { useConnectionStore } from '../stores/connectionStore.ts'
 import { Avatar } from '../ui/Avatar.tsx'
 import { sendUpdateProfile } from '../services/connectionService.ts'
 import { useT } from '../i18n/index.ts'
+import { setNotificationSound, setNotificationVolume, playMessageSound } from '../services/messageSound.ts'
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -26,6 +27,8 @@ export function AccountPrefsModal() {
   const savedAvatar = useAccountStore((s) => s.avatar)
   const savedStatus = useAccountStore((s) => s.status)
   const savedBio = useAccountStore((s) => s.bio)
+  const savedNotifSound = useAccountStore((s) => s.notifSound)
+  const savedNotifVolume = useAccountStore((s) => s.notifVolume)
   const savePrefs = useAccountStore((s) => s.savePrefs)
   const closePrefs = useAccountStore((s) => s.closePrefs)
   const connectedName = useConnectionStore((s) => s.name)
@@ -38,6 +41,8 @@ export function AccountPrefsModal() {
   const [avatar, setAvatar] = useState(savedAvatar)
   const [status, setStatus] = useState(savedStatus)
   const [bio, setBio] = useState(savedBio)
+  const [notifSound, setNotifSound] = useState(savedNotifSound)
+  const [notifVolume, setNotifVolume] = useState(savedNotifVolume)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -57,11 +62,13 @@ export function AccountPrefsModal() {
       setAvatar(savedAvatar)
       setStatus(savedStatus)
       setBio(savedBio)
+      setNotifSound(savedNotifSound)
+      setNotifVolume(savedNotifVolume)
       setError('')
       setEditSrc(null)
       setEditImage(null)
     }
-  }, [prefsOpen, savedName, savedEmail, savedPassword, savedAvatar, savedStatus, savedBio, connectedName])
+  }, [prefsOpen, savedName, savedEmail, savedPassword, savedAvatar, savedStatus, savedBio, savedNotifSound, savedNotifVolume, connectedName])
 
   useEffect(() => {
     if (!editImage || !canvasRef.current) return
@@ -186,7 +193,9 @@ export function AccountPrefsModal() {
       return
     }
     const trimmed = name.trim()
-    savePrefs({ name: trimmed, email, password, avatar, status, bio })
+    savePrefs({ name: trimmed, email, password, avatar, status, bio, notifSound, notifVolume })
+    setNotificationSound(notifSound)
+    setNotificationVolume(notifVolume)
     if (connected) {
       sendUpdateProfile({ name: trimmed, email: email || undefined, password, avatar: avatar || undefined, status: status || undefined, bio: bio || undefined })
     }
@@ -328,6 +337,50 @@ export function AccountPrefsModal() {
                   maxLength={200}
                   className="input account-prefs-bio"
                   rows={3}
+                />
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor="acc-notif-sound">{t('notifSound')}</label>
+                <select
+                  id="acc-notif-sound"
+                  value={notifSound}
+                  onChange={(e) => setNotifSound(e.target.value)}
+                  className="input"
+                >
+                  <option value="beep">{t('soundBeep')}</option>
+                  <option value="chime">{t('soundChime')}</option>
+                  <option value="bell">{t('soundBell')}</option>
+                  <option value="pop">{t('soundPop')}</option>
+                  <option value="click">{t('soundClick')}</option>
+                  <option value="glass">{t('soundGlass')}</option>
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-preview-sound"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setNotificationSound(notifSound)
+                    setNotificationVolume(notifVolume)
+                    playMessageSound()
+                  }}
+                  style={{ marginTop: 6 }}
+                >
+                  {t('soundPreview')}
+                </button>
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor="acc-notif-volume">{t('notifVolume', { n: Math.round(notifVolume * 100) })}</label>
+                <input
+                  id="acc-notif-volume"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={notifVolume}
+                  onChange={(e) => setNotifVolume(parseFloat(e.target.value))}
+                  className="input"
                 />
               </div>
             </div>

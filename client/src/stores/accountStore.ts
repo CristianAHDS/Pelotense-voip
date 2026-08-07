@@ -4,6 +4,8 @@ const CREDENTIALS_KEY = 'voip_credentials'
 const AVATAR_KEY = 'voip_avatar'
 const STATUS_KEY = 'voip_status'
 const BIO_KEY = 'voip_bio'
+const NOTIF_SOUND_KEY = 'voip_notif_sound'
+const NOTIF_VOLUME_KEY = 'voip_notif_volume'
 
 export interface AccountPrefs {
   name: string
@@ -12,6 +14,8 @@ export interface AccountPrefs {
   avatar: string
   status: string
   bio: string
+  notifSound: string
+  notifVolume: number
 }
 
 function loadCredentials(): { name: string; email: string; password: string } {
@@ -44,6 +48,14 @@ function loadBio(): string {
   try { return localStorage.getItem(BIO_KEY) ?? '' } catch { return '' }
 }
 
+function loadNotifSound(): string {
+  try { return localStorage.getItem(NOTIF_SOUND_KEY) ?? 'beep' } catch { return 'beep' }
+}
+
+function loadNotifVolume(): number {
+  try { const v = localStorage.getItem(NOTIF_VOLUME_KEY); return v ? parseFloat(v) : 0.7 } catch { return 0.7 }
+}
+
 function persistAvatar(avatar: string): void {
   try {
     if (avatar) localStorage.setItem(AVATAR_KEY, avatar)
@@ -65,11 +77,21 @@ function persistBio(bio: string): void {
   } catch { /* ignore */ }
 }
 
+function persistNotifSound(sound: string): void {
+  try { localStorage.setItem(NOTIF_SOUND_KEY, sound) } catch { /* ignore */ }
+}
+
+function persistNotifVolume(volume: number): void {
+  try { localStorage.setItem(NOTIF_VOLUME_KEY, String(volume)) } catch { /* ignore */ }
+}
+
 export function clearAccountPrefs(): void {
   try {
     localStorage.removeItem(AVATAR_KEY)
     localStorage.removeItem(STATUS_KEY)
     localStorage.removeItem(BIO_KEY)
+    localStorage.removeItem(NOTIF_SOUND_KEY)
+    localStorage.removeItem(NOTIF_VOLUME_KEY)
   } catch { /* ignore */ }
 }
 
@@ -88,6 +110,8 @@ interface AccountStore {
   avatar: string
   status: string
   bio: string
+  notifSound: string
+  notifVolume: number
   prefsOpen: boolean
   chatFullscreen: boolean
   dmFullscreen: boolean
@@ -111,6 +135,8 @@ export const useAccountStore = create<AccountStore>((set) => ({
   avatar: loadAvatar(),
   status: loadStatus(),
   bio: loadBio(),
+  notifSound: loadNotifSound(),
+  notifVolume: loadNotifVolume(),
   prefsOpen: false,
   chatFullscreen: false,
   dmFullscreen: false,
@@ -123,13 +149,17 @@ export const useAccountStore = create<AccountStore>((set) => ({
       avatar: prefs.avatar ?? s.avatar,
       status: prefs.status ?? s.status,
       bio: prefs.bio ?? s.bio,
+      notifSound: prefs.notifSound ?? s.notifSound,
+      notifVolume: prefs.notifVolume ?? s.notifVolume,
     })),
   savePrefs: (prefs) => {
     persistAvatar(prefs.avatar)
     persistStatus(prefs.status)
     persistBio(prefs.bio)
+    persistNotifSound(prefs.notifSound)
+    persistNotifVolume(prefs.notifVolume)
     persistCredentials(prefs.name, prefs.email, prefs.password)
-    set({ name: prefs.name, email: prefs.email, password: prefs.password, avatar: prefs.avatar, status: prefs.status, bio: prefs.bio })
+    set({ name: prefs.name, email: prefs.email, password: prefs.password, avatar: prefs.avatar, status: prefs.status, bio: prefs.bio, notifSound: prefs.notifSound, notifVolume: prefs.notifVolume })
   },
   openPrefs: () => set({ prefsOpen: true }),
   closePrefs: () => set({ prefsOpen: false }),
